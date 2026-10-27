@@ -1,0 +1,56 @@
+USBAnywhere Non-Commercial License (Fair-Code / Source-Available)
+
+Copyright (c) 2025-2026 Oscar Losu - USBAnywhere Project. All rights reserved.
+
+"USBAnywhere is free for personal, educational, and gaming use. Commercial redistribution, rebranding, or selling of this software/derivatives is strictly prohibited without explicit written consent from the author."
+
+==============================================================================
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+==============================================================================
+
+1. GRANT OF LICENSE (FREE PERSONAL & NON-COMMERCIAL USE)
+Subject to the terms and conditions of this License, the Licensor hereby grants 
+to any person obtaining a copy of this software and associated documentation files 
+(the "Software"), a royalty-free, non-exclusive, worldwide right to:
+  a) Use, run, copy, and modify the Software for personal, hobbyist, educational,
+     homelab, research, and non-commercial gaming purposes.
+  b) Connect and redirect unlimited simultaneous USB peripherals across local
+     networks (LAN, Wi-Fi) or personal remote gaming setups (e.g. Moonlight,
+     Sunshine, Parsec, remote homelab servers).
+  c) Inspect, compile, audit, and submit improvements or pull requests to the
+     official project repository.
+
+2. COMMERCIAL RESTRICTIONS (STRICTLY PROHIBITED WITHOUT WRITTEN PERMISSION)
+Any commercial use, exploitation, or redistribution of the Software or its
+derivatives is strictly prohibited. Specifically, you may NOT:
+  a) Sell, resell, rent, lease, sub-license, monetize, or charge any direct or
+     indirect fee for the Software, its source code, or its compiled binaries.
+  b) Rebrand, rename, or redistribute modified or unmodified copies under a
+     different name, removing original copyright notices or author attribution.
+  c) Package or bundle the Software into commercial hardware appliances, paid
+     cloud services, paid Software-as-a-Service (SaaS), or proprietary products.
+  d) Re-sign, extract, reverse engineer, or redistribute the Microsoft WHQL-certified
+     kernel drivers bundled with this Software outside of legitimate, non-commercial
+     installations of USBAnywhere.
+
+3. DERIVATIVE WORKS & REDISTRIBUTION
+You may redistribute verbatim or modified copies of the Software for NON-COMMERCIAL
+purposes only, provided that:
+  a) You include this exact LICENSE notice in all copies or substantial portions
+     of the Software.
+  b) You clearly indicate that modifications were made and identify the original
+     author and repository (https://github.com/oscarlosu-lab/USBAnywhere).
+  c) The resulting derivative work remains subject to this exact non-commercial license.
+
+4. COMMERCIAL INQUIRIES
+Entities wishing to license USBAnywhere for commercial deployment, enterprise integration,
+or commercial distribution must obtain an explicit written commercial license from the author.
+
+5. DISCLAIMER OF WARRANTY
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

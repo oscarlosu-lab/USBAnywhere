@@ -1,0 +1,20 @@
+1
+00:00:00,000 --> 00:00:32,192
+Bienvenidos a este tutorial completo de USBAnywhere, la alternativa libre y de código abierto para compartir periféricos USB por red. Si utilizas VirtualHere, sabrás que su versión gratuita solo te permite conectar un único dispositivo simultáneo y su licencia cuesta cuarenta y nueve dólares por servidor. Con USBAnywhere tienes dispositivos simultáneos ilimitados, cero licencias, drivers certificados por Microsoft y modos de latencia optimizados para gaming y simulación.
+
+2
+00:00:32,192 --> 00:01:03,280
+Configurar el servidor en tu Raspberry Pi o máquina Linux es instantáneo. Desde la propia aplicación de Windows, pulsa en el botón SSH, introduce tu usuario y tu IP, y haz clic en el botón verde: Uno Clic Auto Instalar. Nuestro instalador oficial configura el servicio en segundo plano y activa una regla inteligente en udev que exporta automáticamente cualquier periférico USB en el momento exacto en que lo enchufas, igual que VirtualHere, pero sin límites.
+
+3
+00:01:03,280 --> 00:01:29,855
+Al abrir USBAnywhere en Windows diez u once, la aplicación escanea tu red local automáticamente y detecta todos los servidores activos, mostrándote el ping exacto de cada uno. Para conectar cualquier periférico, simplemente haz doble clic sobre él o pulsa Conectar en el menú contextual. Además, puedes guardar tus periféricos en Favoritos para que se reconecten automáticamente cada vez que enciendas tu ordenador.
+
+4
+00:01:29,855 --> 00:02:03,487
+USBAnywhere cuenta con dos motores de recepción en el kernel de Windows. El modo Low-Latency utiliza callbacks directos diseñados para eliminar el retardo en mandos de Xbox y PlayStation, volantes de SimRacing, pedaleras de celda de carga y gafas de realidad virtual con vibración háptica completa. Es la solución perfecta para Moonlight, Sunshine y Steam Deck. Para cámaras web, impresoras tres D o memorias USB, el modo Zero-Copy garantiza la máxima tasa de transferencia sin saturar la CPU.
+
+5
+00:02:03,487 --> 00:02:33,496
+¿Necesitas conectar dispositivos fuera de casa? El botón VPN se integra directamente con Tailscale y ZeroTier para conectarte a tus servidores a través de Internet sin abrir puertos en tu router. USBAnywhere está disponible tanto en versión instalable como portable, y puedes instalarlo en segundos con Winget o Scoop. Visita nuestro repositorio en GitHub, descarga la versión tres punto cero y di adiós para siempre a los límites de VirtualHere.
+

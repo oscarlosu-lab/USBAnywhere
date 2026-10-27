@@ -1,0 +1,13 @@
+services:
+  usbanywhere-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: usbanywhere-server
+    privileged: true
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /dev:/dev
+      - /sys:/sys
+      - /lib/modules:/lib/modules:ro

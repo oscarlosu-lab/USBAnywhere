@@ -1,0 +1,6 @@
+[submodule "server-windows"]
+	path = server-windows
+	url = https://github.com/oscarlosu-lab/USBAnywhere-Server.git
+[submodule "server-android"]
+	path = server-android
+	url = https://github.com/oscarlosu-lab/USBAnywhere-Android.git

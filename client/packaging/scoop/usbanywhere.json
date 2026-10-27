@@ -1,0 +1,37 @@
+{
+    "version": "3.0.1",
+    "description": "The Free, Open-Source VirtualHere Alternative for Windows - Connect unlimited remote USB devices over LAN, Wi-Fi & Internet",
+    "homepage": "https://github.com/oscarlosu-lab/USBAnywhere",
+    "license": "GPL-3.0-only",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.0.1/USBAnywhere-v3.0.1-x64.zip",
+            "hash": "0a13455afd0dd8980161659b44f58382f338ec788809a0f47ecc1af2c23f56e0"
+        },
+        "arm64": {
+            "url": "https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.0.1/USBAnywhere-v3.0.1-arm64.zip",
+            "hash": "c693997434128def25c17c06fa1249c726a86c581c5147acb89739e4b0a000b2"
+        }
+    },
+    "bin": "USBAnywhere.exe",
+    "shortcuts": [
+        [
+            "USBAnywhere.exe",
+            "USBAnywhere"
+        ]
+    ],
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v$version/USBAnywhere-v$version-x64.zip"
+            },
+            "arm64": {
+                "url": "https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v$version/USBAnywhere-v$version-arm64.zip"
+            }
+        },
+        "hash": {
+            "url": "$baseurl/SHA256SUMS.txt"
+        }
+    }
+}

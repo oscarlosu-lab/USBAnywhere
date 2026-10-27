@@ -1,0 +1,132 @@
+<Application x:Class="USBAnywhere.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- ============================================ -->
+            <!-- DARK THEME - Exact colors from PowerShell   -->
+            <!-- ============================================ -->
+            
+            <!-- Background Colors - VS Code Dark+ Professional -->
+            <SolidColorBrush x:Key="BackgroundDark" Color="#1E1E1E"/>
+            <SolidColorBrush x:Key="BackgroundPanel" Color="#252526"/>
+            <SolidColorBrush x:Key="BackgroundTitleBar" Color="#323233"/>
+            <SolidColorBrush x:Key="BackgroundButton" Color="#0E639C"/>
+            <SolidColorBrush x:Key="BackgroundButtonHover" Color="#1177BB"/>
+            <SolidColorBrush x:Key="BackgroundInput" Color="#3C3C3C"/>
+            
+            <!-- Foreground Colors -->
+            <SolidColorBrush x:Key="ForegroundPrimary" Color="#DCDCDC"/>
+            <SolidColorBrush x:Key="ForegroundSecondary" Color="#969696"/>
+            <SolidColorBrush x:Key="ForegroundAccent" Color="#FF8C00"/>
+            
+            <!-- Accent Colors - VS Code Professional -->
+            <SolidColorBrush x:Key="AccentOrange" Color="#CE9178"/>
+            <SolidColorBrush x:Key="AccentBlue" Color="#0E639C"/>
+            <SolidColorBrush x:Key="AccentGreen" Color="#6A9955"/>
+            <SolidColorBrush x:Key="AccentRed" Color="#F14C4C"/>
+            <SolidColorBrush x:Key="AccentPurple" Color="#C586C0"/>
+            <SolidColorBrush x:Key="AccentTeal" Color="#4EC9B0"/>
+            
+            <!-- macOS-style buttons -->
+            <SolidColorBrush x:Key="MacCloseRed" Color="#FF605C"/>
+            <SolidColorBrush x:Key="MacMinimizeYellow" Color="#FFBD44"/>
+            <SolidColorBrush x:Key="MacMaximizeGreen" Color="#00CA4E"/>
+            
+            <!-- Status Colors - VS Code Professional -->
+            <SolidColorBrush x:Key="StatusSuccess" Color="#89D185"/>
+            <SolidColorBrush x:Key="StatusWarning" Color="#CCA700"/>
+            <SolidColorBrush x:Key="StatusError" Color="#F14C4C"/>
+            <SolidColorBrush x:Key="StatusInfo" Color="#75BEFF"/>
+            
+            <!-- ============================================ -->
+            <!-- GLOBAL STYLES                               -->
+            <!-- ============================================ -->
+            
+            <!-- Window Style -->
+            <Style TargetType="Window">
+                <Setter Property="Background" Value="{DynamicResource BackgroundDark}"/>
+                <Setter Property="FontFamily" Value="Segoe UI"/>
+                <Setter Property="FontSize" Value="13"/>
+            </Style>
+            
+            <!-- macOS-style Button -->
+            <Style x:Key="FlatButton" TargetType="Button">
+                <Setter Property="Background" Value="{DynamicResource BackgroundButton}"/>
+                <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="12,5"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="FontWeight" Value="Medium"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Effect">
+                    <Setter.Value>
+                        <DropShadowEffect ShadowDepth="1" BlurRadius="4" Opacity="0.3" Color="Black"/>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" 
+                                    Background="{TemplateBinding Background}" 
+                                    CornerRadius="8" 
+                                    Padding="{TemplateBinding Padding}"
+                                    BorderBrush="#444" BorderThickness="1">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource BackgroundButtonHover}"/>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#666"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Background" Value="#2A2A2E"/>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#555"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            
+            <!-- macOS Accent Button (for primary actions) -->
+            <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource FlatButton}">
+                <Setter Property="Background" Value="{DynamicResource AccentBlue}"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Style>
+            
+            <!-- TextBox Style -->
+            <Style TargetType="TextBox">
+                <Setter Property="Background" Value="{DynamicResource BackgroundInput}"/>
+                <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BackgroundButton}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="6,4"/>
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="CaretBrush" Value="{DynamicResource ForegroundPrimary}"/>
+            </Style>
+            
+            <!-- Label Style -->
+            <Style TargetType="Label">
+                <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
+                <Setter Property="FontSize" Value="13"/>
+            </Style>
+            
+            <!-- TreeView Style -->
+            <Style TargetType="TreeView">
+                <Setter Property="Background" Value="{DynamicResource BackgroundPanel}"/>
+                <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="FontSize" Value="13"/>
+            </Style>
+            
+            <Style TargetType="TreeViewItem">
+                <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Padding" Value="2,4"/>
+            </Style>
+            
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <Version>3.0.1</Version>
+    <AssemblyVersion>3.0.1.0</AssemblyVersion>
+    <FileVersion>3.0.1.0</FileVersion>
+    <InformationalVersion>3.0.1</InformationalVersion>
+    <Authors>SnakeFoxu</Authors>
+    <Company>oscarlosu-lab</Company>
+    <Product>USBAnywhere</Product>
+    <Copyright>Copyright © 2025-2026 oscarlosu-lab - GPL v3</Copyright>
+    <RepositoryUrl>https://github.com/oscarlosu-lab/USBAnywhere</RepositoryUrl>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+</Project>

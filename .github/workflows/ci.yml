@@ -1,0 +1,33 @@
+name: CI Build & Zero-Trust Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & xUnit Tests (.NET 9 Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup .NET 9.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore USBAnywhere.sln
+
+      - name: Build Release
+        run: dotnet build USBAnywhere.sln -c Release --no-restore
+
+      - name: Run Unit Tests (72 xUnit Tests)
+        run: dotnet test client/tests/USBAnywhere.Tests/USBAnywhere.Tests.csproj -c Release --no-build --verbosity normal

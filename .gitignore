@@ -1,0 +1,95 @@
+# ========================================
+# .gitignore - USBAnywhere
+# ========================================
+
+# ---- Build output ----
+**/bin/
+**/obj/
+**/out/
+**/__pycache__/
+*.pyc
+*.pyo
+publish/
+release/
+*.pdb
+*.cache
+TestResults/
+
+# ---- Configuration / App State ----
+config.json
+
+# ---- Logs / temp ----
+*.log
+logs/
+*.tmp
+*.temp
+~$*
+
+# ---- IDE / OS ----
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ---- Local-only folders ----
+backups/
+temp_restore/
+_archive*/
+*_backup*
+# Audit reports (local only)
+AUDITORIA.md
+audit/
+
+# Portable-ARM64 is tracked for reproducible ARM64 releases
+!Portable-ARM64/
+
+# ---- Windows-generated driver cache / local app build ----
+*.PNF
+Portable/SnakeUSBIP.exe
+
+# ---- Release artifacts ----
+*_Source_*.zip
+inno*.zip
+
+# Local helper tools
+tools/
+
+# Secrets & Private Certificates
+.env
+.env.local
+*.env
+*.pfx
+*.key
+*.pem
+*.cer
+*.crt
+*.p8
+*.p12
+
+# Driver Private Sources (Kept in Private Core)
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# ============ INTERNAL PRODUCTION & MEDIA (LOCAL ONLY) ============
+SUBIR_A_YOUTUBE.bat
+scripts/generate_*
+docs/*Tutorial*
+docs/assets/youtube_*
+*.mp4
+*.srt
+*youtube*
+*masterclass*
+temp_masterclass/
+desc_en.txt
+desc_es.txt
+YOUTUBE_METADATA_*.txt
+youtube_thumbnail_*.png
+

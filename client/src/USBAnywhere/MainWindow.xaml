@@ -1,0 +1,258 @@
+<Window x:Class="USBAnywhere.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="USBAnywhere - Virtual USB over IP" 
+        Height="800" Width="700"
+        WindowStyle="None"
+        ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource BackgroundDark}"
+        >
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="55"/>   <!-- Title Bar -->
+            <RowDefinition Height="50"/>   <!-- Server Panel -->
+            <RowDefinition Height="340"/>  <!-- TreeView -->
+            <RowDefinition Height="160"/>  <!-- Log Panel -->
+            <RowDefinition Height="5"/>    <!-- Progress Bar -->
+            <RowDefinition Height="*"/>    <!-- Status Panel -->
+        </Grid.RowDefinitions>
+        
+        <!-- ============================================ -->
+        <!-- TITLE BAR                                   -->
+        <!-- ============================================ -->
+        <Border Grid.Row="0" Background="{DynamicResource BackgroundTitleBar}" Cursor="SizeAll" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <!-- Logo and Title -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
+                    <TextBlock Text="🌐 USBAnywhere" 
+                               FontSize="18" FontWeight="Bold" 
+                               Foreground="{DynamicResource AccentOrange}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txtTitleSubtitle" Text="Virtual USB over IP" 
+                               FontSize="12" 
+                               Foreground="{DynamicResource ForegroundSecondary}"
+                               VerticalAlignment="Center" Margin="15,0,0,0"/>
+                </StackPanel>
+                
+                <!-- Control Buttons -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="320,0,0,0">
+                    <!-- Language Button -->
+                    <Button x:Name="btnLanguage" Content="🌐 ES" Style="{StaticResource FlatButton}" 
+                            Width="70" Height="34" Margin="0,0,10,0"
+                            Click="BtnLanguage_Click"/>
+                    <!-- Theme Button -->
+                    <Button x:Name="btnTheme" Content="🌙" Style="{StaticResource FlatButton}" 
+                            Width="48" Height="34" FontSize="16" Margin="0,0,10,0"
+                            Click="BtnTheme_Click"/>
+                    <!-- Update Button -->
+                    <Button x:Name="btnUpdate" Content="⬆️ Actualizar" Style="{StaticResource FlatButton}" 
+                            Width="120" Height="34"
+                            Click="BtnUpdate_Click"/>
+                </StackPanel>
+                
+                <!-- macOS-style Window Buttons -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <Button x:Name="btnMinimize" Width="14" Height="14" Margin="0,0,4,0"
+                            Background="{StaticResource MacMinimizeYellow}" BorderThickness="0" Cursor="Hand"
+                            Click="BtnMinimize_Click">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Ellipse Fill="{TemplateBinding Background}" Width="14" Height="14"/>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                    <Button x:Name="btnMaximize" Width="14" Height="14" Margin="0,0,4,0"
+                            Background="{StaticResource MacMaximizeGreen}" BorderThickness="0" Cursor="Hand"
+                            Click="BtnMaximize_Click">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Ellipse Fill="{TemplateBinding Background}" Width="14" Height="14"/>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                    <Button x:Name="btnClose" Width="14" Height="14"
+                            Background="{StaticResource MacCloseRed}" BorderThickness="0" Cursor="Hand"
+                            Click="BtnClose_Click">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Ellipse Fill="{TemplateBinding Background}" Width="14" Height="14"/>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- ============================================ -->
+        <!-- SERVER PANEL                                -->
+        <!-- ============================================ -->
+        <Border Grid.Row="1" Background="{DynamicResource BackgroundPanel}" Margin="15,10,15,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <Label Grid.Column="0" x:Name="lblServer" Content="Servidor:" 
+                       VerticalAlignment="Center" Margin="10,0,0,0" FontSize="13"/>
+                
+                <TextBox Grid.Column="1" x:Name="txtServerIP" 
+                         Text="192.168.1.132" Height="28"
+                         VerticalAlignment="Center" Margin="5,0,0,0"
+                         KeyDown="TxtServerIP_KeyDown"/>
+                
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
+                    <Button x:Name="btnScan" Content="🔍 Escanear" Style="{StaticResource AccentButton}"
+                            Height="34" Margin="0,0,10,0" Width="110"
+                            Click="BtnScan_Click"/>
+                    <Button x:Name="btnList" Content="📋 Listar" Style="{StaticResource FlatButton}"
+                            Height="34" Margin="0,0,10,0" Width="90"
+                            Click="BtnList_Click"/>
+                    <Button x:Name="btnSSH" Content="🔗 SSH" Style="{StaticResource FlatButton}"
+                            Height="34" Margin="0,0,10,0" Width="90"
+                            Click="BtnSSH_Click"/>
+                    <Button x:Name="btnVPN" Content="📡 VPN" Style="{StaticResource FlatButton}"
+                            Background="#0D7377" Foreground="White" Height="34" Width="90"
+                            Click="BtnVPN_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- ============================================ -->
+        <!-- TREEVIEW                                    -->
+        <!-- ============================================ -->
+        <Border Grid.Row="2" Background="{DynamicResource BackgroundPanel}" Margin="12,8,12,0">
+            <TreeView x:Name="treeDevices" BorderThickness="0" PreviewMouseRightButtonDown="TreeDevices_PreviewMouseRightButtonDown">
+                <TreeView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem x:Name="menuConnect" Header="🔗 Conectar" Click="MenuConnect_Click"/>
+                        <MenuItem x:Name="menuDisconnect" Header="❌ Desconectar" Click="MenuDisconnect_Click"/>
+                        <Separator/>
+                        <MenuItem x:Name="menuAddFavorite" Header="⭐ Añadir a Favoritos" Click="MenuAddFavorite_Click"/>
+                        <MenuItem x:Name="menuRemoveFavorite" Header="❌ Quitar de Favoritos" Click="MenuRemoveFavorite_Click"/>
+                        <Separator/>
+                        <MenuItem x:Name="menuRemoveServer" Header="🗑️ Quitar servidor" Click="MenuRemoveServer_Click"/>
+                        <MenuItem x:Name="menuProperties" Header="📋 Propiedades" Click="MenuProperties_Click"/>
+                        <MenuItem x:Name="menuRename" Header="✏️ Renombrar" Click="MenuRename_Click"/>
+                    </ContextMenu>
+                </TreeView.ContextMenu>
+                <TreeViewItem x:Name="nodeHubs" Header="🖥️ USB Hubs (0)" IsExpanded="True"/>
+                <TreeViewItem x:Name="nodeConnected" Header="☑️ Dispositivos Conectados (0)" IsExpanded="True"/>
+                <TreeViewItem x:Name="nodeFavorites" Header="⭐ Favoritos (0)" IsExpanded="True"/>
+            </TreeView>
+        </Border>
+        
+        <!-- ============================================ -->
+        <!-- LOG PANEL                                   -->
+        <!-- ============================================ -->
+        <Border Grid.Row="3" Background="{DynamicResource BackgroundPanel}" Margin="12,8,12,0" BorderBrush="{DynamicResource BackgroundButton}" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <Grid Grid.Row="0">
+                    <Label x:Name="lblLogTitle" Content="📋 Log de Actividad" 
+                           Foreground="{DynamicResource AccentBlue}" FontWeight="Bold"
+                           VerticalAlignment="Center" Margin="5,0,0,0"/>
+                    <Button x:Name="btnClearLog" Content="Limpiar" Style="{StaticResource FlatButton}"
+                            HorizontalAlignment="Right" Width="70" Height="30" FontSize="11"
+                            Margin="0,0,5,0" Click="BtnClearLog_Click"/>
+                </Grid>
+                
+                <TextBox Grid.Row="1" x:Name="txtLog" 
+                         IsReadOnly="True" 
+                         TextWrapping="Wrap" 
+                         VerticalScrollBarVisibility="Auto"
+                         FontFamily="Cascadia Mono" FontSize="11"
+                         Background="{DynamicResource BackgroundInput}"
+                         Foreground="{DynamicResource ForegroundPrimary}"
+                         BorderThickness="0" Margin="3,0,3,3"/>
+            </Grid>
+        </Border>
+        
+        <!-- ============================================ -->
+        <!-- PROGRESS BAR                                -->
+        <!-- ============================================ -->
+        <ProgressBar Grid.Row="4" x:Name="progressBar" 
+                     Height="5" Margin="12,3,12,0"
+                     Visibility="Hidden"/>
+        
+        <!-- ============================================ -->
+        <!-- STATUS PANEL                                -->
+        <!-- ============================================ -->
+        <Border Grid.Row="5" Background="{DynamicResource BackgroundPanel}" Margin="12,8,12,12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Status Label -->
+                <TextBlock Grid.Row="0" x:Name="lblStatus" 
+                           Text="✓ Listo" FontSize="14"
+                           Foreground="{StaticResource StatusSuccess}"
+                           Margin="10,8,0,0"/>
+                
+                <!-- Driver Status -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,12,0,0">
+                    <TextBlock x:Name="lblDriverStatus" Text="Drivers: " FontSize="13" Foreground="{DynamicResource ForegroundPrimary}"/>
+                    <TextBlock x:Name="lblDriverValue" Text="Instalado ✓" FontSize="13" Foreground="{StaticResource StatusSuccess}"/>
+                </StackPanel>
+                
+                <!-- Driver Buttons -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,10,12,12">
+                    <Button x:Name="btnReceiveMode" Content="⚡ Modo: Zero-Copy" Style="{StaticResource FlatButton}" Background="#107C41" Foreground="White" Width="165" Height="30" FontSize="12" Margin="0,0,10,0" Click="BtnReceiveMode_Click"/>
+                    <Button x:Name="btnInstallDrivers" Content="Instalar" Style="{StaticResource FlatButton}"
+                            Background="#5C4B9E" Foreground="White" Width="90" Height="30" FontSize="12" Margin="0,0,10,0"
+                            Click="BtnInstallDrivers_Click"/>
+                    <Button x:Name="btnUninstallDrivers" Content="Desinstalar" Style="{StaticResource FlatButton}"
+                            Background="#8B3A3A" Foreground="White" Width="100" Height="30" FontSize="12"
+                            Click="BtnUninstallDrivers_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- ============================================ -->
+        <!-- CUSTOM TOAST POPUP (no Windows notification)-->
+        <!-- ============================================ -->
+        <Border x:Name="toastPopup" 
+                Grid.RowSpan="6"
+                HorizontalAlignment="Right" 
+                VerticalAlignment="Bottom"
+                Background="#2D2D30"
+                BorderBrush="{StaticResource AccentBlue}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Margin="0,0,20,20"
+                Padding="15,10"
+                Visibility="Collapsed"
+                Opacity="0">
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="10" Opacity="0.5"/>
+            </Border.Effect>
+            <StackPanel>
+                <TextBlock x:Name="toastTitle" 
+                           Text="Notification" 
+                           FontWeight="Bold" 
+                           FontSize="13"
+                           Foreground="{StaticResource AccentBlue}"/>
+                <TextBlock x:Name="toastMessage" 
+                           Text="Message" 
+                           FontSize="12"
+                           Foreground="{StaticResource ForegroundPrimary}"
+                           MaxWidth="250"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
