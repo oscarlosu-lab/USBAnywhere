@@ -29,10 +29,6 @@ The project continues to evolve through a mix of usability, interoperability, an
 
 ## ⚔️ Why Switch from VirtualHere to USBAnywhere?
 
----
-
-## ⚔️ Why Switch from VirtualHere to USBAnywhere?
-
 | Feature | **USBAnywhere v3.0** | **VirtualHere** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: |
 | **Price & License** | **100% Free & Open Source (GPLv3)** | $49.00 USD / Server | $159.00+ USD |
@@ -250,4 +246,4 @@ If USBAnywhere helped your sim rig, cloud gaming, or 3D printing setup, consider
 | [OctoWrt](https://github.com/ihrapsa/OctoWrt) | **ihrapsa** | Original OpenWrt guide for CrealityBox. Inspiration for embedded device support. |
 | [OctoWrt Fork](https://github.com/shivajiva101/OctoWrt) | **ShivaJiva** | Active OctoWrt maintenance. Updated releases for CrealityBox. |
 | [USB/IP](https://www.kernel.org/doc/html/latest/usb/usbip_protocol.html) | **Linux Kernel** | Original USB/IP protocol |
-| **USBAnywhere** | **SnakeFoxu** | .NET 9 WPF GUI, 1-Click SSH setup, VPN integration, latency modes & documentation |
+| **USBAnywhere** | **SnakeFoxu (OscarLosu)** | .NET 9 WPF GUI, 1-Click SSH setup, VPN integration, latency modes & documentation |

@@ -464,11 +464,11 @@ namespace USBAnywhere.Services
                 
                 // Parse usbip port output format:
                 // Port 00: <Port in Use> at Speed(480Mbps)
-                //        Server IP: 192.168.1.132
+                //        Server IP: 192.168.1.50
                 //        busid: 1-1.4 (0bda:5100)
                 //  or (usbip-win format):
                 // Port 0: imported
-                //     remote: 192.168.1.132
+                //     remote: 192.168.1.50
                 //     bus id: 1-1.4 (class: 0e / subclass: 01 / protocol: 00)
                 
                 var lines = result.Output.Split('\n', StringSplitOptions.None);

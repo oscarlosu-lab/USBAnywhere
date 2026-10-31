@@ -12,7 +12,7 @@ namespace USBAnywhere.Services;
 
 /// <summary>
 /// USB ID Database service - Maps VID:PID to vendor/product names
-/// Created by SnakeFoxu
+/// Created by SnakeFoxu (OscarLosu)
 /// </summary>
 public class UsbIdsService : IUsbIdsService
 {

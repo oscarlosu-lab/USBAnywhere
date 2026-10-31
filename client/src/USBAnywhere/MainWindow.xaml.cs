@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // USBAnywhere - USB/IP Client for Windows
-// Copyright (c) 2025-2026 SnakeFoxu - https://github.com/oscarlosu-lab/USBAnywhere
+// Copyright (c) 2025-2026 SnakeFoxu (OscarLosu) - https://github.com/oscarlosu-lab/USBAnywhere
 // Licensed under GPL v3 - See LICENSE file
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -24,7 +24,7 @@ namespace USBAnywhere;
 
 /// <summary>
 /// MainWindow - USB/IP Manager
-/// Created by SnakeFoxu - github.com/oscarlosu-lab
+/// Created by SnakeFoxu (OscarLosu) (OscarLosu) (OscarLosu) - github.com/oscarlosu-lab
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -1158,7 +1158,22 @@ public partial class MainWindow : Window
     private void BtnSSH_Click(object sender, RoutedEventArgs e)
     {
         var serverIP = txtServerIP.Text.Trim();
-        if (string.IsNullOrEmpty(serverIP)) serverIP = "192.168.1.100";
+        if (string.IsNullOrEmpty(serverIP))
+        {
+            foreach (TreeViewItem item in nodeHubs.Items)
+            {
+                var header = item.Header?.ToString();
+                if (header != null)
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(header, @"(?:🖥️\s+|🖧\s+)?([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|[a-zA-Z0-9\.\-]+)");
+                    if (match.Success)
+                    {
+                        serverIP = match.Groups[1].Value;
+                        break;
+                    }
+                }
+            }
+        }
 
         var sshDialog = new Views.SshDialog(_localization, _currentLanguage, serverIP)
         {

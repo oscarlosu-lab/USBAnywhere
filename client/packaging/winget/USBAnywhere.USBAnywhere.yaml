@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.6.0.schema.json
 PackageIdentifier: USBAnywhere.USBAnywhere
-PackageVersion: 3.0.1
+PackageVersion: 3.1.0
 PackageLocale: en-US
-Publisher: USBAnywhere Project (SnakeFoxu)
+Publisher: SnakeFoxu (OscarLosu)
 PublisherUrl: https://github.com/oscarlosu-lab/USBAnywhere
 PackageName: USBAnywhere
 PackageUrl: https://github.com/oscarlosu-lab/USBAnywhere

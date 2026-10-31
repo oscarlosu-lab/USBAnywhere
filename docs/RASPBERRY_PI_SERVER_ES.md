@@ -16,7 +16,7 @@ Guía paso a paso para configurar un servidor USB/IP en Raspberry Pi OS.
 Ejecuta este único comando en tu Raspberry Pi para instalar `usbip`, configurar el servicio `systemd` y activar la **auto-exportación `udev` hotplug** (cualquier USB que enchufes en la Pi aparecerá automáticamente en Windows igual que en VirtualHere):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere-Server/main/scripts/install-server-linux.sh | sudo bash
 ```
 
 ---

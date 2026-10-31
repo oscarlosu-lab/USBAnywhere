@@ -4,10 +4,10 @@
     <AssemblyVersion>3.1.0.0</AssemblyVersion>
     <FileVersion>3.1.0.0</FileVersion>
     <InformationalVersion>3.1.0</InformationalVersion>
-    <Authors>SnakeFoxu</Authors>
+    <Authors>SnakeFoxu (OscarLosu)</Authors>
     <Company>oscarlosu-lab</Company>
     <Product>USBAnywhere</Product>
-    <Copyright>Copyright © 2025-2026 oscarlosu-lab - GPL v3</Copyright>
+    <Copyright>Copyright © 2025-2026 SnakeFoxu (OscarLosu) - GPL v3</Copyright>
     <RepositoryUrl>https://github.com/oscarlosu-lab/USBAnywhere</RepositoryUrl>
     <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>

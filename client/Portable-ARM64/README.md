@@ -197,4 +197,4 @@ See [LICENSE](LICENSE) for full legal terms and conditions.
 | [OctoWrt](https://github.com/ihrapsa/OctoWrt) | **ihrapsa** | Original OpenWrt guide for CrealityBox. Inspiration for embedded device support. |
 | [OctoWrt Fork](https://github.com/shivajiva101/OctoWrt) | **ShivaJiva** | Active OctoWrt maintenance. Updated releases for CrealityBox. |
 | [USB/IP](https://www.kernel.org/doc/html/latest/usb/usbip_protocol.html) | **Linux Kernel** | Original USB/IP protocol |
-| **USBAnywhere** | **SnakeFoxu** | .NET 9 WPF GUI, 1-Click SSH setup, VPN integration, latency modes & documentation |
+| **USBAnywhere** | **SnakeFoxu (OscarLosu)** | .NET 9 WPF GUI, 1-Click SSH setup, VPN integration, latency modes & documentation |

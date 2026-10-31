@@ -1,5 +1,5 @@
 // USBAnywhere - github.com/oscarlosu-lab/USBAnywhere
-// (c) 2025-2026 SnakeFoxu - GPL v3
+// (c) 2025-2026 SnakeFoxu (OscarLosu) - GPL v3
 
 using System.Net.Sockets;
 using USBAnywhere.Services.Interfaces;
@@ -8,7 +8,7 @@ namespace USBAnywhere.Services;
 
 /// <summary>
 /// Network scanner - Parallel subnet scanning for USBIP servers
-/// Part of USBAnywhere by SnakeFoxu
+/// Part of USBAnywhere by SnakeFoxu (OscarLosu)
 /// </summary>
 public class NetworkScanner : INetworkScanner
 {

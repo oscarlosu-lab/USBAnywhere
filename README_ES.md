@@ -223,4 +223,4 @@ Si USBAnywhere te ha servido para tu simulador, streaming o taller maker sin cab
 | [OctoWrt](https://github.com/ihrapsa/OctoWrt) | **ihrapsa** | Guía original para OpenWrt en CrealityBox. Inspiración para soporte de dispositivos embebidos. |
 | [OctoWrt Fork](https://github.com/shivajiva101/OctoWrt) | **ShivaJiva** | Mantenimiento activo de OctoWrt. Releases actualizados para CrealityBox. |
 | [USB/IP](https://www.kernel.org/doc/html/latest/usb/usbip_protocol.html) | **Linux Kernel** | Protocolo original USB/IP |
-| **USBAnywhere** | **SnakeFoxu** | GUI .NET 9 WPF, Auto-Setup SSH 1-Click, integración VPN, modos de latencia y documentación |
+| **USBAnywhere** | **SnakeFoxu (OscarLosu)** | GUI .NET 9 WPF, Auto-Setup SSH 1-Click, integración VPN, modos de latencia y documentación |

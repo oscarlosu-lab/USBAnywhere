@@ -103,7 +103,7 @@
                        VerticalAlignment="Center" Margin="10,0,0,0" FontSize="13"/>
                 
                 <TextBox Grid.Column="1" x:Name="txtServerIP" 
-                         Text="192.168.1.132" Height="28"
+                         Text="" Height="28"
                          VerticalAlignment="Center" Margin="5,0,0,0"
                          KeyDown="TxtServerIP_KeyDown"/>
                 
