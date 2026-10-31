@@ -1,5 +1,24 @@
 # CHANGELOG - USBAnywhere
 
+## [3.1.0] - 2026-10-31
+
+### Added
+- **Start Minimized to System Tray (Issue #2)**:
+  - Added unattended background startup support via `--minimized` (`-m`) CLI switch.
+  - New `StartMinimized` option in configuration, interactive checkbox in the Status UI panel, and quick toggle directly in the System Tray context menu.
+  - Seamless background auto-connection of favorite devices on system boot without stealing window focus.
+- **Dynamic Multi-Tenant Engine & On-Demand Binding (TCP 3241)**:
+  - Integrated dynamic device inventory discovery and on-demand `BIND` dispatch before `usbip attach` in `UsbipService.cs`.
+  - Enables full visibility of physical USB devices on Linux hosts even when unbound from the kernel driver.
+- **VR & High-Bandwidth Device Optimization Guides**:
+  - Comprehensive hardware and streaming configuration documentation (`VR_FACIAL_TRACKER_GUIDE_ES.md` and `VR_FACIAL_TRACKER_GUIDE_EN.md`) covering HTC Vive Facial Tracker, Meta Quest, VRChat / VRCFaceTracking, zero-copy buffer sizing, and dedicated Wi-Fi 6E/LAN topologies.
+- **Linux Server Improvements (`usbanywhere-ctl`)**:
+  - Built-in sysfs status watcher automatically unbinding peripherals back to the local host when the remote client disconnects (fixes Steam Controller Lizard Mode and input hijacking).
+  - New `dynamic-daemon` running on TCP 3241 for on-demand listing and binding.
+  - Dedicated `usbanywhere-autounbind.service` systemd service unit.
+
+---
+
 ## [3.0.1] - 2026-10-26
 
 ### Security & Hardening (Zero-Trust Audit)

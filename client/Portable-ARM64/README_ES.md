@@ -2,7 +2,7 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.0.0** | [Descargar Última Versión](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.0.1** | [Descargar v3.0.1](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1) | [🌐 USBAnywhere Server (Windows)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
@@ -88,15 +88,15 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [Releases](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest):
-   - **Windows x64**: `USBAnywhere-v3.0.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.0.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Descarga desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1):
+   - **Windows x64**: `USBAnywhere-v3.0.1-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.0.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.0.0.exe` desde [Releases](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest)
+1. Descarga `USBAnywhere_Setup_v3.0.1.exe` desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 

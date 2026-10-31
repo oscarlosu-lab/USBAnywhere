@@ -148,6 +148,8 @@ public class LocalizationService : ILocalizationService
 
                 // System Tray
                 ["tray_scan"] = "Escanear red",
+                ["tray_start_minimized"] = "Iniciar minimizado en bandeja",
+                ["chk_start_minimized"] = "Iniciar minimizado en bandeja",
                 ["tray_show"] = "Mostrar USBAnywhere",
                 ["tray_exit"] = "Salir",
                 ["tray_minimized"] = "Minimizado en la bandeja del sistema",
@@ -328,6 +330,8 @@ public class LocalizationService : ILocalizationService
 
                 // System Tray
                 ["tray_scan"] = "Scan network",
+                ["tray_start_minimized"] = "Start minimized to tray",
+                ["chk_start_minimized"] = "Start minimized to tray",
                 ["tray_show"] = "Show USBAnywhere",
                 ["tray_exit"] = "Exit",
                 ["tray_minimized"] = "Minimized to system tray",

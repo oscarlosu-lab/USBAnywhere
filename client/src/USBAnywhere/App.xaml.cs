@@ -108,11 +108,22 @@ public partial class App : System.Windows.Application
             ServiceProvider.GetRequiredService<ILoggerService>().Initialize();
             
             // Create and show MainWindow via DI
+            var configService = ServiceProvider.GetRequiredService<IConfigService>();
+            var appConfig = configService.Load();
+
+            bool startMinimized = appConfig.StartMinimized
+                || e.Args.Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase) || a.Equals("-m", StringComparison.OrdinalIgnoreCase));
+
             var mainWindow = ServiceProvider.GetRequiredService<MainWindow>();
-            mainWindow.Show();
-            if (e.Args.Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase)))
+            if (startMinimized)
             {
+                mainWindow.WindowState = WindowState.Minimized;
                 mainWindow.Hide();
+                _ = mainWindow.EnsureStartedAsync();
+            }
+            else
+            {
+                mainWindow.Show();
             }
 
             base.OnStartup(e);

@@ -18,6 +18,7 @@ public class AppConfig
     public bool AutoScanOnStart { get; set; } = true;
     public bool AutoConnectFavorites { get; set; } = true;
     public bool MinimizeToTray { get; set; } = true;
+    public bool StartMinimized { get; set; } = false;
     public string? LastServerIP { get; set; }
     public string DefaultReceiveMode { get; set; } = "zero-copy";
     public bool AutoDetachOnExit { get; set; } = true;

@@ -51,8 +51,11 @@ public partial class MainWindow : Window
     private record LogEntry(DateTime Timestamp, string Type, string? Key, object[] Args, string? RawMessage);
     private readonly List<LogEntry> _logEntries = new();
     private Forms.ToolStripMenuItem? _trayScanItem;
+    private Forms.ToolStripMenuItem? _trayStartMinimizedItem;
     private Forms.ToolStripMenuItem? _trayShowItem;
     private Forms.ToolStripMenuItem? _trayExitItem;
+    private bool _autoScanStarted;
+    private bool _isFirstStartup = true;
     private List<string> _availableSubnets = new();
 
     public MainWindow(
@@ -107,7 +110,7 @@ public partial class MainWindow : Window
         LoadFavorites();
 
         // Auto-scan network on startup
-        Loaded += async (s, e) => await AutoScanOnStartup();
+        Loaded += async (s, e) => await EnsureStartedAsync();
     }
 
     /// <summary>
@@ -183,6 +186,22 @@ public partial class MainWindow : Window
 
             trayMenu.Items.Add(new Forms.ToolStripSeparator());
 
+            _trayStartMinimizedItem = new Forms.ToolStripMenuItem(_localization.GetText("tray_start_minimized", _currentLanguage))
+            {
+                CheckOnClick = true,
+                Checked = _config.Load().StartMinimized
+            };
+            _trayStartMinimizedItem.Click += (s, e) =>
+            {
+                var cfg = _config.Load();
+                cfg.StartMinimized = _trayStartMinimizedItem.Checked;
+                _config.Save(cfg);
+                Dispatcher.Invoke(() => chkStartMinimized.IsChecked = cfg.StartMinimized);
+            };
+            trayMenu.Items.Add(_trayStartMinimizedItem);
+
+            trayMenu.Items.Add(new Forms.ToolStripSeparator());
+
             _trayShowItem = new Forms.ToolStripMenuItem(_localization.GetText("tray_show", _currentLanguage));
             _trayShowItem.Click += (s, e) => Dispatcher.Invoke(() => ShowWindow());
             trayMenu.Items.Add(_trayShowItem);
@@ -214,6 +233,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void ShowWindow()
     {
+        _isFirstStartup = false;
         Show();
         WindowState = WindowState.Normal;
         Activate();
@@ -239,9 +259,13 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             Hide();
-            ShowNotification(_localization.GetText("title_main", _currentLanguage),
-                           _localization.GetText("tray_minimized", _currentLanguage),
-                           Forms.ToolTipIcon.Info);
+            if (!_isFirstStartup)
+            {
+                ShowNotification(_localization.GetText("title_main", _currentLanguage),
+                               _localization.GetText("tray_minimized", _currentLanguage),
+                               Forms.ToolTipIcon.Info);
+            }
+            _isFirstStartup = false;
         }
         base.OnStateChanged(e);
     }
@@ -313,6 +337,13 @@ public partial class MainWindow : Window
     /// <summary>
     /// Auto-scan network on startup
     /// </summary>
+    public async Task EnsureStartedAsync()
+    {
+        if (_autoScanStarted) return;
+        _autoScanStarted = true;
+        await AutoScanOnStartup();
+    }
+
     private async Task AutoScanOnStartup()
     {
         AddLocalizedLog("Info", "log_scan_start");
@@ -778,6 +809,18 @@ public partial class MainWindow : Window
     private void BtnMaximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private async void BtnClose_Click(object sender, RoutedEventArgs e) => await GracefulShutdownAsync();
 
+    private void ChkStartMinimized_Click(object sender, RoutedEventArgs e)
+    {
+        bool isChecked = chkStartMinimized.IsChecked == true;
+        var cfg = _config.Load();
+        cfg.StartMinimized = isChecked;
+        _config.Save(cfg);
+        if (_trayStartMinimizedItem != null)
+        {
+            _trayStartMinimizedItem.Checked = isChecked;
+        }
+    }
+
     private async Task GracefulShutdownAsync()
     {
         _isShuttingDown = true;
@@ -931,8 +974,11 @@ public partial class MainWindow : Window
         menuProperties.Header = _localization.GetText("menu_properties", _currentLanguage);
         menuRename.Header = _localization.GetText("menu_rename", _currentLanguage);
 
+        chkStartMinimized.Content = _localization.GetText("chk_start_minimized", _currentLanguage);
+
         // Localize Tray Menu
         if (_trayScanItem != null) _trayScanItem.Text = _localization.GetText("tray_scan", _currentLanguage);
+        if (_trayStartMinimizedItem != null) _trayStartMinimizedItem.Text = _localization.GetText("tray_start_minimized", _currentLanguage);
         if (_trayShowItem != null) _trayShowItem.Text = _localization.GetText("tray_show", _currentLanguage);
         if (_trayExitItem != null) _trayExitItem.Text = _localization.GetText("tray_exit", _currentLanguage);
 
@@ -1354,6 +1400,10 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrEmpty(config.LastServerIP))
             txtServerIP.Text = config.LastServerIP;
+
+        chkStartMinimized.IsChecked = config.StartMinimized;
+        if (_trayStartMinimizedItem != null)
+            _trayStartMinimizedItem.Checked = config.StartMinimized;
 
         _usbIds.LoadCustomNames(config.CustomDeviceNames);
     }

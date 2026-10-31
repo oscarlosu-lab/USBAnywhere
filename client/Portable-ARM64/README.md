@@ -2,7 +2,7 @@
 
 🌐 **Language / Idioma:** **English** | [Español](README_ES.md)
 
-**v3.0.0** | [Download Latest](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
+**v3.0.1** | [Download v3.0.1](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1) | [🌐 USBAnywhere Server (Windows)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
 
 > **Why pay $49.00 per server and be restricted to a single USB device?**
 > **USBAnywhere** connects **unlimited** remote USB peripherals over LAN, Wi-Fi, and Internet with **zero licensing fees**, **Microsoft WHQL-certified drivers**, and **tunable ultra-low latency**.
@@ -88,15 +88,15 @@ Transform any Linux device (or Windows PC) into a high-performance Virtual USB H
 ## 📦 Installation
 
 ### Option 1: Portable (No installation required)
-1. Download from [Releases](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest):
-   - **Windows x64**: `USBAnywhere-v3.0.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.0.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Download from [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1):
+   - **Windows x64**: `USBAnywhere-v3.0.1-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.0.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
 2. Extract the ZIP to any folder
 3. Run `USBAnywhere.exe` as Administrator
 4. Done!
 
 ### Option 2: Installer (x64 Recommended)
-1. Download `USBAnywhere_Setup_v3.0.0.exe` from [Releases](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest)
+1. Download `USBAnywhere_Setup_v3.0.1.exe` from [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1)
 2. Run the installer as Administrator
 3. Follow the installation wizard
 

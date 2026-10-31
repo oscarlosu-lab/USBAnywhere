@@ -68,13 +68,32 @@ systemctl daemon-reload
 systemctl enable usbipd
 systemctl restart usbipd
 
-echo -e "${BLUE}[4/5] Configuring udev auto-bind rule for USB peripherals...${NC}"
-cat << 'EOF' > /etc/udev/rules.d/99-usbip-autobind.rules
-# USBAnywhere udev auto-bind rule
-ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", RUN+="/usr/bin/usbip bind -b %k"
+echo -e "${BLUE}[4/5] Configuring Dynamic Auto-Unbind daemon (Zero-Host-Lockout)...${NC}"
+# Clean legacy unconditional udev rule that prevented local OS use
+rm -f /etc/udev/rules.d/99-usbip-autobind.rules
+udevadm control --reload-rules 2>/dev/null || true
+
+# Install Dynamic Auto-Unbind & Control API service
+cat << 'EOF' > /etc/systemd/system/usbanywhere-autounbind.service
+[Unit]
+Description=USBAnywhere Dynamic Auto-Unbind & Control Daemon
+After=network.target usbipd.service
+Wants=usbipd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/usbanywhere-ctl dynamic-daemon
+Restart=always
+RestartSec=3
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
 EOF
 
-udevadm control --reload-rules || true
+systemctl daemon-reload 2>/dev/null || true
+systemctl enable usbanywhere-autounbind 2>/dev/null || true
+systemctl restart usbanywhere-autounbind 2>/dev/null || true
 
 echo -e "${BLUE}[5/5] Installing unified Control Suite (usbanywhere-ctl)...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

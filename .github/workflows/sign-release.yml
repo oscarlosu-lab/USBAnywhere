@@ -35,7 +35,8 @@ jobs:
       - name: Verify installer exists
         shell: pwsh
         run: |
-          $installer = Get-Item "client/release/USBAnywhere_Setup_v3.0.1.exe" -ErrorAction Stop
+          $installer = Get-ChildItem "client/release/USBAnywhere_Setup_v*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Setup installer not found in client/release/" }
           Write-Host "Built installer: $($installer.FullName)"
 
       - name: Upload unsigned installer
@@ -43,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: unsigned-installer
-          path: client/release/USBAnywhere_Setup_v3.0.1.exe
+          path: client/release/USBAnywhere_Setup_v*.exe
           if-no-files-found: error
           archive: false
 

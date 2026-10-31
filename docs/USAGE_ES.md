@@ -169,11 +169,12 @@ Puedes alternar el modo de recepción del driver en cualquier momento pulsando e
 
 Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar los drivers, USBAnywhere libera y desacopla ordenadamente todos los puertos USB activos antes de finalizar. Esto garantiza que el servidor Linux nunca deje los puertos en estado bloqueado (*busy*).
 
-## 🖥️ System Tray (Bandeja del Sistema)
+## 🖥️ System Tray (Bandeja del Sistema) y Arranque Desatendido
 
-- Al **minimizar** (o iniciar con `--minimized`), la aplicación se oculta en la bandeja del sistema.
-- **Doble-click** en el icono para restaurar la ventana.
-- **Click derecho** para menú rápido: `📡 Escanear Red`, `🔼 Mostrar Ventana`, `❌ Salir`.
+- **☑️ Iniciar minimizado en bandeja**: Casilla seleccionable en la barra inferior (y en el menú de bandeja) para que la aplicación arranque directamente oculta en segundo plano sin mostrar ventana al iniciar Windows, manteniendo los dispositivos USB conectados permanentemente.
+- Al **minimizar** (o iniciar con `--minimized` / `-m`), la aplicación se oculta en la bandeja del sistema.
+- **Doble-click** en el icono de la bandeja para restaurar la ventana en cualquier momento.
+- **Click derecho** para menú rápido: `📡 Escanear red`, `☑️ Iniciar minimizado en bandeja`, `🔼 Mostrar USBAnywhere`, `❌ Salir`.
 
 ## 🔧 Barra de Estado y Ciclo de Vida de Drivers
 
@@ -190,6 +191,7 @@ Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar 
 
 ## 📚 Más Información
 
+- **[VR_FACIAL_TRACKER_GUIDE_ES.md](VR_FACIAL_TRACKER_GUIDE_ES.md)** - Guía de optimización para Realidad Virtual, HTC Vive Facial Tracker y Webcams (VRChat / VRCFaceTracking)
 - **[README_ES.md](../README_ES.md)** - Instalación y características principales
 - **[RASPBERRY_PI_SERVER_ES.md](RASPBERRY_PI_SERVER_ES.md)** - Configurar servidor en Raspberry Pi / Linux
 - **[VPN_INTERNET_ES.md](VPN_INTERNET_ES.md)** - Conexión remota por Internet (Tailscale / ZeroTier / WireGuard)

@@ -97,6 +97,40 @@ public class ConfigServiceTests : IDisposable
         Assert.Equal("en", loaded.Language);
     }
 
+    [Fact]
+    public void StartMinimized_DefaultsToFalse_AndCanBePersisted()
+    {
+        var service = new ConfigService(_mockEnv, _mockLogger);
+
+        var config = service.Load();
+        Assert.False(config.StartMinimized);
+
+        config.StartMinimized = true;
+        service.Save(config);
+
+        var reloaded = service.Load();
+        Assert.True(reloaded.StartMinimized);
+    }
+
+    [Fact]
+    public void Localization_ContainsStartMinimizedKeys()
+    {
+        var loc = new LocalizationService();
+
+        string esChk = loc.GetText("chk_start_minimized", "es");
+        string esTray = loc.GetText("tray_start_minimized", "es");
+        string enChk = loc.GetText("chk_start_minimized", "en");
+        string enTray = loc.GetText("tray_start_minimized", "en");
+
+        Assert.False(string.IsNullOrWhiteSpace(esChk));
+        Assert.False(string.IsNullOrWhiteSpace(esTray));
+        Assert.False(string.IsNullOrWhiteSpace(enChk));
+        Assert.False(string.IsNullOrWhiteSpace(enTray));
+
+        Assert.Equal("Iniciar minimizado en bandeja", esChk);
+        Assert.Equal("Start minimized to tray", enChk);
+    }
+
     private class MockEnvironmentService : IEnvironmentService
     {
         private readonly string _configPath;

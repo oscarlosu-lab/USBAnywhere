@@ -169,11 +169,12 @@ You can switch the kernel driver receive mode at any time by clicking the **`[�
 
 When closing the application, shutting down Windows (`AutoDetachOnExit: true`), or uninstalling drivers, USBAnywhere gracefully detaches and releases all active USB ports before terminating. This prevents the remote Linux server from leaving ports in a locked (*busy*) state.
 
-## 🖥️ System Tray
+## 🖥️ System Tray & Headless Startup
 
-- When **minimizing** (or launching with `--minimized`), the app hides to the system tray.
-- **Double-click** on the tray icon to restore the window.
-- **Right-click** for quick menu: `📡 Scan Network`, `🔼 Show Window`, `❌ Exit`.
+- **☑️ Start minimized to tray**: Toggle in the bottom status panel (and in the tray menu) allowing the client to launch silently to the system tray without displaying a window on Windows startup, keeping your remote USB devices permanently connected.
+- When **minimizing** (or launching with `--minimized` / `-m`), the app hides to the system tray.
+- **Double-click** on the tray icon to restore the window at any time.
+- **Right-click** for quick menu: `📡 Scan network`, `☑️ Start minimized to tray`, `🔼 Show USBAnywhere`, `❌ Exit`.
 
 ## 🔧 Status Bar & Driver Lifecycle
 
@@ -190,6 +191,7 @@ When closing the application, shutting down Windows (`AutoDetachOnExit: true`), 
 
 ## 📚 More Information
 
+- **[VR_FACIAL_TRACKER_GUIDE_EN.md](VR_FACIAL_TRACKER_GUIDE_EN.md)** - Optimization guide for VR Headsets, HTC Vive Facial Tracker & Webcams (VRChat / VRCFaceTracking)
 - **[README.md](../README.md)** - Installation and main features
 - **[RASPBERRY_PI_SERVER_EN.md](RASPBERRY_PI_SERVER_EN.md)** - Setup server on Raspberry Pi / Linux
 - **[macOS Server Guide](https://github.com/oscarlosu-lab/USBAnywhere-Server/blob/main/docs/USAGE_MACOS_EN.md)** - Setup native server on Apple Mac (Apple Silicon & Intel)

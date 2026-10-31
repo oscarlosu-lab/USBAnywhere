@@ -26,6 +26,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 VERSION = "3.0.1"
 PORT = 3240
+CONTROL_PORT = 3241
 
 IS_MACOS = platform.system() == "Darwin"
 IS_LINUX = platform.system() == "Linux"
@@ -192,22 +193,50 @@ def list_devices():
                     devices.append(f"• {current} ({line_str})")
                     current = None
     elif IS_LINUX:
-        bin_path = shutil.which("usbip")
-        if bin_path:
-            out = run_cmd([bin_path, "list", "-l"])
-            curr_bus = None
-            for line in out.splitlines():
-                if "busid" in line:
-                    m = re.search(r"busid\s+([0-9a-zA-Z\-\.]+)\s+\((.*?)\)", line)
-                    if m:
-                        curr_bus = m.group(1)
-                        desc = m.group(2)
-                        devices.append(f"[{curr_bus}] {desc}")
-        else:
-            out = run_cmd(["lsusb"])
-            for line in out.splitlines():
-                if line.strip():
-                    devices.append(line.strip())
+        # 1. Direct sysfs scan for all physical USB peripherals (bound or unbound)
+        sys_devs = "/sys/bus/usb/devices"
+        if os.path.exists(sys_devs):
+            for entry in sorted(os.listdir(sys_devs)):
+                p = os.path.join(sys_devs, entry)
+                v_file = os.path.join(p, "idVendor")
+                d_file = os.path.join(p, "idProduct")
+                if os.path.isfile(v_file) and os.path.isfile(d_file):
+                    try:
+                        with open(v_file, "r") as f:
+                            vid = f.read().strip()
+                        with open(d_file, "r") as f:
+                            pid = f.read().strip()
+                        prod_name = "USB Device"
+                        p_file = os.path.join(p, "product")
+                        if os.path.isfile(p_file):
+                            with open(p_file, "r") as f:
+                                prod_name = f.read().strip()
+                        mfg_name = ""
+                        m_file = os.path.join(p, "manufacturer")
+                        if os.path.isfile(m_file):
+                            with open(m_file, "r") as f:
+                                mfg_name = f.read().strip()
+                        desc = f"{mfg_name} {prod_name}".strip() or "USB Device"
+                        devices.append(f"  {entry}    : {desc} ({vid}:{pid})")
+                    except Exception:
+                        pass
+        if not devices:
+            bin_path = shutil.which("usbip")
+            if bin_path:
+                out = run_cmd([bin_path, "list", "-l"])
+                curr_bus = None
+                for line in out.splitlines():
+                    if "busid" in line:
+                        m = re.search(r"busid\s+([0-9a-zA-Z\-\.]+)\s+\((.*?)\)", line)
+                        if m:
+                            curr_bus = m.group(1)
+                            desc = m.group(2)
+                            devices.append(f"  {curr_bus}    : {desc}")
+            else:
+                out = run_cmd(["lsusb"])
+                for line in out.splitlines():
+                    if line.strip():
+                        devices.append(line.strip())
     return devices
 
 def share_device(busid):
@@ -249,6 +278,148 @@ def unshare_device(busid):
             print(out or f"{GREEN}✓ Device {busid} unbound via usbip.{RESET}")
             return True
     return False
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DYNAMIC AUTO-UNBIND & CONTROL API (Zero-Host-Lockout)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def run_auto_unbind_daemon(interval=1.0, standalone=True):
+    """
+    Dynamic Auto-Unbind Watcher:
+    Monitors /sys/bus/usb/drivers/usbip-host/*/usbip_status on Linux.
+    When a remote client disconnects (status transitions from SDEV_ST_USED [2] to SDEV_ST_AVAILABLE [1]),
+    automatically unbinds the peripheral so the local operating system (HTPC, Raspberry Pi, Steam Deck)
+    instantly reclaims it without manual intervention.
+    """
+    if standalone:
+        print(f"\n{CYAN}═══ 🔄 USBAnywhere Dynamic Auto-Unbind Daemon ═══{RESET}")
+        print(f"Monitoring USB/IP client disconnects (Poll interval: {interval}s)...")
+    
+    prev_statuses = {}
+    
+    while True:
+        try:
+            if IS_LINUX:
+                sysfs_base = "/sys/bus/usb/drivers/usbip-host"
+                if os.path.exists(sysfs_base):
+                    for entry in os.listdir(sysfs_base):
+                        status_file = os.path.join(sysfs_base, entry, "usbip_status")
+                        if os.path.isfile(status_file):
+                            try:
+                                with open(status_file, "r") as f:
+                                    raw = f.read().strip()
+                                status_code = int(raw) if raw.isdigit() else -1
+                                
+                                prev = prev_statuses.get(entry)
+                                # 2 = SDEV_ST_USED (client attached)
+                                # 1 = SDEV_ST_AVAILABLE (idle shared)
+                                if prev == 2 and status_code == 1:
+                                    print(f"{YELLOW}[Auto-Unbind] Remote client disconnected from device {entry}.{RESET}")
+                                    print(f"{GREEN}✓ Auto-releasing {entry} back to local host OS...{RESET}")
+                                    unshare_device(entry)
+                                    prev_statuses.pop(entry, None)
+                                    continue
+                                
+                                prev_statuses[entry] = status_code
+                            except Exception:
+                                pass
+            elif IS_MACOS:
+                bin_path = shutil.which("usbanywhere-server-mac")
+                if bin_path:
+                    out = run_cmd([bin_path, "status", "--json"])
+                    if out:
+                        try:
+                            data = json.loads(out)
+                            for dev in data.get("devices", []):
+                                bid = dev.get("busid")
+                                clients = dev.get("connected_clients", 0)
+                                prev_c = prev_statuses.get(bid, 0)
+                                if prev_c > 0 and clients == 0:
+                                    print(f"{YELLOW}[Auto-Unbind] Client disconnected from {bid}. Auto-releasing...{RESET}")
+                                    unshare_device(bid)
+                                prev_statuses[bid] = clients
+                        except Exception:
+                            pass
+            time.sleep(interval)
+        except KeyboardInterrupt:
+            if standalone:
+                print(f"\n{YELLOW}Auto-unbind daemon stopped.{RESET}")
+            break
+        except Exception:
+            time.sleep(interval)
+
+def handle_control_client(sock, addr):
+    """Handle incoming on-demand control command (TCP 3241)."""
+    try:
+        sock.settimeout(5.0)
+        data = sock.recv(1024).decode("utf-8").strip()
+        if not data:
+            sock.close()
+            return
+        
+        parts = data.split()
+        cmd = parts[0].upper()
+        
+        if cmd == "LIST":
+            devs = list_devices()
+            resp = json.dumps({"status": "OK", "devices": devs}) + "\n"
+            sock.sendall(resp.encode("utf-8"))
+        elif cmd == "BIND" and len(parts) > 1:
+            target_bus = parts[1]
+            ok = share_device(target_bus)
+            resp = json.dumps({"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "bind"}) + "\n"
+            sock.sendall(resp.encode("utf-8"))
+        elif cmd == "UNBIND" and len(parts) > 1:
+            target_bus = parts[1]
+            ok = unshare_device(target_bus)
+            resp = json.dumps({"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "unbind"}) + "\n"
+            sock.sendall(resp.encode("utf-8"))
+        elif cmd == "STATUS":
+            st = get_service_status()
+            resp = json.dumps(st) + "\n"
+            sock.sendall(resp.encode("utf-8"))
+        else:
+            sock.sendall(b'{"status": "ERROR", "message": "Unknown command"}\n')
+    except Exception as e:
+        try:
+            sock.sendall(f'{{"status": "ERROR", "message": "{str(e)}"}}\n'.encode("utf-8"))
+        except Exception:
+            pass
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+def run_dynamic_daemon(port=CONTROL_PORT):
+    """Run dynamic daemon with both background auto-unbind watcher and on-demand control listener."""
+    import threading
+    
+    print(f"\n{CYAN}═══ ⚡ USBAnywhere Dynamic Multi-Tenant Daemon ═══{RESET}")
+    print(f"• Dynamic Auto-Unbind: ACTIVE (Devices released to local OS when client disconnects)")
+    print(f"• Control Socket:      LISTENING on TCP port {port} (On-demand BIND / UNBIND API)")
+    print(f"• Main USB/IP Port:    LISTENING on TCP port {PORT}")
+    
+    watcher_t = threading.Thread(target=run_auto_unbind_daemon, kwargs={"interval": 1.0, "standalone": False}, daemon=True)
+    watcher_t.start()
+    
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        srv.bind(("0.0.0.0", port))
+        srv.listen(5)
+    except Exception as e:
+        print(f"{RED}Error binding to control port {port}: {e}{RESET}")
+        return
+        
+    try:
+        while True:
+            client_sock, addr = srv.accept()
+            threading.Thread(target=handle_control_client, args=(client_sock, addr), daemon=True).start()
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}Dynamic daemon stopped.{RESET}")
+    finally:
+        srv.close()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DIAGNOSTICS & SELF-TEST
@@ -443,7 +614,7 @@ def main():
     )
     parser.add_argument("command", nargs="?", default="dashboard",
                         choices=["dashboard", "status", "start", "stop", "restart",
-                                 "list", "share", "unshare", "doctor", "test", "logs"],
+                                 "list", "share", "unshare", "auto-unbind", "dynamic-daemon", "doctor", "test", "logs"],
                         help="Action to perform (default: interactive dashboard)")
     parser.add_argument("busid", nargs="?", default=None, help="Target USB bus ID for share/unshare")
     parser.add_argument("--json", action="store_true", help="Output status in JSON format")
@@ -487,6 +658,10 @@ def main():
             print(f"{RED}Error: Missing bus ID. Usage: usbanywhere-ctl unshare <busid>{RESET}")
             sys.exit(1)
         unshare_device(args.busid)
+    elif args.command == "auto-unbind":
+        run_auto_unbind_daemon()
+    elif args.command == "dynamic-daemon":
+        run_dynamic_daemon()
     elif args.command == "doctor":
         run_doctor()
     elif args.command == "test":

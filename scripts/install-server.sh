@@ -96,6 +96,7 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 ALLOW_HID="${ALLOW_HID:-false}"
 ALLOW_STORAGE="${ALLOW_STORAGE:-false}"
+AUTO_UNBIND="${AUTO_UNBIND:-true}"
 
 USBIP_BIN=$(command -v usbip || echo "/usr/sbin/usbip")
 LOCK_FILE="/run/usbanywhere-autobind.lock"
@@ -169,6 +170,17 @@ bind_all_usb() {
                 fi
             else
                 status=$(cat "$devpath/usbip_status" 2>/dev/null || echo "1")
+                prev_status=$(cat "/run/usbanywhere_status_$busid" 2>/dev/null || echo "$status")
+                echo "$status" > "/run/usbanywhere_status_$busid" 2>/dev/null || true
+
+                # Dynamic Auto-Unbind: When remote client disconnects (status transitions from 2 [USED] to 1 [AVAILABLE])
+                if [[ "$AUTO_UNBIND" == "true" && "$prev_status" == "2" && "$status" == "1" ]]; then
+                    "$USBIP_BIN" unbind -b "$busid" >/dev/null 2>&1 || true
+                    echo -n "$busid" > /sys/bus/usb/drivers/usb/bind 2>/dev/null || true
+                    rm -f "/run/usbanywhere_status_$busid" 2>/dev/null || true
+                    continue
+                fi
+
                 if [[ "$status" == "3" ]]; then
                     "$USBIP_BIN" unbind -b "$busid" >/dev/null 2>&1 || true
                     echo -n "$busid" > /sys/bus/usb/drivers/usb/bind 2>/dev/null || true

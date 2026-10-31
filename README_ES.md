@@ -2,7 +2,7 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.0.1** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [Descargar Última Versión](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.1.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
@@ -10,7 +10,7 @@
 Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de alto rendimiento accesible desde Windows 10 y 11. Compatible con **Raspberry Pi, Orange Pi, Banana Pi, Proxmox/HomeLab, Steam Deck, routers OpenWRT, CrealityBox** y cualquier servidor ARM/x86 con Linux.
 
 [![CI Build & Tests](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml)
-[![GitHub Downloads](https://img.shields.io/github/downloads/oscarlosu-lab/USBAnywhere/total?style=flat-square&logo=github&color=blue)](https://github.com/oscarlosu-lab/USBAnywhere/releases)
+[![GitHub Downloads](https://img.shields.io/github/downloads/oscarlosu-lab/USBAnywhere-Downloads/total?style=flat-square&logo=github&color=blue)](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases)
 [![GitHub Stars](https://img.shields.io/github/stars/oscarlosu-lab/USBAnywhere?style=flat-square&logo=github&color=yellow)](https://github.com/oscarlosu-lab/USBAnywhere/stargazers)
 [![Licencia](https://img.shields.io/badge/Licencia-GPLv3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20(x64%20%26%20ARM64)-lightgrey?style=flat-square&logo=windows)](https://github.com/oscarlosu-lab/USBAnywhere)
@@ -43,6 +43,8 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
    Comparte múltiples cámaras USB, acelerómetros ADXL345 y placas de impresoras 3D sin cables.
 4. 🖥️ **HomeLab, Proxmox y Self-Hosted**
    Pasa coordinadores Zigbee/Z-Wave, llaves de seguridad física y dongles de licencia (AutoCAD, iLok, eToken) por LAN o VPN Tailscale.
+5. 🥽 **Realidad Virtual y Seguimiento Facial (HTC Vive Facial Tracker, VRChat, Quest)**
+   Transmite streams duales de cámaras infrarrojas a 60 FPS sin comprimir hacia VRCFaceTracking (VRCFT) usando el modo **Zero-Copy** y arranque minimizado en bandeja sin los congelamientos ni cortes habituales de VirtualHere. 👉 **[Leer la Guía de Optimización para VR y Facial Tracker](docs/VR_FACIAL_TRACKER_GUIDE_ES.md)**.
 
 ---
 
@@ -97,15 +99,15 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [Releases](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest):
-   - **Windows x64**: `USBAnywhere-v3.0.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.0.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Descarga desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1):
+   - **Windows x64**: `USBAnywhere-v3.0.1-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.0.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.0.0.exe` desde [Releases](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest)
+1. Descarga `USBAnywhere_Setup_v3.0.1.exe` desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 
@@ -175,6 +177,14 @@ usbipd -D
 Ver [docs/RASPBERRY_PI_SERVER_EN.md](docs/RASPBERRY_PI_SERVER_EN.md) para la guía detallada.
 
 ---
+
+---
+
+## 🔐 Firma de Código (Code Signing)
+
+Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+Los binarios oficiales de Windows se firman criptográficamente utilizando la SignPath Foundation para verificar su autenticidad, procedencia e integridad. Consulta nuestra [Política de Firma de Código](CODE_SIGNING_POLICY.md).
 
 ---
 

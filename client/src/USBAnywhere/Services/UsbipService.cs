@@ -151,6 +151,9 @@ namespace USBAnywhere.Services
                     }
                 }
 
+                // Dynamic Control API (TCP 3241) discovery for unbound/local physical devices
+                await TryQueryDynamicInventoryAsync(ip, devices, ct);
+
                 _logger.LogInformation("Encontrados {Count} dispositivos en {IP}", devices.Count, ip);
             }
             catch (Exception ex)
@@ -179,6 +182,9 @@ namespace USBAnywhere.Services
                 {
                     _logger.LogWarning("Driver usbip-win no detectado. La conexión podría fallar.");
                 }
+
+                // Dynamic on-demand binding (USBAnywhere Dynamic Daemon on port 3241)
+                await TryDynamicBindAsync(ip, busId, ct);
 
                 var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId };
                 if (!string.IsNullOrWhiteSpace(receiveMode))
@@ -580,6 +586,80 @@ namespace USBAnywhere.Services
             }
             
             return devices;
+        }
+
+        private async Task TryDynamicBindAsync(string ip, string busId, CancellationToken ct)
+        {
+            try
+            {
+                using var tcp = new System.Net.Sockets.TcpClient();
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(500);
+                await tcp.ConnectAsync(ip, 3241, cts.Token);
+                using var stream = tcp.GetStream();
+                var msg = Encoding.UTF8.GetBytes($"BIND {busId}\n");
+                await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
+                _logger.LogDebug("Comando dinámico BIND {BusId} enviado a {IP}:3241", busId, ip);
+            }
+            catch
+            {
+                // Dynamic daemon not running or timeout; fallback to standard attach
+            }
+        }
+
+        private async Task TryQueryDynamicInventoryAsync(string ip, List<UsbDevice> devices, CancellationToken ct)
+        {
+            try
+            {
+                using var tcp = new System.Net.Sockets.TcpClient();
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(600);
+                await tcp.ConnectAsync(ip, 3241, cts.Token);
+                using var stream = tcp.GetStream();
+                var msg = Encoding.UTF8.GetBytes("LIST\n");
+                await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
+
+                byte[] buf = new byte[8192];
+                int read = await stream.ReadAsync(buf, 0, buf.Length, cts.Token);
+                if (read > 0)
+                {
+                    string json = Encoding.UTF8.GetString(buf, 0, read).Trim();
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("devices", out var devsProp) && devsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        var existing = new HashSet<string>(devices.Select(d => d.BusId), StringComparer.OrdinalIgnoreCase);
+                        foreach (var item in devsProp.EnumerateArray())
+                        {
+                            var line = item.GetString();
+                            if (string.IsNullOrWhiteSpace(line)) continue;
+                            var m = Regex.Match(line, @"^\s*([0-9a-zA-Z\-\.]+)\s*:\s*(.+?)\s*(?:\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\))?$");
+                            if (m.Success)
+                            {
+                                var busId = m.Groups[1].Value.Trim();
+                                if (!existing.Contains(busId))
+                                {
+                                    var desc = m.Groups[2].Value.Trim();
+                                    var hwId = m.Groups[3].Success ? m.Groups[3].Value.Trim() : string.Empty;
+                                    devices.Add(new UsbDevice
+                                    {
+                                        BusId = busId,
+                                        HardwareId = hwId,
+                                        Description = desc,
+                                        RemoteIp = ip,
+                                        ServerIP = ip,
+                                        IsConnected = false
+                                    });
+                                    existing.Add(busId);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Dynamic inventory not available
+            }
         }
     }
 }
