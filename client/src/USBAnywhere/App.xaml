@@ -5,40 +5,40 @@
     <Application.Resources>
         <ResourceDictionary>
             <!-- ============================================ -->
-            <!-- DARK THEME - Exact colors from PowerShell   -->
+            <!-- OBSIDIAN PRECISION THEME (v3.2.0)            -->
             <!-- ============================================ -->
             
-            <!-- Background Colors - VS Code Dark+ Professional -->
-            <SolidColorBrush x:Key="BackgroundDark" Color="#1E1E1E"/>
-            <SolidColorBrush x:Key="BackgroundPanel" Color="#252526"/>
-            <SolidColorBrush x:Key="BackgroundTitleBar" Color="#323233"/>
-            <SolidColorBrush x:Key="BackgroundButton" Color="#0E639C"/>
-            <SolidColorBrush x:Key="BackgroundButtonHover" Color="#1177BB"/>
-            <SolidColorBrush x:Key="BackgroundInput" Color="#3C3C3C"/>
+            <!-- Background Surfaces - Obsidian Precision -->
+            <SolidColorBrush x:Key="BackgroundDark" Color="#0B0C0E"/>
+            <SolidColorBrush x:Key="BackgroundPanel" Color="#131417"/>
+            <SolidColorBrush x:Key="BackgroundTitleBar" Color="#16171B"/>
+            <SolidColorBrush x:Key="BackgroundButton" Color="#18191E"/>
+            <SolidColorBrush x:Key="BackgroundButtonHover" Color="#22242A"/>
+            <SolidColorBrush x:Key="BackgroundInput" Color="#141518"/>
             
             <!-- Foreground Colors -->
-            <SolidColorBrush x:Key="ForegroundPrimary" Color="#DCDCDC"/>
-            <SolidColorBrush x:Key="ForegroundSecondary" Color="#969696"/>
-            <SolidColorBrush x:Key="ForegroundAccent" Color="#FF8C00"/>
+            <SolidColorBrush x:Key="ForegroundPrimary" Color="#EDEDED"/>
+            <SolidColorBrush x:Key="ForegroundSecondary" Color="#8E919A"/>
+            <SolidColorBrush x:Key="ForegroundAccent" Color="#D2F800"/>
             
-            <!-- Accent Colors - VS Code Professional -->
-            <SolidColorBrush x:Key="AccentOrange" Color="#CE9178"/>
-            <SolidColorBrush x:Key="AccentBlue" Color="#0E639C"/>
-            <SolidColorBrush x:Key="AccentGreen" Color="#6A9955"/>
-            <SolidColorBrush x:Key="AccentRed" Color="#F14C4C"/>
-            <SolidColorBrush x:Key="AccentPurple" Color="#C586C0"/>
-            <SolidColorBrush x:Key="AccentTeal" Color="#4EC9B0"/>
+            <!-- Accent Colors - Obsidian Precision -->
+            <SolidColorBrush x:Key="AccentOrange" Color="#F59E0B"/>
+            <SolidColorBrush x:Key="AccentBlue" Color="#D2F800"/>
+            <SolidColorBrush x:Key="AccentGreen" Color="#D2F800"/>
+            <SolidColorBrush x:Key="AccentRed" Color="#EF4444"/>
+            <SolidColorBrush x:Key="AccentPurple" Color="#A1A1AA"/>
+            <SolidColorBrush x:Key="AccentTeal" Color="#D2F800"/>
             
             <!-- macOS-style buttons -->
-            <SolidColorBrush x:Key="MacCloseRed" Color="#FF605C"/>
-            <SolidColorBrush x:Key="MacMinimizeYellow" Color="#FFBD44"/>
-            <SolidColorBrush x:Key="MacMaximizeGreen" Color="#00CA4E"/>
+            <SolidColorBrush x:Key="MacCloseRed" Color="#EF4444"/>
+            <SolidColorBrush x:Key="MacMinimizeYellow" Color="#F59E0B"/>
+            <SolidColorBrush x:Key="MacMaximizeGreen" Color="#D2F800"/>
             
-            <!-- Status Colors - VS Code Professional -->
-            <SolidColorBrush x:Key="StatusSuccess" Color="#89D185"/>
-            <SolidColorBrush x:Key="StatusWarning" Color="#CCA700"/>
-            <SolidColorBrush x:Key="StatusError" Color="#F14C4C"/>
-            <SolidColorBrush x:Key="StatusInfo" Color="#75BEFF"/>
+            <!-- Status Colors - Obsidian Precision -->
+            <SolidColorBrush x:Key="StatusSuccess" Color="#D2F800"/>
+            <SolidColorBrush x:Key="StatusWarning" Color="#F59E0B"/>
+            <SolidColorBrush x:Key="StatusError" Color="#EF4444"/>
+            <SolidColorBrush x:Key="StatusInfo" Color="#A1A1AA"/>
             
             <!-- ============================================ -->
             <!-- GLOBAL STYLES                               -->
@@ -51,38 +51,33 @@
                 <Setter Property="FontSize" Value="13"/>
             </Style>
             
-            <!-- macOS-style Button -->
+            <!-- Flat Button -->
             <Style x:Key="FlatButton" TargetType="Button">
                 <Setter Property="Background" Value="{DynamicResource BackgroundButton}"/>
                 <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Padding" Value="12,5"/>
                 <Setter Property="FontSize" Value="13"/>
-                <Setter Property="FontWeight" Value="Medium"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="Cursor" Value="Hand"/>
-                <Setter Property="Effect">
-                    <Setter.Value>
-                        <DropShadowEffect ShadowDepth="1" BlurRadius="4" Opacity="0.3" Color="Black"/>
-                    </Setter.Value>
-                </Setter>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="border" 
                                     Background="{TemplateBinding Background}" 
-                                    CornerRadius="8" 
+                                    CornerRadius="6" 
                                     Padding="{TemplateBinding Padding}"
-                                    BorderBrush="#444" BorderThickness="1">
+                                    BorderBrush="#22242A" BorderThickness="1">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter Property="Background" Value="{DynamicResource BackgroundButtonHover}"/>
-                                    <Setter TargetName="border" Property="BorderBrush" Value="#666"/>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#333742"/>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter Property="Background" Value="#2A2A2E"/>
-                                    <Setter TargetName="border" Property="BorderBrush" Value="#555"/>
+                                    <Setter Property="Background" Value="#121316"/>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#D2F800"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -90,17 +85,18 @@
                 </Setter>
             </Style>
             
-            <!-- macOS Accent Button (for primary actions) -->
+            <!-- Accent Action Button (High-Contrast Electric Lime) -->
             <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource FlatButton}">
                 <Setter Property="Background" Value="{DynamicResource AccentBlue}"/>
-                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Foreground" Value="#0B0C0E"/>
+                <Setter Property="FontWeight" Value="Bold"/>
             </Style>
             
             <!-- TextBox Style -->
             <Style TargetType="TextBox">
                 <Setter Property="Background" Value="{DynamicResource BackgroundInput}"/>
                 <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
-                <Setter Property="BorderBrush" Value="{DynamicResource BackgroundButton}"/>
+                <Setter Property="BorderBrush" Value="#22242A"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="Padding" Value="6,4"/>
                 <Setter Property="FontSize" Value="13"/>
