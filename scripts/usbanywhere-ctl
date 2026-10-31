@@ -391,6 +391,28 @@ def handle_control_client(sock, addr):
         except Exception:
             pass
 
+def run_udp_discovery_responder(port=CONTROL_PORT):
+    """Listen for incoming UDP discovery probes on port 3241 and reply with server identity."""
+    try:
+        udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if hasattr(socket, "SO_BROADCAST"):
+            udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        udp_sock.bind(("0.0.0.0", port))
+        
+        while True:
+            try:
+                data, addr = udp_sock.recvfrom(1024)
+                msg = data.decode("utf-8", errors="ignore").strip()
+                if "USBANYWHERE_DISCOVERY_PROBE" in msg or "DISCOVERY" in msg:
+                    host = socket.gethostname()
+                    resp = f"USBANYWHERE_SERVER:{host}\n".encode("utf-8")
+                    udp_sock.sendto(resp, addr)
+            except Exception:
+                time.sleep(0.05)
+    except Exception:
+        pass
+
 def run_dynamic_daemon(port=CONTROL_PORT):
     """Run dynamic daemon with both background auto-unbind watcher and on-demand control listener."""
     import threading
@@ -398,10 +420,14 @@ def run_dynamic_daemon(port=CONTROL_PORT):
     print(f"\n{CYAN}═══ ⚡ USBAnywhere Dynamic Multi-Tenant Daemon ═══{RESET}")
     print(f"• Dynamic Auto-Unbind: ACTIVE (Devices released to local OS when client disconnects)")
     print(f"• Control Socket:      LISTENING on TCP port {port} (On-demand BIND / UNBIND API)")
+    print(f"• Discovery Responder: LISTENING on UDP port {port} (Broadcast Auto-Scan Responder)")
     print(f"• Main USB/IP Port:    LISTENING on TCP port {PORT}")
     
     watcher_t = threading.Thread(target=run_auto_unbind_daemon, kwargs={"interval": 1.0, "standalone": False}, daemon=True)
     watcher_t.start()
+
+    udp_t = threading.Thread(target=run_udp_discovery_responder, kwargs={"port": port}, daemon=True)
+    udp_t.start()
     
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

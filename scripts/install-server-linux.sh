@@ -27,7 +27,7 @@ fi
 echo -e "${BLUE}[1/5] Detecting package manager & installing dependencies...${NC}"
 if command -v apt-get &> /dev/null; then
     apt-get update -qq
-    apt-get install -y -qq usbip hwdata linux-tools-generic linux-tools-$(uname -r) python3 2>/dev/null || apt-get install -y -qq usbip hwdata python3
+    apt-get install -y -qq usbip hwdata linux-tools-generic linux-tools-$(uname -r) python3 avahi-daemon libnss-mdns 2>/dev/null || apt-get install -y -qq usbip hwdata python3 avahi-daemon libnss-mdns
 elif command -v dnf &> /dev/null; then
     dnf install -y -q usbip python3
 elif command -v pacman &> /dev/null; then
@@ -94,6 +94,29 @@ EOF
 systemctl daemon-reload 2>/dev/null || true
 systemctl enable usbanywhere-autounbind 2>/dev/null || true
 systemctl restart usbanywhere-autounbind 2>/dev/null || true
+
+# Configure Avahi Zeroconf / mDNS service
+if command -v avahi-daemon &> /dev/null; then
+    mkdir -p /etc/avahi/services
+    cat << 'AVAHI_EOF' > /etc/avahi/services/usbanywhere.service
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">USBAnywhere (%h)</name>
+  <service>
+    <type>_usbanywhere._tcp</type>
+    <port>3240</port>
+    <txt-record>proto=usbip</txt-record>
+    <txt-record>version=3.1.0</txt-record>
+  </service>
+  <service>
+    <type>_usbip._tcp</type>
+    <port>3240</port>
+  </service>
+</service-group>
+AVAHI_EOF
+    systemctl restart avahi-daemon 2>/dev/null || true
+fi
 
 echo -e "${BLUE}[5/5] Installing unified Control Suite (usbanywhere-ctl)...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
