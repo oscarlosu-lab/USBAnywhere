@@ -1,5 +1,31 @@
 # CHANGELOG - USBAnywhere
 
+## [3.2.0] - 2026-11-01
+
+### Added
+- **Obsidian Precision Design System (v3.2.0)**:
+  - Complete visual overhaul across `MainWindow`, `SshDialog`, and `VpnDialog` featuring high-contrast dark obsidian surfaces (`#0B0C0E` / `#121418`), electric lime primary actions (`#D2F800` with `#0B0C0E` text), and dynamic theme switching (`DynamicResource` tokens for Dark and Light modes).
+- **On-Demand Dynamic Control API & Zero-Config Discovery (TCP/UDP 3241)**:
+  - Full client support for querying remote servers running in On-Demand mode (0 pre-exported devices on TCP 3240) via TCP 3241 `LIST`.
+  - Synchronous response validation for TCP 3241 `BIND <busid>` (`OK` vs `DENIED` host policy feedback) with automatic post-bind stabilization retry on `usbip attach`.
+  - Parallel UDP 3241 broadcast discovery (`USBANYWHERE_DISCOVERY_PROBE`) alongside TCP 3240 and TCP 3241 scanning in `NetworkScanner`.
+- **Host Export Policy & Composite Interface Protection (`usbanywhere-ctl` v3.2.0)**:
+  - Added `/etc/usbanywhere/policy.json` and `usbanywhere-ctl policy` CLI (`mode`, `allow`, `deny`, `protect-hid`, `protect-storage`, `reset`) across Linux and macOS servers.
+  - Added child interface class inspection (`bInterfaceClass` for composite USB devices `0x00`/`0xef`/`0xff`), Valve Steam Controller (`28de:*`) recognition, and USB Hub (`0x09` / `1d6b:*`) exclusion.
+
+### Fixed
+- **Fixed On-Demand Dynamic Inventory Early Return**:
+  - Removed premature return in `UsbipService.ListRemoteDevicesAsync` when `usbip.exe -l` returned empty stdout, allowing `TryQueryDynamicInventoryAsync` (TCP 3241) to enumerate physical devices on On-Demand servers.
+- **Fixed Theme Startup Override & Button Contrast**:
+  - Updated `MainWindow.ApplyTheme` to use Obsidian Precision v3.2.0 palettes instead of legacy colors, fixing unreadable text contrast on `Scan` and primary action buttons in both Dark and Light themes.
+- **FixedCRLF Line Endings & Legacy Autobind Service on Linux**:
+  - Enforced `eol=lf` via `.gitattributes` and added defense-in-depth CRLF stripping in `SshProvisioningService` before executing `/tmp/usbanywhere-install.sh`.
+  - Updated Linux installer to stop and purge legacy `usbanywhere-autobind.service` units so `usbanywhere-autounbind.service` never re-binds released devices.
+- **Fixed Auto-Reconnect Race on Manual Disconnect**:
+  - Unregistered devices from `ConnectionMonitorService` prior to invoking `DisconnectAsync` to prevent background reconnect timers from firing during manual detachment.
+
+---
+
 ## [3.1.0] - 2026-10-31
 
 ### Added

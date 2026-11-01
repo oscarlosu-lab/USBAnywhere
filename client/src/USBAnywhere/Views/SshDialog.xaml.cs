@@ -102,7 +102,7 @@ public partial class SshDialog : Window
     
     private void BtnCopy_Click(object sender, RoutedEventArgs e)
     {
-        var commands = "curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh -o /tmp/usbanywhere-install.sh && sudo bash /tmp/usbanywhere-install.sh";
+        var commands = "curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere-Server/main/scripts/install-server-linux.sh -o /tmp/usbanywhere-install.sh && sed -i 's/\\r$//' /tmp/usbanywhere-install.sh && sudo bash /tmp/usbanywhere-install.sh";
         System.Windows.Clipboard.SetText(commands);
         btnCopy.Content = _localization.GetText("ssh_copied", _language);
     }
@@ -129,7 +129,8 @@ public partial class SshDialog : Window
         Close();
 
         // Avoid ';' because Windows Terminal (wt.exe) parses ';' as its own multi-tab command delimiter.
-        const string remoteScript = "curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh -o /tmp/usbanywhere-install.sh && sudo bash /tmp/usbanywhere-install.sh && exec $SHELL || exec $SHELL";
+        // Also strip CRLF via sed before bash execution as defense-in-depth against carriage returns.
+        const string remoteScript = "curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere-Server/main/scripts/install-server-linux.sh -o /tmp/usbanywhere-install.sh && sed -i 's/\\r$//' /tmp/usbanywhere-install.sh && sudo bash /tmp/usbanywhere-install.sh && exec $SHELL || exec $SHELL";
 
         try
         {

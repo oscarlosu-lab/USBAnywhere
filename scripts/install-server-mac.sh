@@ -94,7 +94,6 @@ cat <<EOF > "${PLIST_PATH}"
     <array>
         <string>${BINARY_TARGET}</string>
         <string>serve</string>
-        <string>--auto-bind</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

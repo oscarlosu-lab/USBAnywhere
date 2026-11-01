@@ -199,13 +199,13 @@
                 <!-- Status Label -->
                 <TextBlock Grid.Row="0" x:Name="lblStatus" 
                            Text="✓ Listo" FontSize="14"
-                           Foreground="{StaticResource StatusSuccess}"
+                           Foreground="{DynamicResource StatusSuccess}"
                            Margin="10,8,0,0"/>
                 
                 <!-- Driver Status -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10,12,0,0">
                     <TextBlock x:Name="lblDriverStatus" Text="Drivers: " FontSize="13" Foreground="{DynamicResource ForegroundPrimary}"/>
-                    <TextBlock x:Name="lblDriverValue" Text="Instalado ✓" FontSize="13" Foreground="{StaticResource StatusSuccess}"/>
+                    <TextBlock x:Name="lblDriverValue" Text="Instalado ✓" FontSize="13" Foreground="{DynamicResource StatusSuccess}"/>
                 </StackPanel>
                 
                 <!-- Options & Driver Buttons -->
@@ -234,10 +234,10 @@
                 Grid.RowSpan="6"
                 HorizontalAlignment="Right" 
                 VerticalAlignment="Bottom"
-                Background="#2D2D30"
-                BorderBrush="{StaticResource AccentBlue}"
+                Background="{DynamicResource BackgroundTitleBar}"
+                BorderBrush="{DynamicResource AccentBlue}"
                 BorderThickness="1"
-                CornerRadius="5"
+                CornerRadius="6"
                 Margin="0,0,20,20"
                 Padding="15,10"
                 Visibility="Collapsed"
@@ -250,11 +250,11 @@
                            Text="Notification" 
                            FontWeight="Bold" 
                            FontSize="13"
-                           Foreground="{StaticResource AccentBlue}"/>
+                           Foreground="{DynamicResource AccentBlue}"/>
                 <TextBlock x:Name="toastMessage" 
                            Text="Message" 
                            FontSize="12"
-                           Foreground="{StaticResource ForegroundPrimary}"
+                           Foreground="{DynamicResource ForegroundPrimary}"
                            MaxWidth="250"
                            TextWrapping="Wrap"
                            Margin="0,3,0,0"/>

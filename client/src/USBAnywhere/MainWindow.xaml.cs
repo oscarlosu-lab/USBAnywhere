@@ -451,11 +451,22 @@ public partial class MainWindow : Window
 
                 if (!string.IsNullOrEmpty(device.VendorId) && !string.IsNullOrEmpty(device.ProductId))
                 {
-                    var usbIdsName = _usbIds.GetDeviceDescription(device.VendorId, device.ProductId);
-                    if (!usbIdsName.StartsWith("Unknown") && !usbIdsName.StartsWith("USB Device"))
+                    var customName = _usbIds.GetCustomName(device.VendorId, device.ProductId);
+                    if (!string.IsNullOrWhiteSpace(customName))
                     {
-                        displayName = usbIdsName;
+                        displayName = customName;
                         device.Description = displayName;
+                    }
+                    else if (string.IsNullOrWhiteSpace(displayName) ||
+                             displayName.Contains("unknown", StringComparison.OrdinalIgnoreCase) ||
+                             displayName.StartsWith("USB Device", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var usbIdsName = _usbIds.GetDeviceDescription(device.VendorId, device.ProductId);
+                        if (!usbIdsName.StartsWith("Unknown") && !usbIdsName.StartsWith("USB Device"))
+                        {
+                            displayName = usbIdsName;
+                            device.Description = displayName;
+                        }
                     }
                 }
 
@@ -485,19 +496,23 @@ public partial class MainWindow : Window
 
     private static async Task<double> MeasureServerLatencyMsAsync(string serverIP)
     {
-        try
+        foreach (var port in new[] { 3240, 3241 })
         {
-            var sw = Stopwatch.StartNew();
-            using var client = new TcpClient();
-            using var cts = new CancellationTokenSource(500);
-            await client.ConnectAsync(serverIP, 3240, cts.Token);
-            sw.Stop();
-            return sw.Elapsed.TotalMilliseconds;
+            try
+            {
+                var sw = Stopwatch.StartNew();
+                using var client = new TcpClient();
+                using var cts = new CancellationTokenSource(450);
+                await client.ConnectAsync(serverIP, port, cts.Token);
+                sw.Stop();
+                return sw.Elapsed.TotalMilliseconds;
+            }
+            catch
+            {
+                // Try fallback port
+            }
         }
-        catch
-        {
-            return -1;
-        }
+        return -1;
     }
 
     private bool IsDeviceInConnectedNode(string serverIP, string busId)
@@ -696,6 +711,8 @@ public partial class MainWindow : Window
 
         if (portDevice != null)
         {
+            // Remove from monitor before detaching to prevent auto-reconnect race during detach
+            _connectionMonitor.RemoveDevice(connectedDevice.ServerIP, connectedDevice.BusId);
             var result = await _usbip.DisconnectAsync(portDevice.Port);
 
             if (result.Success)
@@ -703,8 +720,6 @@ public partial class MainWindow : Window
                 AddLocalizedLog("Success", "log_disconnected_port", portDevice.Port);
                 lblStatus.Text = $"✓ {_localization.GetText("log_disconnected", _currentLanguage)}";
                 lblStatus.Foreground = (SolidColorBrush)FindResource("StatusSuccess");
-
-                _connectionMonitor.RemoveDevice(connectedDevice.ServerIP, connectedDevice.BusId);
                 nodeConnected.Items.Remove(selectedNode);
                 UpdateConnectedCount();
 
@@ -899,6 +914,9 @@ public partial class MainWindow : Window
                 : System.Windows.Media.Color.FromRgb(16, 124, 65));
     }
 
+    private static SolidColorBrush BrushFromHex(string hex) =>
+        new((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex));
+
     private void ApplyTheme(string theme)
     {
         btnTheme.Content = theme == "dark" ? "🌙" : "☀️";
@@ -906,33 +924,51 @@ public partial class MainWindow : Window
 
         if (theme == "light")
         {
-            resources["BackgroundDark"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F5F5F5"));
-            resources["BackgroundPanel"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#FFFFFF"));
-            resources["BackgroundTitleBar"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#E8E8E8"));
-            resources["BackgroundButton"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#DEDEDE"));
-            resources["BackgroundButtonHover"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#C8C8C8"));
-            resources["BackgroundInput"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#FFFFFF"));
-            resources["ForegroundPrimary"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E"));
-            resources["ForegroundSecondary"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#666666"));
-            resources["AccentOrange"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#D35400"));
-            resources["AccentBlue"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0078D4"));
-            resources["StatusSuccess"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#107C10"));
-            resources["StatusInfo"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0078D4"));
+            // Obsidian Precision Light Theme (v3.2.0)
+            resources["BackgroundDark"] = BrushFromHex("#F4F4F6");
+            resources["BackgroundPanel"] = BrushFromHex("#FFFFFF");
+            resources["BackgroundTitleBar"] = BrushFromHex("#EAEAEF");
+            resources["BackgroundButton"] = BrushFromHex("#E5E7EB");
+            resources["BackgroundButtonHover"] = BrushFromHex("#D1D5DB");
+            resources["BackgroundInput"] = BrushFromHex("#FFFFFF");
+            resources["ForegroundPrimary"] = BrushFromHex("#111827");
+            resources["ForegroundSecondary"] = BrushFromHex("#4B5563");
+            resources["ForegroundAccent"] = BrushFromHex("#111827");
+            resources["AccentButtonForeground"] = BrushFromHex("#FFFFFF");
+            resources["BorderSubtle"] = BrushFromHex("#D1D5DB");
+            resources["AccentOrange"] = BrushFromHex("#111827");
+            resources["AccentBlue"] = BrushFromHex("#111827");
+            resources["AccentGreen"] = BrushFromHex("#15803D");
+            resources["AccentRed"] = BrushFromHex("#DC2626");
+            resources["AccentTeal"] = BrushFromHex("#0284C7");
+            resources["StatusSuccess"] = BrushFromHex("#15803D");
+            resources["StatusWarning"] = BrushFromHex("#B45309");
+            resources["StatusError"] = BrushFromHex("#DC2626");
+            resources["StatusInfo"] = BrushFromHex("#0284C7");
         }
         else
         {
-            resources["BackgroundDark"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1E1E1E"));
-            resources["BackgroundPanel"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#252526"));
-            resources["BackgroundTitleBar"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#323233"));
-            resources["BackgroundButton"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0E639C"));
-            resources["BackgroundButtonHover"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#1177BB"));
-            resources["BackgroundInput"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3C3C3C"));
-            resources["ForegroundPrimary"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#DCDCDC"));
-            resources["ForegroundSecondary"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#969696"));
-            resources["AccentOrange"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#CE9178"));
-            resources["AccentBlue"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#0E639C"));
-            resources["StatusSuccess"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#89D185"));
-            resources["StatusInfo"] = new SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#75BEFF"));
+            // Obsidian Precision Dark Theme (v3.2.0)
+            resources["BackgroundDark"] = BrushFromHex("#0B0C0E");
+            resources["BackgroundPanel"] = BrushFromHex("#131417");
+            resources["BackgroundTitleBar"] = BrushFromHex("#16171B");
+            resources["BackgroundButton"] = BrushFromHex("#18191E");
+            resources["BackgroundButtonHover"] = BrushFromHex("#22242A");
+            resources["BackgroundInput"] = BrushFromHex("#141518");
+            resources["ForegroundPrimary"] = BrushFromHex("#EDEDED");
+            resources["ForegroundSecondary"] = BrushFromHex("#8E919A");
+            resources["ForegroundAccent"] = BrushFromHex("#D2F800");
+            resources["AccentButtonForeground"] = BrushFromHex("#0B0C0E");
+            resources["BorderSubtle"] = BrushFromHex("#22242A");
+            resources["AccentOrange"] = BrushFromHex("#D2F800");
+            resources["AccentBlue"] = BrushFromHex("#D2F800");
+            resources["AccentGreen"] = BrushFromHex("#22C55E");
+            resources["AccentRed"] = BrushFromHex("#EF4444");
+            resources["AccentTeal"] = BrushFromHex("#00E5FF");
+            resources["StatusSuccess"] = BrushFromHex("#D2F800");
+            resources["StatusWarning"] = BrushFromHex("#F59E0B");
+            resources["StatusError"] = BrushFromHex("#EF4444");
+            resources["StatusInfo"] = BrushFromHex("#00E5FF");
         }
 
         Background = (SolidColorBrush)resources["BackgroundDark"];
@@ -1048,23 +1084,42 @@ public partial class MainWindow : Window
     {
         try
         {
+            string? fallbackSubnet = null;
             foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
             {
-                if (ni.OperationalStatus == OperationalStatus.Up &&
-                    ni.NetworkInterfaceType != NetworkInterfaceType.Loopback &&
-                    !ni.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase) &&
-                    !ni.Description.Contains("VMware", StringComparison.OrdinalIgnoreCase))
+                if (ni.OperationalStatus != OperationalStatus.Up ||
+                    ni.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                    ni.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase) ||
+                    ni.Description.Contains("VMware", StringComparison.OrdinalIgnoreCase) ||
+                    ni.Description.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase) ||
+                    ni.Description.Contains("WSL", StringComparison.OrdinalIgnoreCase))
                 {
-                    foreach (var ip in ni.GetIPProperties().UnicastAddresses)
+                    continue;
+                }
+
+                var props = ni.GetIPProperties();
+                bool hasGateway = props.GatewayAddresses.Any(g =>
+                    g.Address.AddressFamily == AddressFamily.InterNetwork &&
+                    !g.Address.Equals(System.Net.IPAddress.Any));
+
+                foreach (var ip in props.UnicastAddresses)
+                {
+                    if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
                     {
-                        if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
-                        {
-                            var parts = ip.Address.ToString().Split('.');
-                            return $"{parts[0]}.{parts[1]}.{parts[2]}";
-                        }
+                        var addrStr = ip.Address.ToString();
+                        if (addrStr.StartsWith("169.254.", StringComparison.Ordinal))
+                            continue;
+
+                        var parts = addrStr.Split('.');
+                        var subnet = $"{parts[0]}.{parts[1]}.{parts[2]}";
+                        if (hasGateway)
+                            return subnet;
+                        fallbackSubnet ??= subnet;
                     }
                 }
             }
+            if (fallbackSubnet != null)
+                return fallbackSubnet;
         }
         catch (Exception dbgEx) { System.Diagnostics.Debug.WriteLine($"[MainWindow.xaml] {dbgEx.Message}"); }
         return "192.168.1";

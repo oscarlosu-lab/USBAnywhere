@@ -12,6 +12,7 @@
     <!-- App Info -->
     <AssemblyName>USBAnywhere</AssemblyName>
     <RootNamespace>USBAnywhere</RootNamespace>
+    <Version>3.2.0</Version>
     <Description>The Free, Open-Source VirtualHere Alternative for Windows - Connect unlimited remote USB devices over network</Description>
     
     <!-- Build Options -->

@@ -5,7 +5,7 @@
         Height="460" Width="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#1E1E1E">
+        Background="{DynamicResource BackgroundDark}">
     
     <Grid Margin="15">
         <Grid.RowDefinitions>
@@ -16,11 +16,11 @@
         
         <!-- Instructions -->
         <TextBlock x:Name="txtInstructions" Grid.Row="0"
-                   Foreground="#C8C8C8" FontFamily="Consolas" FontSize="9"
+                   Foreground="{DynamicResource ForegroundPrimary}" FontFamily="Consolas" FontSize="9.5"
                    TextWrapping="Wrap"/>
         
         <!-- Connection Panel -->
-        <Border Grid.Row="1" Background="#2D2D30" CornerRadius="4">
+        <Border Grid.Row="1" Background="{DynamicResource BackgroundPanel}" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="1" CornerRadius="6">
             <Grid Margin="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -31,31 +31,30 @@
                 </Grid.ColumnDefinitions>
                 
                 <TextBlock x:Name="lblUser" Grid.Column="0" Text="User:" 
-                           Foreground="White" VerticalAlignment="Center"/>
+                           Foreground="{DynamicResource ForegroundPrimary}" VerticalAlignment="Center"/>
                 <TextBox x:Name="txtUser" Grid.Column="1" Text="pi" 
                          Margin="5,0,0,0" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="2" Text="@" Foreground="White" 
+                <TextBlock Grid.Column="2" Text="@" Foreground="{DynamicResource ForegroundSecondary}" 
                            VerticalAlignment="Center" Margin="10,0"/>
                 <TextBox x:Name="txtIP" Grid.Column="3" 
                          VerticalAlignment="Center"/>
                 <Button x:Name="btnConnect" Grid.Column="4" Content="🔗 Connect"
-                        Background="#007ACC" Foreground="White" 
-                        Width="90" Height="28" Margin="10,0,0,0"
-                        BorderThickness="0" Cursor="Hand"
+                        Style="{StaticResource AccentButton}"
+                        Width="95" Height="28" Margin="10,0,0,0"
                         Click="BtnConnect_Click"/>
             </Grid>
         </Border>
         
         <!-- Bottom Buttons -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
-            <Button x:Name="btnAutoSetup" Content="⚡ 1-Click Auto-Setup" Background="#107C41" Foreground="White" FontWeight="SemiBold" Width="175" Height="28" BorderThickness="0" Cursor="Hand" Margin="0,0,10,0" Click="BtnAutoSetup_Click"/>
+            <Button x:Name="btnAutoSetup" Content="⚡ 1-Click Auto-Setup" Style="{StaticResource FlatButton}" Background="#15803D" Foreground="White" FontWeight="SemiBold" Width="175" Height="28" Margin="0,0,10,0" Click="BtnAutoSetup_Click"/>
             <Button x:Name="btnCopy" Content="📋 Copy commands"
-                    Background="#3E3E42" Foreground="White"
-                    Width="130" Height="28" BorderThickness="0" Cursor="Hand"
+                    Style="{StaticResource FlatButton}"
+                    Width="135" Height="28"
                     Click="BtnCopy_Click"/>
             <Button x:Name="btnClose" Content="Close"
-                    Background="#3E3E42" Foreground="White"
-                    Width="70" Height="28" BorderThickness="0" Cursor="Hand"
+                    Style="{StaticResource FlatButton}"
+                    Width="75" Height="28"
                     Margin="10,0,0,0" Click="BtnClose_Click"/>
         </StackPanel>
     </Grid>

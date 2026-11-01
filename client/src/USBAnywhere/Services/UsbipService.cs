@@ -55,7 +55,7 @@ namespace USBAnywhere.Services
         {
             _logger.LogInformation("Escaneando dispositivos remotos en {IP}...", ip);
             var devices = new List<UsbDevice>();
-            
+
             if (!InputValidator.IsValidHost(ip))
             {
                 _logger.LogWarning("SEGURIDAD: IP/host inválido rechazado: {IP}", ip);
@@ -65,8 +65,8 @@ namespace USBAnywhere.Services
             try
             {
                 var result = await RunCommandAsync(new[] { "list", "-r", ip }, 15000, ct);
-                if (string.IsNullOrEmpty(result.Output)) return devices;
-
+                if (!string.IsNullOrEmpty(result.Output))
+                {
                 // Pattern 1: Modern usbip / usbipw format:
                 //   3-1    : Realtek Semiconductor Corp. : unknown product (0bda:5100)
                 var regexModern = new Regex(@"^\s+([\d\-\.]+)\s*:\s*(.+?)\s*\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\)\s*$", RegexOptions.Multiline);
@@ -150,6 +150,7 @@ namespace USBAnywhere.Services
                         }
                     }
                 }
+                } // end if (!string.IsNullOrEmpty(result.Output))
 
                 // Dynamic Control API (TCP 3241) discovery for unbound/local physical devices
                 await TryQueryDynamicInventoryAsync(ip, devices, ct);
@@ -175,7 +176,7 @@ namespace USBAnywhere.Services
             }
 
             _logger.LogInformation("Intentando conectar dispositivo {BusId} desde {IP} (modo: {Mode})...", busId, ip, receiveMode ?? "default");
-            
+
             try
             {
                 if (!await _driverService.IsDriverInstalledAsync())
@@ -183,8 +184,22 @@ namespace USBAnywhere.Services
                     _logger.LogWarning("Driver usbip-win no detectado. La conexión podría fallar.");
                 }
 
+                _lastAttachError = null;
+
                 // Dynamic on-demand binding (USBAnywhere Dynamic Daemon on port 3241)
-                await TryDynamicBindAsync(ip, busId, ct);
+                var bindStatus = await TryDynamicBindAsync(ip, busId, ct);
+                if (!bindStatus.Allowed)
+                {
+                    _lastAttachError = bindStatus.ErrorMessage ?? $"Device {busId} blocked by server export policy";
+                    _logger.LogWarning("Conexión denegada por política del servidor {IP}: {Reason}", ip, _lastAttachError);
+                    return false;
+                }
+
+                if (bindStatus.BoundOnDemand)
+                {
+                    // Allow usbipd a brief window to register the newly bound device
+                    await Task.Delay(150, ct);
+                }
 
                 var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId };
                 if (!string.IsNullOrWhiteSpace(receiveMode))
@@ -197,18 +212,29 @@ namespace USBAnywhere.Services
                 }
 
                 var result = await RunCommandAsync(cmdArgs, 10000, ct);
-                
+
                 // FIX: usbip attach returns exit code 0 on success (output may be empty)
                 // Only fail if exit code != 0 OR output explicitly contains error keywords
                 bool hasError = result.Output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                                 result.Output.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
                                 result.Error.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                                 result.Error.Contains("failed", StringComparison.OrdinalIgnoreCase);
-                
+
                 bool success = result.ExitCode == 0 && !hasError;
-                
+
+                if (!success && bindStatus.BoundOnDemand)
+                {
+                    await Task.Delay(350, ct);
+                    result = await RunCommandAsync(cmdArgs, 10000, ct);
+                    hasError = result.Output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                               result.Output.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+                               result.Error.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                               result.Error.Contains("failed", StringComparison.OrdinalIgnoreCase);
+                    success = result.ExitCode == 0 && !hasError;
+                }
+
                 if (success) _logger.LogInformation("Dispositivo {BusId} conectado exitosamente.", busId);
-                else _logger.LogError("Fallo al conectar {BusId}. ExitCode: {ExitCode}, Output: {Output}, Error: {Error}", 
+                else _logger.LogError("Fallo al conectar {BusId}. ExitCode: {ExitCode}, Output: {Output}, Error: {Error}",
                     busId, result.ExitCode, result.Output, result.Error);
 
                 return success;
@@ -235,17 +261,17 @@ namespace USBAnywhere.Services
             try
             {
                 var result = await RunCommandAsync(new[] { "detach", "-p", port }, 5000, ct);
-                
+
                 // FIX: usbip detach produces empty output on success — use exit code
                 bool hasError = result.Output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
                                 result.Error.Contains("error", StringComparison.OrdinalIgnoreCase);
-                
+
                 bool success = result.ExitCode == 0 && !hasError;
-                
+
                 if (success) _logger.LogInformation("Puerto {Port} liberado.", port);
-                else _logger.LogError("Fallo al desconectar puerto {Port}. ExitCode: {ExitCode}, Error: {Error}", 
+                else _logger.LogError("Fallo al desconectar puerto {Port}. ExitCode: {ExitCode}, Error: {Error}",
                     port, result.ExitCode, result.Error);
-                
+
                 return success;
             }
             catch (Exception ex)
@@ -298,7 +324,7 @@ namespace USBAnywhere.Services
                 process.ErrorDataReceived += (s, e) => { if (e.Data != null) lock (errorBuilder) errorBuilder.AppendLine(e.Data); };
 
                 _logger.LogDebug("Exec: {Exe} {Args}", exePath, string.Join(' ', args));
-                
+
                 if (!process.Start()) return new CommandResult(string.Empty, "Failed to start process", -3);
 
                 process.BeginOutputReadLine();
@@ -315,14 +341,14 @@ namespace USBAnywhere.Services
                     else
                     {
                         _logger.LogWarning("Comando USBIP excedió el timeout de {Timeout}ms.", timeoutMs);
-                        try 
-                        { 
-                            process.Kill(entireProcessTree: true); 
+                        try
+                        {
+                            process.Kill(entireProcessTree: true);
                             process.WaitForExit(2000);
-                        } 
-                        catch (Exception kex) 
-                        { 
-                            _logger.LogDebug(kex, "No se pudo terminar el árbol de procesos usbip tras timeout"); 
+                        }
+                        catch (Exception kex)
+                        {
+                            _logger.LogDebug(kex, "No se pudo terminar el árbol de procesos usbip tras timeout");
                         }
                         exitCode = -4;
                     }
@@ -341,14 +367,14 @@ namespace USBAnywhere.Services
         private string? GetUsbipExecutable()
         {
             var candidates = new[] { "usbipw.exe", "usbip-win.exe", "usbip.exe" };
-            
+
             // Search in BinPath first
             foreach (var name in candidates)
             {
                 var path = Path.Combine(_envService.BinPath, name);
                 if (File.Exists(path)) return path;
             }
-            
+
             // FIX: Also search in BaseDirectory (portable mode — binaries next to exe)
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             foreach (var name in candidates)
@@ -356,7 +382,7 @@ namespace USBAnywhere.Services
                 var path = Path.Combine(baseDir, name);
                 if (File.Exists(path)) return path;
             }
-            
+
             return null;
         }
 
@@ -414,10 +440,12 @@ namespace USBAnywhere.Services
         public Task<List<UsbDevice>> ListDevicesAsync(string serverIP)
             => ListRemoteDevicesAsync(serverIP);
 
+        private string? _lastAttachError;
+
         public async Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null)
         {
             bool ok = await AttachDeviceAsync(serverIP, busId, receiveMode);
-            return new OperationResult { Success = ok, Error = ok ? null : "Attach failed" };
+            return new OperationResult { Success = ok, Error = ok ? null : (_lastAttachError ?? "Attach failed") };
         }
 
         public async Task<OperationResult> DisconnectAsync(int port)
@@ -456,12 +484,12 @@ namespace USBAnywhere.Services
         public async Task<List<ConnectedDevice>> GetConnectedDevicesAsync()
         {
             var devices = new List<ConnectedDevice>();
-            
+
             try
             {
                 var result = await RunCommandAsync(new[] { "port" }, 10000, CancellationToken.None);
                 if (string.IsNullOrEmpty(result.Output)) return devices;
-                
+
                 // Parse usbip port output format:
                 // Port 00: <Port in Use> at Speed(480Mbps)
                 //        Server IP: 192.168.1.50
@@ -470,20 +498,20 @@ namespace USBAnywhere.Services
                 // Port 0: imported
                 //     remote: 192.168.1.50
                 //     bus id: 1-1.4 (class: 0e / subclass: 01 / protocol: 00)
-                
+
                 var lines = result.Output.Split('\n', StringSplitOptions.None);
-                
+
                 int currentPort = -1;
                 string currentServerIP = "";
                 string currentBusId = "";
                 string currentVidPid = "";
                 string currentDesc = "";
                 bool portInUse = false;
-                
+
                 foreach (var rawLine in lines)
                 {
                     var line = rawLine.Trim();
-                    
+
                     // Match port line: "Port XX:" or "Port 0:"
                     var portMatch = Regex.Match(line, @"Port\s+(\d+)\s*:", RegexOptions.IgnoreCase);
                     if (portMatch.Success)
@@ -501,20 +529,20 @@ namespace USBAnywhere.Services
                                 Description = currentDesc
                             });
                         }
-                        
+
                         currentPort = int.Parse(portMatch.Groups[1].Value);
                         currentServerIP = "";
                         currentBusId = "";
                         currentVidPid = "";
                         currentDesc = "";
-                        
+
                         // Check if port is in use
-                        portInUse = line.Contains("Use", StringComparison.OrdinalIgnoreCase) || 
+                        portInUse = line.Contains("Use", StringComparison.OrdinalIgnoreCase) ||
                                     line.Contains("imported", StringComparison.OrdinalIgnoreCase) ||
                                     !line.Contains("empty", StringComparison.OrdinalIgnoreCase);
                         continue;
                     }
-                    
+
                     // Match modern usbip URI: "-> usbip://192.168.1.162:3240/5-1"
                     var urlMatch = Regex.Match(line, @"usbip://([a-zA-Z0-9\.\-]+)(?::\d+)?/([\d\-\.]+)", RegexOptions.IgnoreCase);
                     if (urlMatch.Success)
@@ -543,7 +571,7 @@ namespace USBAnywhere.Services
                         currentServerIP = serverMatch.Groups[1].Value;
                         continue;
                     }
-                    
+
                     // Match bus id with VID:PID (legacy format)
                     var busMatch = Regex.Match(line, @"bus\s*id\s*:\s*([\d\-\.]+)\s*(?:\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\))?", RegexOptions.IgnoreCase);
                     if (busMatch.Success)
@@ -553,7 +581,7 @@ namespace USBAnywhere.Services
                             currentVidPid = busMatch.Groups[2].Value;
                         continue;
                     }
-                    
+
                     // Alternate busid format
                     var busMatch2 = Regex.Match(line, @"busid\s*:\s*([\d\-\.]+)\s*\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\)", RegexOptions.IgnoreCase);
                     if (busMatch2.Success)
@@ -563,7 +591,7 @@ namespace USBAnywhere.Services
                         continue;
                     }
                 }
-                
+
                 // Don't forget last device
                 if (portInUse && currentPort >= 0 && !string.IsNullOrEmpty(currentServerIP))
                 {
@@ -577,33 +605,60 @@ namespace USBAnywhere.Services
                         Description = currentDesc
                     });
                 }
-                
+
                 _logger.LogDebug("GetConnectedDevicesAsync found {Count} connected device(s)", devices.Count);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error parsing connected devices from 'usbip port'");
             }
-            
+
             return devices;
         }
 
-        private async Task TryDynamicBindAsync(string ip, string busId, CancellationToken ct)
+        private async Task<(bool Allowed, bool BoundOnDemand, string? ErrorMessage)> TryDynamicBindAsync(string ip, string busId, CancellationToken ct)
         {
             try
             {
                 using var tcp = new System.Net.Sockets.TcpClient();
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(500);
-                await tcp.ConnectAsync(ip, 3241, cts.Token);
+                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                connectCts.CancelAfter(700);
+                await tcp.ConnectAsync(ip, 3241, connectCts.Token);
+
                 using var stream = tcp.GetStream();
                 var msg = Encoding.UTF8.GetBytes($"BIND {busId}\n");
-                await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
+                await stream.WriteAsync(msg, 0, msg.Length, connectCts.Token);
                 _logger.LogDebug("Comando dinámico BIND {BusId} enviado a {IP}:3241", busId, ip);
+
+                using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                readCts.CancelAfter(3000);
+                using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 2048, leaveOpen: true);
+                var respLine = await reader.ReadLineAsync(readCts.Token);
+                if (!string.IsNullOrWhiteSpace(respLine))
+                {
+                    using var doc = System.Text.Json.JsonDocument.Parse(respLine.Trim());
+                    if (doc.RootElement.TryGetProperty("status", out var statusProp))
+                    {
+                        var status = statusProp.GetString() ?? "";
+                        if (status.Equals("DENIED", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var reason = doc.RootElement.TryGetProperty("message", out var msgProp)
+                                ? msgProp.GetString()
+                                : $"Device {busId} blocked by server export policy";
+                            return (false, false, reason);
+                        }
+                        if (status.Equals("OK", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return (true, true, null);
+                        }
+                    }
+                }
+                return (true, true, null);
             }
             catch
             {
                 // Dynamic daemon not running or timeout; fallback to standard attach
+                return (true, false, null);
             }
         }
 
@@ -613,17 +668,16 @@ namespace USBAnywhere.Services
             {
                 using var tcp = new System.Net.Sockets.TcpClient();
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(600);
+                cts.CancelAfter(1200);
                 await tcp.ConnectAsync(ip, 3241, cts.Token);
                 using var stream = tcp.GetStream();
                 var msg = Encoding.UTF8.GetBytes("LIST\n");
                 await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
 
-                byte[] buf = new byte[8192];
-                int read = await stream.ReadAsync(buf, 0, buf.Length, cts.Token);
-                if (read > 0)
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+                string json = (await reader.ReadToEndAsync(cts.Token)).Trim();
+                if (!string.IsNullOrEmpty(json))
                 {
-                    string json = Encoding.UTF8.GetString(buf, 0, read).Trim();
                     using var doc = System.Text.Json.JsonDocument.Parse(json);
                     if (doc.RootElement.TryGetProperty("devices", out var devsProp) && devsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {

@@ -12,6 +12,7 @@ public interface IUsbIdsService
     string GetDeviceName(string vendorId, string productId);  // alias → GetDeviceDescription
     string GetVendorName(string vendorId);                     // alias → GetVendor
     string GetDeviceDescription(string vendorId, string productId);
+    string? GetCustomName(string vendorId, string productId);
     void SetCustomName(string vendorId, string productId, string name);
     void LoadCustomNames(Dictionary<string, string>? names);
 }

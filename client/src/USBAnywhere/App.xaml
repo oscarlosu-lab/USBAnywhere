@@ -20,25 +20,27 @@
             <SolidColorBrush x:Key="ForegroundPrimary" Color="#EDEDED"/>
             <SolidColorBrush x:Key="ForegroundSecondary" Color="#8E919A"/>
             <SolidColorBrush x:Key="ForegroundAccent" Color="#D2F800"/>
+            <SolidColorBrush x:Key="AccentButtonForeground" Color="#0B0C0E"/>
+            <SolidColorBrush x:Key="BorderSubtle" Color="#22242A"/>
             
             <!-- Accent Colors - Obsidian Precision -->
-            <SolidColorBrush x:Key="AccentOrange" Color="#F59E0B"/>
+            <SolidColorBrush x:Key="AccentOrange" Color="#D2F800"/>
             <SolidColorBrush x:Key="AccentBlue" Color="#D2F800"/>
-            <SolidColorBrush x:Key="AccentGreen" Color="#D2F800"/>
+            <SolidColorBrush x:Key="AccentGreen" Color="#22C55E"/>
             <SolidColorBrush x:Key="AccentRed" Color="#EF4444"/>
             <SolidColorBrush x:Key="AccentPurple" Color="#A1A1AA"/>
-            <SolidColorBrush x:Key="AccentTeal" Color="#D2F800"/>
+            <SolidColorBrush x:Key="AccentTeal" Color="#00E5FF"/>
             
             <!-- macOS-style buttons -->
             <SolidColorBrush x:Key="MacCloseRed" Color="#EF4444"/>
             <SolidColorBrush x:Key="MacMinimizeYellow" Color="#F59E0B"/>
-            <SolidColorBrush x:Key="MacMaximizeGreen" Color="#D2F800"/>
+            <SolidColorBrush x:Key="MacMaximizeGreen" Color="#22C55E"/>
             
             <!-- Status Colors - Obsidian Precision -->
             <SolidColorBrush x:Key="StatusSuccess" Color="#D2F800"/>
             <SolidColorBrush x:Key="StatusWarning" Color="#F59E0B"/>
             <SolidColorBrush x:Key="StatusError" Color="#EF4444"/>
-            <SolidColorBrush x:Key="StatusInfo" Color="#A1A1AA"/>
+            <SolidColorBrush x:Key="StatusInfo" Color="#00E5FF"/>
             
             <!-- ============================================ -->
             <!-- GLOBAL STYLES                               -->
@@ -67,7 +69,7 @@
                                     Background="{TemplateBinding Background}" 
                                     CornerRadius="6" 
                                     Padding="{TemplateBinding Padding}"
-                                    BorderBrush="#22242A" BorderThickness="1">
+                                    BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="1">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -76,8 +78,8 @@
                                     <Setter TargetName="border" Property="BorderBrush" Value="#333742"/>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter Property="Background" Value="#121316"/>
-                                    <Setter TargetName="border" Property="BorderBrush" Value="#D2F800"/>
+                                    <Setter Property="Background" Value="{DynamicResource BackgroundDark}"/>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBlue}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -85,18 +87,39 @@
                 </Setter>
             </Style>
             
-            <!-- Accent Action Button (High-Contrast Electric Lime) -->
+            <!-- Accent Action Button (High-Contrast Electric Lime / Dark Slate) -->
             <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource FlatButton}">
                 <Setter Property="Background" Value="{DynamicResource AccentBlue}"/>
-                <Setter Property="Foreground" Value="#0B0C0E"/>
+                <Setter Property="Foreground" Value="{DynamicResource AccentButtonForeground}"/>
                 <Setter Property="FontWeight" Value="Bold"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" 
+                                    Background="{TemplateBinding Background}" 
+                                    CornerRadius="6" 
+                                    Padding="{TemplateBinding Padding}"
+                                    BorderBrush="{DynamicResource AccentBlue}" BorderThickness="1">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.88"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter Property="Opacity" Value="0.75"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
             
             <!-- TextBox Style -->
             <Style TargetType="TextBox">
                 <Setter Property="Background" Value="{DynamicResource BackgroundInput}"/>
                 <Setter Property="Foreground" Value="{DynamicResource ForegroundPrimary}"/>
-                <Setter Property="BorderBrush" Value="#22242A"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="Padding" Value="6,4"/>
                 <Setter Property="FontSize" Value="13"/>

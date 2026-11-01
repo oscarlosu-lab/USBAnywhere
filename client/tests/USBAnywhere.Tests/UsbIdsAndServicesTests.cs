@@ -39,7 +39,9 @@ public class UsbIdsAndServicesTests
     public void UsbIdsService_CustomNames_OverrideBuiltInDescriptions()
     {
         var svc = new UsbIdsService();
+        Assert.Null(svc.GetCustomName("046d", "c52b"));
         svc.SetCustomName("046d", "c52b", "My SimRacing Pedals");
+        Assert.Equal("My SimRacing Pedals", svc.GetCustomName("046d", "c52b"));
 
         Assert.Equal("My SimRacing Pedals", svc.GetDeviceDescription("046d", "c52b"));
         Assert.Equal("My SimRacing Pedals", svc.GetDeviceDescription("0x046D", "C52B"));

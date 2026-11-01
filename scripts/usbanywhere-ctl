@@ -24,7 +24,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-VERSION = "3.0.1"
+VERSION = "3.2.0"
 PORT = 3240
 CONTROL_PORT = 3241
 
@@ -40,6 +40,124 @@ RED = "\033[91m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 RESET = "\033[0m"
+
+
+POLICY_FILE = "/etc/usbanywhere/policy.json"
+DEFAULT_POLICY = {
+    "allow_all": True,
+    "allowlist": [],
+    "denylist": [],
+    "protect_local_hid": False,
+    "skip_classes": ["09"]
+}
+
+def load_policy(path=POLICY_FILE):
+    """Load host export policy from JSON configuration file."""
+    if os.path.isfile(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                pol = DEFAULT_POLICY.copy()
+                pol.update(data)
+                return pol
+        except Exception:
+            pass
+    return DEFAULT_POLICY.copy()
+
+def save_policy(pol, path=POLICY_FILE):
+    """Save host export policy to JSON configuration file."""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(pol, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"{RED}Error saving policy: {e}{RESET}")
+        return False
+
+def get_device_info(busid):
+    """Inspect sysfs for a given busid on Linux and return (vid, pid, dev_class, if_classes, prod_name, mfg_name)."""
+    if not IS_LINUX:
+        return "", "", "", set(), "", ""
+    dev_path = os.path.join("/sys/bus/usb/devices", busid)
+    if not os.path.exists(dev_path):
+        return "", "", "", set(), "", ""
+    
+    vid, pid, dev_class = "", "", ""
+    v_file = os.path.join(dev_path, "idVendor")
+    d_file = os.path.join(dev_path, "idProduct")
+    c_file = os.path.join(dev_path, "bDeviceClass")
+    if os.path.isfile(v_file):
+        try:
+            with open(v_file, "r") as f: vid = f.read().strip().lower()
+        except Exception: pass
+    if os.path.isfile(d_file):
+        try:
+            with open(d_file, "r") as f: pid = f.read().strip().lower()
+        except Exception: pass
+    if os.path.isfile(c_file):
+        try:
+            with open(c_file, "r") as f: dev_class = f.read().strip().lower()
+        except Exception: pass
+
+    if_classes = set()
+    try:
+        for item in os.listdir(dev_path):
+            if item.startswith(f"{busid}:"):
+                if_cls_p = os.path.join(dev_path, item, "bInterfaceClass")
+                if os.path.isfile(if_cls_p):
+                    try:
+                        with open(if_cls_p, "r") as f:
+                            if_classes.add(f.read().strip().lower())
+                    except Exception: pass
+    except Exception: pass
+
+    prod_name = ""
+    p_file = os.path.join(dev_path, "product")
+    if os.path.isfile(p_file):
+        try:
+            with open(p_file, "r") as f: prod_name = f.read().strip()
+        except Exception: pass
+    mfg_name = ""
+    m_file = os.path.join(dev_path, "manufacturer")
+    if os.path.isfile(m_file):
+        try:
+            with open(m_file, "r") as f: mfg_name = f.read().strip()
+        except Exception: pass
+
+    return vid, pid, dev_class, if_classes, prod_name, mfg_name
+
+def is_device_export_allowed(busid, policy=None):
+    """Check if device is allowed to be exported based on server export policy."""
+    if policy is None:
+        policy = load_policy()
+    vid, pid, dev_class, if_classes, prod_name, mfg_name = get_device_info(busid)
+    
+    # Always prevent sharing USB Hubs (Class 09) and Linux Foundation root hubs
+    if dev_class == "09" or "09" in if_classes or vid == "1d6b":
+        return False, "USB Hubs cannot be shared"
+
+    b_id = busid.lower().strip()
+    vp = f"{vid}:{pid}".lower().strip() if (vid and pid) else ""
+
+    # Denylist check (supports busid, vid:pid, or vid)
+    denylist = [x.lower().strip() for x in policy.get("denylist", [])]
+    if b_id in denylist or vp in denylist or (vid and vid in denylist):
+        return False, f"Device {busid} ({vp}) is blocked by host denylist"
+
+    # Local HID protection (protects local keyboards/mice/gamepads from remote grabbing)
+    if policy.get("protect_local_hid", False):
+        is_hid = (dev_class == "03" or "03" in if_classes or vid == "28de")
+        if is_hid:
+            return False, f"Device {busid} ({vp}) is protected local HID"
+
+    # Allowlist check (if defined and non-empty)
+    allowlist = [x.lower().strip() for x in policy.get("allowlist", [])]
+    if allowlist:
+        if not (b_id in allowlist or vp in allowlist or (vid and vid in allowlist)):
+            return False, f"Device {busid} ({vp}) is not in host allowlist"
+
+    return True, "OK"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPER UTILITIES
@@ -177,10 +295,10 @@ def list_devices():
         # Use native macOS server CLI if installed
         bin_path = shutil.which("usbanywhere-server-mac")
         if bin_path:
-            out = run_cmd([bin_path, "list"])
+            out = run_cmd([bin_path, "list", "--dynamic"])
             for line in out.splitlines():
-                if line.strip().startswith("["):
-                    devices.append(line.strip())
+                if ":" in line and line.strip():
+                    devices.append(line.rstrip())
         else:
             # Fallback to system_profiler
             out = run_cmd(["system_profiler", "SPUSBDataType"])
@@ -203,10 +321,33 @@ def list_devices():
                 if os.path.isfile(v_file) and os.path.isfile(d_file):
                     try:
                         with open(v_file, "r") as f:
-                            vid = f.read().strip()
+                            vid = f.read().strip().lower()
                         with open(d_file, "r") as f:
-                            pid = f.read().strip()
-                        prod_name = "USB Device"
+                            pid = f.read().strip().lower()
+
+                        cls_file = os.path.join(p, "bDeviceClass")
+                        dev_class = ""
+                        if os.path.isfile(cls_file):
+                            with open(cls_file, "r") as f:
+                                dev_class = f.read().strip().lower()
+
+                        # Skip Hubs (Class 09) and Linux Foundation root hubs
+                        if dev_class == "09" or vid == "1d6b" or entry.startswith("usb"):
+                            continue
+
+                        # Scan child interface classes for composite devices
+                        if_classes = set()
+                        for item in os.listdir(p):
+                            if item.startswith(f"{entry}:"):
+                                if_cls_p = os.path.join(p, item, "bInterfaceClass")
+                                if os.path.isfile(if_cls_p):
+                                    try:
+                                        with open(if_cls_p, "r") as f:
+                                            if_classes.add(f.read().strip().lower())
+                                    except Exception:
+                                        pass
+
+                        prod_name = ""
                         p_file = os.path.join(p, "product")
                         if os.path.isfile(p_file):
                             with open(p_file, "r") as f:
@@ -216,8 +357,25 @@ def list_devices():
                         if os.path.isfile(m_file):
                             with open(m_file, "r") as f:
                                 mfg_name = f.read().strip()
+
+                        # Valve Steam Controller special recognition
+                        is_steam = (vid == "28de" and pid in ["1304", "1102", "1142", "11ff", "1205"])
+                        if is_steam and not prod_name:
+                            prod_name = "Steam Controller Wireless Receiver" if pid == "1304" else "Steam Controller"
+
+                        # Determine functional class tag
+                        tag = ""
+                        if "03" in if_classes or dev_class == "03":
+                            tag = " [HID/Gamepad]" if (is_steam or "gamepad" in prod_name.lower()) else " [HID]"
+                        elif "08" in if_classes or dev_class == "08":
+                            tag = " [Storage]"
+                        elif "0e" in if_classes or dev_class == "0e":
+                            tag = " [Video]"
+                        elif "01" in if_classes or dev_class == "01":
+                            tag = " [Audio]"
+
                         desc = f"{mfg_name} {prod_name}".strip() or "USB Device"
-                        devices.append(f"  {entry}    : {desc} ({vid}:{pid})")
+                        devices.append(f"  {entry}    : {desc}{tag} ({vid}:{pid})")
                     except Exception:
                         pass
         if not devices:
@@ -241,6 +399,11 @@ def list_devices():
 
 def share_device(busid):
     """Export a specific USB peripheral by bus ID."""
+    allowed, reason = is_device_export_allowed(busid)
+    if not allowed:
+        print(f"{RED}[Policy Block] Cannot share {busid}: {reason}{RESET}")
+        return False
+
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
         return os.system(f"sudo {sys.executable} {' '.join(sys.argv)}") == 0
@@ -366,8 +529,17 @@ def handle_control_client(sock, addr):
             sock.sendall(resp.encode("utf-8"))
         elif cmd == "BIND" and len(parts) > 1:
             target_bus = parts[1]
-            ok = share_device(target_bus)
-            resp = json.dumps({"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "bind"}) + "\n"
+            allowed, reason = is_device_export_allowed(target_bus)
+            if not allowed:
+                resp = json.dumps({"status": "DENIED", "busid": target_bus, "action": "bind", "message": reason}) + "\n"
+                sock.sendall(resp.encode("utf-8"))
+            else:
+                ok = share_device(target_bus)
+                resp = json.dumps({"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "bind"}) + "\n"
+                sock.sendall(resp.encode("utf-8"))
+        elif cmd == "POLICY":
+            pol = load_policy()
+            resp = json.dumps({"status": "OK", "policy": pol}) + "\n"
             sock.sendall(resp.encode("utf-8"))
         elif cmd == "UNBIND" and len(parts) > 1:
             target_bus = parts[1]
@@ -640,9 +812,10 @@ def main():
     )
     parser.add_argument("command", nargs="?", default="dashboard",
                         choices=["dashboard", "status", "start", "stop", "restart",
-                                 "list", "share", "unshare", "auto-unbind", "dynamic-daemon", "doctor", "test", "logs"],
+                                 "list", "share", "unshare", "policy", "auto-unbind", "dynamic-daemon", "doctor", "test", "logs"],
                         help="Action to perform (default: interactive dashboard)")
-    parser.add_argument("busid", nargs="?", default=None, help="Target USB bus ID for share/unshare")
+    parser.add_argument("busid", nargs="?", default=None, help="Target USB bus ID or action parameter")
+    parser.add_argument("extra", nargs="?", default=None, help="Additional argument for policy management")
     parser.add_argument("--json", action="store_true", help="Output status in JSON format")
 
     args = parser.parse_args()
@@ -684,6 +857,53 @@ def main():
             print(f"{RED}Error: Missing bus ID. Usage: usbanywhere-ctl unshare <busid>{RESET}")
             sys.exit(1)
         unshare_device(args.busid)
+    elif args.command == "policy":
+        pol = load_policy()
+        action = (args.busid or "").lower()
+        target = args.extra or ""
+        if not action or action == "show":
+            print(f"{CYAN}═══ 🛡️ USBAnywhere Host Export Policy ═══{RESET}")
+            print(f"Policy file:        {POLICY_FILE}")
+            print(f"Allow all devices:  {GREEN}YES{RESET}" if pol.get("allow_all") else f"Allow all: {YELLOW}NO{RESET}")
+            print(f"Protect local HID:  {GREEN}ACTIVE{RESET}" if pol.get("protect_local_hid") else f"Protect local HID: {DIM}OFF{RESET}")
+            print(f"Allowlist ({len(pol.get('allowlist', []))}):   {pol.get('allowlist', [])}")
+            print(f"Denylist ({len(pol.get('denylist', []))}):    {pol.get('denylist', [])}")
+        elif action == "deny" and target:
+            if target not in pol.get("denylist", []):
+                pol.setdefault("denylist", []).append(target)
+                save_policy(pol)
+                print(f"{GREEN}✓ Added '{target}' to denylist.{RESET}")
+        elif action == "allow" and target:
+            if target not in pol.get("allowlist", []):
+                pol.setdefault("allowlist", []).append(target)
+                save_policy(pol)
+                print(f"{GREEN}✓ Added '{target}' to allowlist.{RESET}")
+        elif action == "remove" and target:
+            changed = False
+            if target in pol.get("denylist", []):
+                pol["denylist"].remove(target)
+                changed = True
+            if target in pol.get("allowlist", []):
+                pol["allowlist"].remove(target)
+                changed = True
+            if changed:
+                save_policy(pol)
+                print(f"{GREEN}✓ Removed '{target}' from policy lists.{RESET}")
+            else:
+                print(f"{YELLOW}Target '{target}' not found in policy lists.{RESET}")
+        elif action == "protect-hid":
+            flag = target.lower() in ["true", "1", "on", "yes"]
+            pol["protect_local_hid"] = flag
+            save_policy(pol)
+            state = f"{GREEN}ENABLED{RESET}" if flag else f"{YELLOW}DISABLED{RESET}"
+            print(f"✓ Local HID Protection is now {state}.")
+        else:
+            print(f"Usage:")
+            print(f"  usbanywhere-ctl policy [show]")
+            print(f"  usbanywhere-ctl policy deny <busid|vid:pid>")
+            print(f"  usbanywhere-ctl policy allow <busid|vid:pid>")
+            print(f"  usbanywhere-ctl policy remove <busid|vid:pid>")
+            print(f"  usbanywhere-ctl policy protect-hid <on|off>")
     elif args.command == "auto-unbind":
         run_auto_unbind_daemon()
     elif args.command == "dynamic-daemon":
