@@ -61,18 +61,24 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
     /// <summary>
     /// Add device to monitor
     /// </summary>
-    public void AddDevice(string serverIP, string busId, bool autoReconnect = true)
+    public void AddDevice(string serverIP, string busId, bool autoReconnect = true, string? receiveMode = null)
     {
         lock (_lock)
         {
-            if (_monitoredDevices.Any(d => d.ServerIP == serverIP && d.BusId == busId))
+            var existing = _monitoredDevices.FirstOrDefault(d => d.ServerIP == serverIP && d.BusId == busId);
+            if (existing != null)
+            {
+                if (receiveMode != null)
+                    existing.ReceiveMode = receiveMode;
                 return;
+            }
 
             _monitoredDevices.Add(new MonitoredDevice
             {
                 ServerIP = serverIP,
                 BusId = busId,
                 AutoReconnect = autoReconnect,
+                ReceiveMode = receiveMode,
                 IsConnected = true,
                 LastCheck = DateTime.Now
             });
@@ -126,39 +132,55 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
                         c.ServerIP == device.ServerIP &&
                         c.BusId == device.BusId);
 
-                    device.LastCheck = DateTime.Now;
+                    bool fireLost = false;
+                    bool fireRestored = false;
+                    bool shouldReconnect = false;
 
-                    // Transition: Connected -> Disconnected
-                    if (device.IsConnected && !isNowConnected)
+                    lock (_lock)
                     {
-                        device.IsConnected = false;
-                        device.ReconnectAttempts = 0;
+                        if (!_isRunning || _disposed || !_monitoredDevices.Contains(device))
+                            continue;
 
+                        device.LastCheck = DateTime.Now;
+
+                        // Transition: Connected -> Disconnected
+                        if (device.IsConnected && !isNowConnected)
+                        {
+                            device.IsConnected = false;
+                            device.ReconnectAttempts = 0;
+                            fireLost = true;
+                            shouldReconnect = device.AutoReconnect && device.ReconnectAttempts < 3;
+                        }
+                        // Still disconnected: retry up to 3 attempts
+                        else if (!device.IsConnected && !isNowConnected)
+                        {
+                            shouldReconnect = device.AutoReconnect && device.ReconnectAttempts < 3;
+                        }
+                        // Transition: Disconnected -> Connected externally
+                        else if (!device.IsConnected && isNowConnected)
+                        {
+                            device.IsConnected = true;
+                            device.ReconnectAttempts = 0;
+                            fireRestored = true;
+                        }
+                    }
+
+                    if (fireLost)
+                    {
                         ConnectionLost?.Invoke(this, new ConnectionLostEventArgs
                         {
                             ServerIP = device.ServerIP,
                             BusId = device.BusId
                         });
-
-                        if (device.AutoReconnect && device.ReconnectAttempts < 3)
-                        {
-                            await TryReconnect(device);
-                        }
                     }
-                    // Still disconnected: retry up to 3 attempts
-                    else if (!device.IsConnected && !isNowConnected)
-                    {
-                        if (device.AutoReconnect && device.ReconnectAttempts < 3)
-                        {
-                            await TryReconnect(device);
-                        }
-                    }
-                    // Transition: Disconnected -> Connected externally
-                    else if (!device.IsConnected && isNowConnected)
-                    {
-                        device.IsConnected = true;
-                        device.ReconnectAttempts = 0;
 
+                    if (shouldReconnect)
+                    {
+                        await TryReconnect(device);
+                    }
+
+                    if (fireRestored)
+                    {
                         ConnectionRestored?.Invoke(this, new ConnectionRestoredEventArgs
                         {
                             ServerIP = device.ServerIP,
@@ -186,21 +208,37 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
 
     private async Task TryReconnect(MonitoredDevice device)
     {
-        device.ReconnectAttempts++;
+        lock (_lock)
+        {
+            if (!_isRunning || _disposed || !_monitoredDevices.Contains(device))
+                return;
+            device.ReconnectAttempts++;
+        }
 
         try
         {
-            var result = await _usbip.ConnectAsync(device.ServerIP, device.BusId);
+            var result = await _usbip.ConnectAsync(device.ServerIP, device.BusId, device.ReceiveMode);
             if (result.Success)
             {
-                device.IsConnected = true;
-                device.ReconnectAttempts = 0;
-
-                ConnectionRestored?.Invoke(this, new ConnectionRestoredEventArgs
+                bool fireRestored = false;
+                lock (_lock)
                 {
-                    ServerIP = device.ServerIP,
-                    BusId = device.BusId
-                });
+                    if (_monitoredDevices.Contains(device))
+                    {
+                        device.IsConnected = true;
+                        device.ReconnectAttempts = 0;
+                        fireRestored = true;
+                    }
+                }
+
+                if (fireRestored)
+                {
+                    ConnectionRestored?.Invoke(this, new ConnectionRestoredEventArgs
+                    {
+                        ServerIP = device.ServerIP,
+                        BusId = device.BusId
+                    });
+                }
             }
         }
         catch (Exception dbgEx)
@@ -225,6 +263,7 @@ internal class MonitoredDevice
 {
     public string ServerIP { get; set; } = "";
     public string BusId { get; set; } = "";
+    public string? ReceiveMode { get; set; }
     public bool IsConnected { get; set; }
     public bool AutoReconnect { get; set; }
     public int ReconnectAttempts { get; set; }

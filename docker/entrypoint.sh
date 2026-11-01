@@ -25,18 +25,31 @@ while true; do
         [ ! -f "$d/idVendor" ] && continue
 
         dev_class=$(cat "$d/bDeviceClass" 2>/dev/null || echo "")
+        if_classes=""
+        for if_dir in "$d/$b:"*; do
+            if [ -f "$if_dir/bInterfaceClass" ]; then
+                ifc=$(cat "$if_dir/bInterfaceClass" 2>/dev/null || echo "")
+                if_classes="$if_classes $ifc"
+            fi
+        done
 
-        # Skip Hubs (Class 09)
-        [ "$dev_class" = "09" ] && continue
-
-        # Skip HID (Keyboards / Mice, Class 03) by default
-        if [ "$ALLOW_HID" != "true" ] && [ "$dev_class" = "03" ]; then
+        # Skip Hubs (Class 09) at device or interface level
+        if [ "$dev_class" = "09" ] || echo "$if_classes" | grep -qw "09"; then
             continue
         fi
 
-        # Skip Mass Storage (Class 08) by default
-        if [ "$ALLOW_STORAGE" != "true" ] && [ "$dev_class" = "08" ]; then
-            continue
+        # Skip HID (Keyboards / Mice, Class 03) by default at device or interface level
+        if [ "$ALLOW_HID" != "true" ]; then
+            if [ "$dev_class" = "03" ] || echo "$if_classes" | grep -qw "03"; then
+                continue
+            fi
+        fi
+
+        # Skip Mass Storage (Class 08) by default at device or interface level
+        if [ "$ALLOW_STORAGE" != "true" ]; then
+            if [ "$dev_class" = "08" ] || echo "$if_classes" | grep -qw "08"; then
+                continue
+            fi
         fi
 
         usbip bind -b "$b" >/dev/null 2>&1 || true

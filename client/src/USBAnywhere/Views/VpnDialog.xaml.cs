@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using ListViewItem = System.Windows.Controls.ListViewItem;
@@ -47,41 +49,17 @@ public partial class VpnDialog : Window
 
         string? activeVpn = null;
 
-        await Task.Run(() =>
+        await Task.Run(async () =>
         {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "tailscale",
-                    Arguments = "status --json",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = Process.Start(psi);
-                if (process != null)
-                {
-                    var output = process.StandardOutput.ReadToEnd();
-                    process.WaitForExit();
-
-                    if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
-                    {
-                        activeVpn = "Tailscale";
-                    }
-                }
-            }
-            catch (Exception ex) { Debug.WriteLine($"[VpnDialog] Tailscale check: {ex.Message}"); }
-
-            if (activeVpn == null)
+            var tailscaleExe = VpnService.GetTailscaleExePath();
+            if (tailscaleExe != null && File.Exists(tailscaleExe))
             {
                 try
                 {
                     var psi = new ProcessStartInfo
                     {
-                        FileName = "zerotier-cli",
-                        Arguments = "status",
+                        FileName = tailscaleExe,
+                        Arguments = "status --json",
                         RedirectStandardOutput = true,
                         UseShellExecute = false,
                         CreateNoWindow = true
@@ -90,16 +68,64 @@ public partial class VpnDialog : Window
                     using var process = Process.Start(psi);
                     if (process != null)
                     {
-                        var output = process.StandardOutput.ReadToEnd();
-                        process.WaitForExit();
-
-                        if (output.Contains("ONLINE", StringComparison.OrdinalIgnoreCase))
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        try
                         {
-                            activeVpn = "ZeroTier";
+                            var output = await process.StandardOutput.ReadToEndAsync(cts.Token);
+                            await process.WaitForExitAsync(cts.Token);
+
+                            if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
+                            {
+                                activeVpn = "Tailscale";
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            try { process.Kill(true); } catch { }
                         }
                     }
                 }
-                catch (Exception ex) { Debug.WriteLine($"[VpnDialog] ZeroTier check: {ex.Message}"); }
+                catch (Exception ex) { Debug.WriteLine($"[VpnDialog] Tailscale check: {ex.Message}"); }
+            }
+
+            if (activeVpn == null)
+            {
+                var zeroTierExe = VpnService.GetZeroTierExePath();
+                if (zeroTierExe != null && File.Exists(zeroTierExe))
+                {
+                    try
+                    {
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = zeroTierExe,
+                            Arguments = "status",
+                            RedirectStandardOutput = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+
+                        using var process = Process.Start(psi);
+                        if (process != null)
+                        {
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                            try
+                            {
+                                var output = await process.StandardOutput.ReadToEndAsync(cts.Token);
+                                await process.WaitForExitAsync(cts.Token);
+
+                                if (output.Contains("ONLINE", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    activeVpn = "ZeroTier";
+                                }
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                try { process.Kill(true); } catch { }
+                            }
+                        }
+                    }
+                    catch (Exception ex) { Debug.WriteLine($"[VpnDialog] ZeroTier check: {ex.Message}"); }
+                }
             }
         });
 

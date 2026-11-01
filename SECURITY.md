@@ -6,16 +6,8 @@
 
 | Version | Supported          | Status |
 | ------- | ------------------ | ------ |
-| 3.0.x   | :white_check_mark: | Active (Current: v3.0.1) |
-| < 3.0   | :x:                | Unsupported (Upgrade to USBAnywhere v3.0.1) |
-
----
-
-## Security Architecture & Zero-Trust Hardening
-
-USBAnywhere is designed with a defense-in-depth, Zero-Trust security model across the ecosystem.
-
-The product uses a combination of input validation, restricted process invocation, trusted host allowlists, and signed driver expectations as part of its overall security posture. These controls are intended to reduce the risk of unsafe execution paths and to improve operational trust.
+| 3.2.x   | :white_check_mark: | Active (Current: v3.2.0) |
+| < 3.2   | :x:                | Unsupported (Upgrade to USBAnywhere v3.2.0) |
 
 ---
 

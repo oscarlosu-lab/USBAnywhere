@@ -73,7 +73,7 @@ public partial class SshDialog : Window
         try
         {
             // Try Windows Terminal first, then cmd
-            var wtPath = Environment.GetEnvironmentVariable("LOCALAPPDATA") + @"\Microsoft\WindowsApps\wt.exe";
+            var wtPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "wt.exe");
             var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
             if (File.Exists(wtPath))
             {
@@ -102,7 +102,7 @@ public partial class SshDialog : Window
     
     private void BtnCopy_Click(object sender, RoutedEventArgs e)
     {
-        var commands = "curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere-Server/main/scripts/install-server-linux.sh -o /tmp/usbanywhere-install.sh && sed -i 's/\\r$//' /tmp/usbanywhere-install.sh && sudo bash /tmp/usbanywhere-install.sh";
+        var commands = "TMPFILE=$(mktemp /tmp/usbanywhere-install.XXXXXX.sh) && trap 'rm -f \"$TMPFILE\"' EXIT && (curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh -o \"$TMPFILE\" || wget -qO \"$TMPFILE\" https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh) && chmod 700 \"$TMPFILE\" && sudo bash \"$TMPFILE\"";
         System.Windows.Clipboard.SetText(commands);
         btnCopy.Content = _localization.GetText("ssh_copied", _language);
     }
@@ -129,12 +129,11 @@ public partial class SshDialog : Window
         Close();
 
         // Avoid ';' because Windows Terminal (wt.exe) parses ';' as its own multi-tab command delimiter.
-        // Also strip CRLF via sed before bash execution as defense-in-depth against carriage returns.
-        const string remoteScript = "curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere-Server/main/scripts/install-server-linux.sh -o /tmp/usbanywhere-install.sh && sed -i 's/\\r$//' /tmp/usbanywhere-install.sh && sudo bash /tmp/usbanywhere-install.sh && exec $SHELL || exec $SHELL";
+        const string remoteScript = "TMPFILE=$(mktemp /tmp/usbanywhere-install.XXXXXX.sh) && trap 'rm -f \"$TMPFILE\"' EXIT && (curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh -o \"$TMPFILE\" || wget -qO \"$TMPFILE\" https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh) && chmod 700 \"$TMPFILE\" && sudo bash \"$TMPFILE\"";
 
         try
         {
-            var wtPath = Environment.GetEnvironmentVariable("LOCALAPPDATA") + @"\Microsoft\WindowsApps\wt.exe";
+            var wtPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "wt.exe");
             var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
             if (File.Exists(wtPath))
             {

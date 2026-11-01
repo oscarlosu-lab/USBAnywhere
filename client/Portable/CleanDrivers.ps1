@@ -12,12 +12,12 @@ if (Test-Path $devnodeExe) {
 }
 
 $deviceOutput = pnputil /enum-devices /class USB 2>&1
-$deviceBlocks = ($deviceOutput -join "`n") -split "(?=Id\. de instancia:|Instance ID:)"
+$deviceBlocks = ($deviceOutput -join "`n") -split "(\r?\n){2,}"
 
-# Buscar exclusivamente instancias ROOT\USB\000x que pertenezcan a USBip (ignorando Parsec u otros adaptadores virtuales)
+# Buscar exclusivamente instancias ROOT\USBIP_WIN2\UDE o ROOT\USBIP que pertenezcan a USBip (ignorando Parsec u otros adaptadores virtuales)
 $usbipDevices = @()
 foreach ($block in $deviceBlocks) {
-    if ($block -match "USBip|USBIP_WIN2" -and $block -match '(ROOT\\USB\\\d{4}|ROOT\\USBIP_WIN2\\\S+)') {
+    if ($block -match "ROOT\\USBIP_WIN2\\UDE|ROOT\\USBIP" -and $block -match '(ROOT\\USBIP_WIN2\\UDE\S*|ROOT\\USBIP_WIN2\\\S+|ROOT\\USBIP\S*)') {
         $deviceId = $matches[1]
         if ($deviceId -notin $usbipDevices) {
             $usbipDevices += $deviceId
@@ -44,10 +44,10 @@ if ($usbipDevices.Count -gt 0) {
 Write-Host "`n[1] Buscando drivers USB/IP instalados..." -ForegroundColor Yellow
 $driverList = @()
 $output = pnputil /enum-drivers
-$blocks = $output -join "`n" -split "(?=Nombre publicado:|Published name:)"
+$blocks = ($output -join "`n") -split "(\r?\n){2,}"
 
 foreach ($block in $blocks) {
-    if ($block -match "usbip|vhci" -and $block -match "(oem\d+\.inf)") {
+    if ($block -match "usbip2_ude\.inf|usbip2_filter\.inf|usbip_vhci\.inf|USBIP_WIN2" -and $block -match "(oem\d+\.inf)") {
         $oemName = $matches[1]
         $driverList += $oemName
         Write-Host "  Encontrado: $oemName" -ForegroundColor White
@@ -98,10 +98,10 @@ foreach ($driver in $driverList) {
 # Verificar resultado
 Write-Host "`n[4] Verificando drivers restantes..." -ForegroundColor Yellow
 $remainingOutput = pnputil /enum-drivers
-$remainingBlocks = $remainingOutput -join "`n" -split "(?=Nombre publicado:|Published name:)"
+$remainingBlocks = ($remainingOutput -join "`n") -split "(\r?\n){2,}"
 $remaining = 0
 foreach ($block in $remainingBlocks) {
-    if ($block -match "usbip|vhci" -and $block -match "(oem\d+\.inf)") {
+    if ($block -match "usbip2_ude\.inf|usbip2_filter\.inf|usbip_vhci\.inf|USBIP_WIN2" -and $block -match "(oem\d+\.inf)") {
         $remaining++
         Write-Host "  Aun instalado: $($matches[1])" -ForegroundColor DarkYellow
     }

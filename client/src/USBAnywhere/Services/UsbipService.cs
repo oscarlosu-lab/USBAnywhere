@@ -184,14 +184,14 @@ namespace USBAnywhere.Services
                     _logger.LogWarning("Driver usbip-win no detectado. La conexión podría fallar.");
                 }
 
-                _lastAttachError = null;
+                _lastAttachError.Value = null;
 
                 // Dynamic on-demand binding (USBAnywhere Dynamic Daemon on port 3241)
                 var bindStatus = await TryDynamicBindAsync(ip, busId, ct);
                 if (!bindStatus.Allowed)
                 {
-                    _lastAttachError = bindStatus.ErrorMessage ?? $"Device {busId} blocked by server export policy";
-                    _logger.LogWarning("Conexión denegada por política del servidor {IP}: {Reason}", ip, _lastAttachError);
+                    _lastAttachError.Value = bindStatus.ErrorMessage ?? $"Device {busId} blocked by server export policy";
+                    _logger.LogWarning("Conexión denegada por política del servidor {IP}: {Reason}", ip, _lastAttachError.Value);
                     return false;
                 }
 
@@ -406,21 +406,43 @@ namespace USBAnywhere.Services
                         return false;
                     }
 
-                    // 2. Validate companion DLLs in the executable directory against DLL planting (F-04)
+                    // 2. Validate companion native DLLs and block known DLL hijacking vectors in the executable directory
                     var binDir = Path.GetDirectoryName(path);
                     if (!string.IsNullOrEmpty(binDir) && Directory.Exists(binDir))
                     {
-                        var dllFiles = Directory.GetFiles(binDir, "*.dll");
-                        foreach (var dll in dllFiles)
+                        var requiredNativeDlls = new[] { "libusbip.dll", "resources.dll" };
+                        foreach (var dllName in requiredNativeDlls)
                         {
-                            using var dllStream = File.OpenRead(dll);
-                            var dllBytes = sha256.ComputeHash(dllStream);
-                            var dllHash = BitConverter.ToString(dllBytes).Replace("-", "");
-
-                            if (!ValidDllHashes.Contains(dllHash))
+                            var dll = Path.Combine(binDir, dllName);
+                            if (File.Exists(dll))
                             {
-                                _logger.LogCritical("SEGURIDAD: DLL no autorizada o manipulada detectada: {Dll} (Hash: {Hash}). Operación abortada.", dll, dllHash);
-                                return false;
+                                using var dllStream = File.OpenRead(dll);
+                                var dllBytes = sha256.ComputeHash(dllStream);
+                                var dllHash = BitConverter.ToString(dllBytes).Replace("-", "");
+
+                                if (!ValidDllHashes.Contains(dllHash))
+                                {
+                                    _logger.LogCritical("SEGURIDAD: DLL nativa no autorizada o manipulada detectada: {Dll} (Hash: {Hash}). Operación abortada.", dll, dllHash);
+                                    return false;
+                                }
+                            }
+                        }
+
+                        var hijackDlls = new[] { "version.dll", "winmm.dll", "dbghelp.dll", "cryptbase.dll", "dwmapi.dll" };
+                        foreach (var hijackName in hijackDlls)
+                        {
+                            var hijackPath = Path.Combine(binDir, hijackName);
+                            if (File.Exists(hijackPath))
+                            {
+                                using var dllStream = File.OpenRead(hijackPath);
+                                var dllBytes = sha256.ComputeHash(dllStream);
+                                var dllHash = BitConverter.ToString(dllBytes).Replace("-", "");
+
+                                if (!ValidDllHashes.Contains(dllHash))
+                                {
+                                    _logger.LogCritical("SEGURIDAD: DLL de secuestro detectada: {Dll} (Hash: {Hash}). Operación abortada.", hijackPath, dllHash);
+                                    return false;
+                                }
                             }
                         }
                     }
@@ -440,12 +462,12 @@ namespace USBAnywhere.Services
         public Task<List<UsbDevice>> ListDevicesAsync(string serverIP)
             => ListRemoteDevicesAsync(serverIP);
 
-        private string? _lastAttachError;
+        private readonly AsyncLocal<string?> _lastAttachError = new();
 
         public async Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null)
         {
             bool ok = await AttachDeviceAsync(serverIP, busId, receiveMode);
-            return new OperationResult { Success = ok, Error = ok ? null : (_lastAttachError ?? "Attach failed") };
+            return new OperationResult { Success = ok, Error = ok ? null : (_lastAttachError.Value ?? "Attach failed") };
         }
 
         public async Task<OperationResult> DisconnectAsync(int port)
@@ -543,8 +565,8 @@ namespace USBAnywhere.Services
                         continue;
                     }
 
-                    // Match modern usbip URI: "-> usbip://192.168.1.162:3240/5-1"
-                    var urlMatch = Regex.Match(line, @"usbip://([a-zA-Z0-9\.\-]+)(?::\d+)?/([\d\-\.]+)", RegexOptions.IgnoreCase);
+                    // Match modern usbip URI: "-> usbip://192.168.1.162:3240/5-1" or IPv6
+                    var urlMatch = Regex.Match(line, @"usbip://\[?([a-zA-Z0-9\.\-:]+?)\]?(?::\d+)?/([\d\-\.]+)", RegexOptions.IgnoreCase);
                     if (urlMatch.Success)
                     {
                         currentServerIP = urlMatch.Groups[1].Value;
@@ -564,8 +586,8 @@ namespace USBAnywhere.Services
                         }
                     }
 
-                    // Match server IP (legacy / alt format)
-                    var serverMatch = Regex.Match(line, @"(?:Server\s+IP|remote)\s*:\s*([a-zA-Z0-9\.\-]+)", RegexOptions.IgnoreCase);
+                    // Match server IP (legacy / alt format, including IPv6)
+                    var serverMatch = Regex.Match(line, @"(?:Server\s+IP|remote)\s*:\s*([a-zA-Z0-9\.\-:]+)", RegexOptions.IgnoreCase);
                     if (serverMatch.Success)
                     {
                         currentServerIP = serverMatch.Groups[1].Value;
@@ -616,6 +638,32 @@ namespace USBAnywhere.Services
             return devices;
         }
 
+        private static async Task<string> ReadBoundedUtf8Async(Stream stream, int maxBytes, bool stopAtNewLine, CancellationToken ct)
+        {
+            var buffer = new byte[Math.Min(4096, maxBytes)];
+            using var ms = new MemoryStream();
+            while (ms.Length < maxBytes)
+            {
+                int toRead = Math.Min(buffer.Length, maxBytes - (int)ms.Length);
+                int read = await stream.ReadAsync(buffer.AsMemory(0, toRead), ct);
+                if (read <= 0)
+                    break;
+
+                if (stopAtNewLine)
+                {
+                    int nlIdx = Array.IndexOf(buffer, (byte)'\n', 0, read);
+                    if (nlIdx >= 0)
+                    {
+                        ms.Write(buffer, 0, nlIdx);
+                        break;
+                    }
+                }
+
+                ms.Write(buffer, 0, read);
+            }
+            return Encoding.UTF8.GetString(ms.ToArray());
+        }
+
         private async Task<(bool Allowed, bool BoundOnDemand, string? ErrorMessage)> TryDynamicBindAsync(string ip, string busId, CancellationToken ct)
         {
             try
@@ -632,8 +680,7 @@ namespace USBAnywhere.Services
 
                 using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 readCts.CancelAfter(3000);
-                using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 2048, leaveOpen: true);
-                var respLine = await reader.ReadLineAsync(readCts.Token);
+                var respLine = await ReadBoundedUtf8Async(stream, 4096, stopAtNewLine: true, readCts.Token);
                 if (!string.IsNullOrWhiteSpace(respLine))
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(respLine.Trim());
@@ -653,7 +700,7 @@ namespace USBAnywhere.Services
                         }
                     }
                 }
-                return (true, true, null);
+                return (true, false, null);
             }
             catch
             {
@@ -674,8 +721,7 @@ namespace USBAnywhere.Services
                 var msg = Encoding.UTF8.GetBytes("LIST\n");
                 await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
 
-                using var reader = new StreamReader(stream, Encoding.UTF8);
-                string json = (await reader.ReadToEndAsync(cts.Token)).Trim();
+                string json = (await ReadBoundedUtf8Async(stream, 65536, stopAtNewLine: false, cts.Token)).Trim();
                 if (!string.IsNullOrEmpty(json))
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -690,7 +736,7 @@ namespace USBAnywhere.Services
                             if (m.Success)
                             {
                                 var busId = m.Groups[1].Value.Trim();
-                                if (!existing.Contains(busId))
+                                if (InputValidator.IsValidBusId(busId) && !existing.Contains(busId))
                                 {
                                     var desc = m.Groups[2].Value.Trim();
                                     var hwId = m.Groups[3].Success ? m.Groups[3].Value.Trim() : string.Empty;

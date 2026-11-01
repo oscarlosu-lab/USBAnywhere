@@ -71,6 +71,48 @@ public class UsbipBinaryIntegrityTests
         }
     }
 
+    [Fact]
+    public void ValidDllHashes_Contains_Bundled_x64_ResourcesDll()
+    {
+        var dllPath = FindFileUpwards(Path.Combine("Portable", "resources.dll"));
+        Assert.NotNull(dllPath);
+        var actualHash = CalculateSha256(dllPath);
+
+        Assert.Contains(actualHash, UsbipService.ValidDllHashes);
+    }
+
+    [Fact]
+    public void ValidDllHashes_Contains_Bundled_ARM64_ResourcesDll_IfPresent()
+    {
+        var dllPath = FindFileUpwards(Path.Combine("Portable-ARM64", "resources.dll"));
+        if (dllPath != null)
+        {
+            var actualHash = CalculateSha256(dllPath);
+            Assert.Contains(actualHash, UsbipService.ValidDllHashes);
+        }
+    }
+
+    [Fact]
+    public void KnownDevnodeHashes_Contains_Bundled_x64_DevnodeExe()
+    {
+        var exePath = FindFileUpwards(Path.Combine("Portable", "devnode.exe"));
+        Assert.NotNull(exePath);
+        var actualHash = CalculateSha256(exePath);
+
+        Assert.Contains(actualHash, DriverService.KnownDevnodeHashes);
+    }
+
+    [Fact]
+    public void KnownDevnodeHashes_Contains_Bundled_ARM64_DevnodeExe_IfPresent()
+    {
+        var exePath = FindFileUpwards(Path.Combine("Portable-ARM64", "devnode.exe"));
+        if (exePath != null)
+        {
+            var actualHash = CalculateSha256(exePath);
+            Assert.Contains(actualHash, DriverService.KnownDevnodeHashes);
+        }
+    }
+
     [Theory]
     [InlineData("0000000000000000000000000000000000000000000000000000000000000000")]
     [InlineData("DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF")]
@@ -78,5 +120,6 @@ public class UsbipBinaryIntegrityTests
     {
         Assert.DoesNotContain(untrustedHash, UsbipService.ValidHashes);
         Assert.DoesNotContain(untrustedHash, UsbipService.ValidDllHashes);
+        Assert.DoesNotContain(untrustedHash, DriverService.KnownDevnodeHashes);
     }
 }

@@ -31,7 +31,7 @@ public class LoggerService : ILoggerService
 
         CleanupOldLogs(logsDir, keepDays: 7);
 
-        Info("=== USBAnywhere v3.0.0 Logger Initialized ===");
+        Info("=== USBAnywhere v3.2.0 Logger Initialized ===");
     }
 
     public void Info(string message)    => Write("INFO",    message);
@@ -67,7 +67,7 @@ public class LoggerService : ILoggerService
         {
             var cutoff = DateTime.Now.AddDays(-keepDays);
             foreach (var f in Directory.GetFiles(dir, "usbanywhere_*.log"))
-                if (File.GetCreationTime(f) < cutoff)
+                if (File.GetLastWriteTime(f) < cutoff)
                     File.Delete(f);
         }
         catch (Exception dbgEx) { System.Diagnostics.Debug.WriteLine($"[LoggerService] {dbgEx.Message}"); }

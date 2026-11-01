@@ -75,11 +75,15 @@ def save_policy(pol, path=POLICY_FILE):
         print(f"{RED}Error saving policy: {e}{RESET}")
         return False
 
+def is_valid_busid(busid):
+    """Validate USB Bus ID format strictly to prevent path traversal and argument injection."""
+    return bool(busid and isinstance(busid, str) and re.match(r"^\d+-[\d.]+$", busid.strip()))
+
 def get_device_info(busid):
     """Inspect sysfs for a given busid on Linux and return (vid, pid, dev_class, if_classes, prod_name, mfg_name)."""
-    if not IS_LINUX:
+    if not IS_LINUX or not is_valid_busid(busid):
         return "", "", "", set(), "", ""
-    dev_path = os.path.join("/sys/bus/usb/devices", busid)
+    dev_path = os.path.join("/sys/bus/usb/devices", busid.strip())
     if not os.path.exists(dev_path):
         return "", "", "", set(), "", ""
     
@@ -129,6 +133,8 @@ def get_device_info(busid):
 
 def is_device_export_allowed(busid, policy=None):
     """Check if device is allowed to be exported based on server export policy."""
+    if not re.match(r"^\d+-[\d.]+$", str(busid or "")):
+        return False, "Invalid BusId format"
     if policy is None:
         policy = load_policy()
     vid, pid, dev_class, if_classes, prod_name, mfg_name = get_device_info(busid)
@@ -163,12 +169,12 @@ def is_device_export_allowed(busid, policy=None):
 # HELPER UTILITIES
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_cmd(cmd, capture=True, check=False):
+def run_cmd(cmd, capture=True, check=False, timeout=30):
     """Run shell command safely without shell injection."""
     try:
         res = subprocess.run(cmd, stdout=subprocess.PIPE if capture else None,
                              stderr=subprocess.PIPE if capture else None,
-                             text=True, check=check)
+                             text=True, check=check, timeout=timeout)
         return res.stdout.strip() if capture else ""
     except Exception as e:
         if check:
@@ -246,7 +252,7 @@ def start_service():
     """Start the USB/IP server service."""
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return os.system(f"sudo {sys.executable} {' '.join(sys.argv)}") == 0
+        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
 
     if IS_MACOS:
         plist = "/Library/LaunchDaemons/com.usbanywhere.server.plist"
@@ -256,7 +262,7 @@ def start_service():
             return True
         else:
             print(f"{YELLOW}[!] Service plist not found. Running interactive daemon...{RESET}")
-            os.system("usbanywhere-server-mac serve --auto-bind &")
+            subprocess.Popen(["usbanywhere-server-mac", "serve", "--auto-bind"])
             return True
     elif IS_LINUX:
         run_cmd(["systemctl", "restart", "usbipd"])
@@ -268,7 +274,7 @@ def stop_service():
     """Stop the USB/IP server service."""
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return os.system(f"sudo {sys.executable} {' '.join(sys.argv)}") == 0
+        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
 
     if IS_MACOS:
         plist = "/Library/LaunchDaemons/com.usbanywhere.server.plist"
@@ -399,6 +405,10 @@ def list_devices():
 
 def share_device(busid):
     """Export a specific USB peripheral by bus ID."""
+    if not re.match(r"^\d+-[\d.]+$", str(busid or "")):
+        print(f"{RED}[Error] Invalid Bus ID format: {busid}{RESET}")
+        return False
+
     allowed, reason = is_device_export_allowed(busid)
     if not allowed:
         print(f"{RED}[Policy Block] Cannot share {busid}: {reason}{RESET}")
@@ -406,7 +416,7 @@ def share_device(busid):
 
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return os.system(f"sudo {sys.executable} {' '.join(sys.argv)}") == 0
+        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
 
     if IS_MACOS:
         bin_path = shutil.which("usbanywhere-server-mac")
@@ -424,9 +434,13 @@ def share_device(busid):
 
 def unshare_device(busid):
     """Unshare a USB peripheral by bus ID."""
+    if not re.match(r"^\d+-[\d.]+$", str(busid or "")):
+        print(f"{RED}[Error] Invalid Bus ID format: {busid}{RESET}")
+        return False
+
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return os.system(f"sudo {sys.executable} {' '.join(sys.argv)}") == 0
+        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
 
     if IS_MACOS:
         bin_path = shutil.which("usbanywhere-server-mac")
@@ -529,6 +543,10 @@ def handle_control_client(sock, addr):
             sock.sendall(resp.encode("utf-8"))
         elif cmd == "BIND" and len(parts) > 1:
             target_bus = parts[1]
+            if not re.match(r"^\d+-[\d.]+$", target_bus):
+                resp = json.dumps({"status": "ERROR", "busid": target_bus, "action": "bind", "message": "Invalid BusId"}) + "\n"
+                sock.sendall(resp.encode("utf-8"))
+                return
             allowed, reason = is_device_export_allowed(target_bus)
             if not allowed:
                 resp = json.dumps({"status": "DENIED", "busid": target_bus, "action": "bind", "message": reason}) + "\n"
@@ -543,6 +561,10 @@ def handle_control_client(sock, addr):
             sock.sendall(resp.encode("utf-8"))
         elif cmd == "UNBIND" and len(parts) > 1:
             target_bus = parts[1]
+            if not re.match(r"^\d+-[\d.]+$", target_bus):
+                resp = json.dumps({"status": "ERROR", "busid": target_bus, "action": "unbind", "message": "Invalid BusId"}) + "\n"
+                sock.sendall(resp.encode("utf-8"))
+                return
             ok = unshare_device(target_bus)
             resp = json.dumps({"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "unbind"}) + "\n"
             sock.sendall(resp.encode("utf-8"))
@@ -554,7 +576,8 @@ def handle_control_client(sock, addr):
             sock.sendall(b'{"status": "ERROR", "message": "Unknown command"}\n')
     except Exception as e:
         try:
-            sock.sendall(f'{{"status": "ERROR", "message": "{str(e)}"}}\n'.encode("utf-8"))
+            err_resp = json.dumps({"status": "ERROR", "message": str(e)}) + "\n"
+            sock.sendall(err_resp.encode("utf-8"))
         except Exception:
             pass
     finally:

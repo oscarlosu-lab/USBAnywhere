@@ -106,6 +106,10 @@ foreach ($file in $helpers) {
 
         Copy-Item $src "$releasePath\temp_x64\Portable\$file" -Force
 
+    } else {
+
+        throw "FATAL: Missing required x64 runtime file: $src. Cannot produce valid x64 package."
+
     }
 
     $armSrc = "$portableArm64\$file"
@@ -131,6 +135,10 @@ $x64DriversPath = "$repoRoot\Portable\drivers"
 if (Test-Path $x64DriversPath) {
 
     Copy-Item $x64DriversPath "$releasePath\temp_x64\Portable\drivers" -Recurse -Force
+
+} else {
+
+    throw "FATAL: Missing required x64 driver file directory: $x64DriversPath. Cannot produce valid x64 package."
 
 }
 

@@ -12,7 +12,7 @@ public interface IConnectionMonitorService : IDisposable
 
     void Start();
     void Stop();
-    void AddDevice(string serverIP, string busId, bool autoReconnect = true);
+    void AddDevice(string serverIP, string busId, bool autoReconnect = true, string? receiveMode = null);
     void RemoveDevice(string serverIP, string busId);
     void ClearAll();
 }

@@ -14,7 +14,7 @@ namespace USBAnywhere.Services;
 /// </summary>
 public class DriverService : IDriverService
 {
-    private static readonly HashSet<string> KnownDevnodeHashes = new(StringComparer.OrdinalIgnoreCase)
+    public static readonly HashSet<string> KnownDevnodeHashes = new(StringComparer.OrdinalIgnoreCase)
     {
         "5B9C45F5BE344676BB434C14697965DE608FC3B0F6CAE7E5670B1D90C9196806", // v0.9.7.x x64
         "CCBF1813C7EF33303A7FEBE6E288F27BFA9B0EA189D1BAAFCBABF2ADA7105964", // v0.9.8.1 x64
@@ -118,7 +118,7 @@ public class DriverService : IDriverService
                     if (isStaged)
                     {
                         _logger.LogWarning("Drivers presentes en DriverStore pero dispositivo UDE no instanciado.");
-                        return new DriverStatus { Installed = true, Status = "INSTALADO" };
+                        return new DriverStatus { Installed = false, Status = "NO_INSTANCIADO" };
                     }
                 }
                 else
@@ -197,14 +197,8 @@ public class DriverService : IDriverService
             }
             else
             {
-                // Fallback for any other .inf in directory
-                var otherInfs = Directory.GetFiles(driverDir, "*.inf", SearchOption.AllDirectories);
-                foreach (var inf in otherInfs)
-                {
-                    progress?.Report($"Instalando: {Path.GetFileName(inf)}...");
-                    var res = await RunProcessAsync(PnputilPath, $"/add-driver \"{inf}\" /install");
-                    if (!res.Success && res.Error != "Reinicio requerido") return res;
-                }
+                _logger.LogError("Archivo de controlador requerido no encontrado: {Inf}", udeInf);
+                return OperationResult.Fail("Archivo de controlador usbip2_ude.inf no encontrado.");
             }
 
             _logger.LogInformation("Secuencia de instalación completada exitosamente.");
@@ -235,32 +229,21 @@ public class DriverService : IDriverService
 
             // 2. Enumerate installed driver packages from DriverStore
             progress?.Report("Enumerando drivers en DriverStore...");
-            var psi = new ProcessStartInfo
+            var enumResult = await RunProcessAsync(PnputilPath, "/enum-drivers");
+            if (!enumResult.Success)
             {
-                FileName = PnputilPath,
-                Arguments = "/enum-drivers",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var enumProcess = Process.Start(psi);
-            if (enumProcess == null)
-            {
-                _logger.LogError("Error al iniciar enumeración de drivers.");
+                _logger.LogError("Error al iniciar enumeración de drivers: {Error}", enumResult.Error);
                 return new OperationResult { Success = false, Error = "Error al enumerar drivers." };
             }
 
-            var output = await enumProcess.StandardOutput.ReadToEndAsync();
-            await enumProcess.WaitForExitAsync();
-
+            var output = enumResult.Message ?? string.Empty;
             var usbipDrivers = ExtractPublishedNames(output);
 
             if (!usbipDrivers.Any())
             {
                 _logger.LogInformation("No se encontraron drivers USBIP para remover en DriverStore.");
                 progress?.Report("No hay drivers de USBIP para remover.");
-                return new OperationResult { Success = true };
+                return new OperationResult { Success = true, Message = output };
             }
 
             _logger.LogInformation("Detectados {Count} drivers para remoción: {Drivers}", usbipDrivers.Count, string.Join(", ", usbipDrivers));
@@ -283,7 +266,7 @@ public class DriverService : IDriverService
 
             _logger.LogInformation("Secuencia de desinstalación finalizada.");
             progress?.Report("Drivers removidos.");
-            return new OperationResult { Success = true };
+            return new OperationResult { Success = true, Message = output };
         }
         catch (Exception ex)
         {
@@ -404,7 +387,7 @@ public class DriverService : IDriverService
                 return new OperationResult { Success = false, Error = string.IsNullOrWhiteSpace(error) ? output : error };
             }
 
-            return new OperationResult { Success = true };
+            return new OperationResult { Success = true, Message = output };
         }
         catch (Exception ex)
         {

@@ -4,7 +4,9 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using USBAnywhere.Services.Interfaces;
+using USBAnywhere.Utils;
 
 namespace USBAnywhere.Services;
 
@@ -18,19 +20,27 @@ public class NetworkScanner : INetworkScanner
     private const int ControlPort = 3241;
     private const int FirstTimeoutMs = 500;   // Fast first attempt
     private const int RetryTimeoutMs = 1200;  // Slower retry for embedded
+    private const int MaxTcpConcurrency = 48;
 
     public async Task<List<string>> ScanNetworkAsync(string subnetBase)
     {
+        if (string.IsNullOrWhiteSpace(subnetBase) || !IPAddress.TryParse($"{subnetBase.Trim()}.1", out _))
+        {
+            return new List<string>();
+        }
+
+        subnetBase = subnetBase.Trim();
         var discovered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // 1. Fast UDP 3241 broadcast probe in parallel with TCP scan
         var udpTask = ProbeUdpBroadcastAsync(subnetBase, 600);
 
+        using var throttle = new SemaphoreSlim(MaxTcpConcurrency, MaxTcpConcurrency);
         var tasks = new List<Task<string?>>(254);
         for (int i = 1; i <= 254; i++)
         {
             var ip = $"{subnetBase}.{i}";
-            tasks.Add(CheckServerWithRetryAsync(ip));
+            tasks.Add(ScanHostThrottledAsync(ip, throttle));
         }
 
         var results = await Task.WhenAll(tasks);
@@ -53,6 +63,19 @@ public class NetworkScanner : INetworkScanner
         }).ToList();
     }
 
+    private async Task<string?> ScanHostThrottledAsync(string ip, SemaphoreSlim throttle)
+    {
+        await throttle.WaitAsync();
+        try
+        {
+            return await CheckServerWithRetryAsync(ip);
+        }
+        finally
+        {
+            throttle.Release();
+        }
+    }
+
     private static async Task<List<string>> ProbeUdpBroadcastAsync(string subnetBase, int timeoutMs)
     {
         var found = new List<string>();
@@ -66,13 +89,19 @@ public class NetworkScanner : INetworkScanner
             await udp.SendAsync(probe, probe.Length, subnetBroadcast);
 
             using var cts = new CancellationTokenSource(timeoutMs);
-            while (!cts.IsCancellationRequested)
+            int packetCount = 0;
+            while (!cts.IsCancellationRequested && packetCount < 256)
             {
                 var res = await udp.ReceiveAsync(cts.Token);
+                packetCount++;
                 var text = Encoding.UTF8.GetString(res.Buffer);
                 if (text.StartsWith("USBANYWHERE_SERVER:", StringComparison.OrdinalIgnoreCase))
                 {
-                    found.Add(res.RemoteEndPoint.Address.ToString());
+                    var ip = res.RemoteEndPoint.Address.ToString();
+                    if (InputValidator.IsValidHost(ip))
+                    {
+                        found.Add(ip);
+                    }
                 }
             }
         }

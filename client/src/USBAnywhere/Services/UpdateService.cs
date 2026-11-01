@@ -30,9 +30,9 @@ public class UpdateService : IUpdateService
         _logger = logger;
         _env = env;
         _currentVersion = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetName().Version?.ToString(3) ?? "2.0.0";
+            .GetName().Version?.ToString(3) ?? "3.2.0";
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "USBAnywhere-WPF/3.0.0");
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "USBAnywhere-WPF/3.2.0");
     }
 
     public async Task<UpdateInfo> CheckForUpdatesAsync(CancellationToken ct = default)
@@ -41,27 +41,29 @@ public class UpdateService : IUpdateService
         {
             _logger.LogInformation("Checking for updates from GitHub...");
             var apiUrl = $"https://api.github.com/repos/{GITHUB_REPO}/releases/latest";
-            
-            var response = await _httpClient.GetStringAsync(apiUrl, ct);
-            var release = JsonSerializer.Deserialize<GitHubRelease>(response, new JsonSerializerOptions 
-            { 
-                PropertyNameCaseInsensitive = true 
+
+            using var checkCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            checkCts.CancelAfter(TimeSpan.FromSeconds(15));
+            var response = await _httpClient.GetStringAsync(apiUrl, checkCts.Token);
+            var release = JsonSerializer.Deserialize<GitHubRelease>(response, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
             });
-            
+
             if (release == null)
             {
                 _logger.LogWarning("Failed to deserialize GitHub release data.");
                 return new UpdateInfo { UpdateAvailable = false };
             }
-            
+
             var latestVersionStr = release.TagName?.TrimStart('v') ?? "0.0.0";
-            
-            if (Version.TryParse(latestVersionStr, out var latest) && 
-                Version.TryParse(_currentVersion, out var current) && 
+
+            if (Version.TryParse(latestVersionStr, out var latest) &&
+                Version.TryParse(_currentVersion, out var current) &&
                 latest > current)
             {
                 _logger.LogInformation("New version available: {Version}", latestVersionStr);
-                
+
                 // Find appropriate asset based on portability
                 var assets = release.Assets ?? new List<GitHubAsset>();
                 GitHubAsset? selectedAsset = null;
@@ -71,31 +73,35 @@ public class UpdateService : IUpdateService
                     var archTag = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "arm64" : "x64";
                     selectedAsset = assets.FirstOrDefault(a =>
                         a.Name?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true &&
-                        (a.Name.Contains(archTag, StringComparison.OrdinalIgnoreCase) || a.Name.Contains("Portable", StringComparison.OrdinalIgnoreCase)));
+                        a.Name.Contains(archTag, StringComparison.OrdinalIgnoreCase));
+
+                    selectedAsset ??= assets.FirstOrDefault(a =>
+                        a.Name?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true &&
+                        a.Name.Contains("Portable", StringComparison.OrdinalIgnoreCase));
                 }
                 if (_env.IsPortable && selectedAsset == null)
                 {
-                    selectedAsset = assets.FirstOrDefault(a => 
+                    selectedAsset = assets.FirstOrDefault(a =>
                         a.Name?.Contains("Portable", StringComparison.OrdinalIgnoreCase) == true &&
-                        (a.Name?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true || 
+                        (a.Name?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true ||
                          a.Name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true));
                 }
-                
+
                 // Fallback or Setup
                 if (selectedAsset == null)
                 {
-                    selectedAsset = assets.FirstOrDefault(a => 
+                    selectedAsset = assets.FirstOrDefault(a =>
                         a.Name?.Contains("Setup", StringComparison.OrdinalIgnoreCase) == true &&
                         a.Name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true);
                 }
 
                 // If still null, just take the first exe
                 selectedAsset ??= assets.FirstOrDefault(a => a.Name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true);
-                
-                var hashAsset = assets.FirstOrDefault(a => 
+
+                var hashAsset = assets.FirstOrDefault(a =>
                     a.Name?.Contains("sha256", StringComparison.OrdinalIgnoreCase) == true ||
                     a.Name?.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) == true);
-                
+
                 return new UpdateInfo
                 {
                     UpdateAvailable = true,
@@ -107,7 +113,7 @@ public class UpdateService : IUpdateService
                     ReleaseNotes = release.Body
                 };
             }
-            
+
             _logger.LogInformation("Application is up to date (Current: {Version})", _currentVersion);
             return new UpdateInfo
             {
@@ -141,10 +147,10 @@ public class UpdateService : IUpdateService
             // === SECURITY VALIDATION ===
             if (string.IsNullOrEmpty(downloadUrl) || string.IsNullOrEmpty(installerName))
                 return OperationResult.Fail("Invalid download parameters");
-            
+
             if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var uri))
                 return OperationResult.Fail("Invalid download URL format");
-            
+
             var allowedHosts = new[] { "github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com" };
             bool IsAllowedHost(Uri u) => u.Scheme == Uri.UriSchemeHttps &&
                 allowedHosts.Any(h => u.Host.Equals(h, StringComparison.OrdinalIgnoreCase) ||
@@ -161,24 +167,24 @@ public class UpdateService : IUpdateService
                 _logger.LogCritical("Update aborted: missing or untrusted SHA256 source ({Url})", hashUrl);
                 return OperationResult.Fail("Security Error: release has no verifiable SHA256 checksum.");
             }
-            
+
             if (installerName.Contains("..") || Path.GetFileName(installerName) != installerName)
             {
                 _logger.LogCritical("Blocked potentially malicious installer name: {Name}", installerName);
                 return OperationResult.Fail("Invalid installer name");
             }
-            
-            if (!installerName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && 
+
+            if (!installerName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
                 !installerName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 return OperationResult.Fail("Update package must be .exe or .zip");
             // === END SECURITY VALIDATION ===
-            
+
             var tempDir = _env.TempPath;
             if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
-            
+
             var installerPath = Path.Combine(tempDir, installerName);
             _logger.LogInformation("Downloading installer to: {Path}", installerPath);
-            
+
             // Download with progress
             using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, ct))
             {
@@ -203,23 +209,29 @@ public class UpdateService : IUpdateService
                     }
                 }
             }
-            
+
             // === SHA256 VERIFICATION (mandatory) ===
             _logger.LogInformation("Downloading hash for verification: {Url}", hashUrl);
             var hashResponse = await _httpClient.GetStringAsync(hashUrl, ct);
 
-            // Supports a bare hash file (single hash) or a SHA256SUMS list ("<hash>  <file>"): pick the line for our installer.
+            // Supports a bare .sha256 hash file (single hash) or a SHA256SUMS list ("<hash>  <file>"): pick the line for our installer.
             string? expectedHash = null;
             var allHashes = System.Text.RegularExpressions.Regex.Matches(hashResponse, @"\b([a-fA-F0-9]{64})\b");
-            foreach (var line in hashResponse.Split('\n'))
+            foreach (var rawLine in hashResponse.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
-                if (line.Contains(installerName, StringComparison.OrdinalIgnoreCase))
+                var line = rawLine.Trim();
+                var m = System.Text.RegularExpressions.Regex.Match(line, @"^([a-fA-F0-9]{64})\s+\*?(.+)$");
+                if (m.Success)
                 {
-                    var m = System.Text.RegularExpressions.Regex.Match(line, @"\b([a-fA-F0-9]{64})\b");
-                    if (m.Success) { expectedHash = m.Value; break; }
+                    var fileEntry = Path.GetFileName(m.Groups[2].Value.Trim());
+                    if (string.Equals(fileEntry, installerName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        expectedHash = m.Groups[1].Value;
+                        break;
+                    }
                 }
             }
-            if (expectedHash == null && allHashes.Count == 1)
+            if (expectedHash == null && hashUri.AbsolutePath.EndsWith(".sha256", StringComparison.OrdinalIgnoreCase) && allHashes.Count == 1)
                 expectedHash = allHashes[0].Value;
 
             if (expectedHash == null)
@@ -246,11 +258,11 @@ public class UpdateService : IUpdateService
                 _logger.LogInformation("SHA256 Verified successfully.");
             }
             // === END SHA256 VERIFICATION ===
-            
+
             if (File.Exists(installerPath))
             {
                 _logger.LogInformation("Installer verified and ready. Launching...");
-                
+
                 if (installerPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.LogInformation("Update downloaded as ZIP. Directing user to manual update for safety.");
@@ -266,7 +278,7 @@ public class UpdateService : IUpdateService
                     UseShellExecute = true,
                     Verb = "runas"
                 });
-                
+
                 // Request graceful shutdown via main window if running in WPF context
                 if (System.Windows.Application.Current != null)
                 {
@@ -279,10 +291,10 @@ public class UpdateService : IUpdateService
                         System.Windows.Application.Current.Shutdown();
                     }
                 }
-                
+
                 return OperationResult.Ok();
             }
-            
+
             return OperationResult.Fail("Could not verify downloaded installer");
         }
         catch (OperationCanceledException)
@@ -301,10 +313,10 @@ public class UpdateService : IUpdateService
     {
         [System.Text.Json.Serialization.JsonPropertyName("tag_name")]
         public string? TagName { get; set; }
-        
+
         [System.Text.Json.Serialization.JsonPropertyName("body")]
         public string? Body { get; set; }
-        
+
         [System.Text.Json.Serialization.JsonPropertyName("assets")]
         public List<GitHubAsset>? Assets { get; set; }
     }
@@ -313,10 +325,8 @@ public class UpdateService : IUpdateService
     {
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; }
-        
+
         [System.Text.Json.Serialization.JsonPropertyName("browser_download_url")]
         public string? BrowserDownloadUrl { get; set; }
     }
 }
-
-

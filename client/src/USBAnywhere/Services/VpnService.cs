@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Text.Json;
@@ -22,77 +23,68 @@ namespace USBAnywhere.Services
         public bool IsConnected => !string.IsNullOrEmpty(_currentConfig) || IsAvailable;
         public string CurrentConfig => _currentConfig;
 
+        internal static string? ResolveSafeVpnBinary(params string[] relativePaths)
+        {
+            var roots = new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+            };
+
+            foreach (var root in roots)
+            {
+                if (string.IsNullOrWhiteSpace(root)) continue;
+                foreach (var rel in relativePaths)
+                {
+                    var candidate = Path.Combine(root, rel);
+                    if (File.Exists(candidate))
+                        return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        internal static string? GetTailscaleExePath() =>
+            ResolveSafeVpnBinary(Path.Combine("Tailscale", "tailscale.exe"));
+
+        internal static string? GetZeroTierExePath() =>
+            ResolveSafeVpnBinary(
+                Path.Combine("ZeroTier", "One", "zerotier-cli.bat"),
+                Path.Combine("ZeroTier", "One", "zerotier-cli.exe"));
+
+        internal static string? GetWireGuardExePath() =>
+            ResolveSafeVpnBinary(Path.Combine("WireGuard", "wg.exe"));
+
         public bool IsTailscaleInstalled()
         {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "tailscale",
-                    Arguments = "--version",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                using var process = Process.Start(psi);
-                return process != null;
-            }
-            catch
-            {
-                return false;
-            }
+            var exePath = GetTailscaleExePath();
+            return exePath != null && File.Exists(exePath);
         }
 
         public bool IsZeroTierInstalled()
         {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "zerotier-cli",
-                    Arguments = "status",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                using var process = Process.Start(psi);
-                return process != null;
-            }
-            catch
-            {
-                return false;
-            }
+            var exePath = GetZeroTierExePath();
+            return exePath != null && File.Exists(exePath);
         }
 
         public bool IsWireGuardInstalled()
         {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "wg",
-                    Arguments = "--version",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-                using var process = Process.Start(psi);
-                return process != null;
-            }
-            catch
-            {
-                return false;
-            }
+            var exePath = GetWireGuardExePath();
+            return exePath != null && File.Exists(exePath);
         }
 
         public async Task<IEnumerable<VpnPeer>> GetTailscalePeersAsync()
         {
             var peers = new List<VpnPeer>();
+            var exePath = GetTailscaleExePath();
+            if (exePath == null || !File.Exists(exePath)) return peers;
+
             try
             {
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "tailscale",
+                    FileName = exePath,
                     Arguments = "status --json",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
@@ -102,8 +94,18 @@ namespace USBAnywhere.Services
                 using var process = Process.Start(psi);
                 if (process == null) return peers;
 
-                var output = await process.StandardOutput.ReadToEndAsync();
-                await process.WaitForExitAsync();
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                string output;
+                try
+                {
+                    output = await process.StandardOutput.ReadToEndAsync(cts.Token);
+                    await process.WaitForExitAsync(cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    try { process.Kill(true); } catch { }
+                    return peers;
+                }
 
                 if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
                 {
@@ -152,13 +154,14 @@ namespace USBAnywhere.Services
         public async Task<IEnumerable<VpnPeer>> GetZeroTierPeersAsync()
         {
             var peers = new List<VpnPeer>();
-            if (!IsZeroTierInstalled()) return peers;
+            var exePath = GetZeroTierExePath();
+            if (exePath == null || !File.Exists(exePath)) return peers;
 
             try
             {
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "zerotier-cli",
+                    FileName = exePath,
                     Arguments = "peers -j",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
@@ -168,8 +171,18 @@ namespace USBAnywhere.Services
                 using var process = Process.Start(psi);
                 if (process == null) return peers;
 
-                var output = await process.StandardOutput.ReadToEndAsync();
-                await process.WaitForExitAsync();
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                string output;
+                try
+                {
+                    output = await process.StandardOutput.ReadToEndAsync(cts.Token);
+                    await process.WaitForExitAsync(cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    try { process.Kill(true); } catch { }
+                    return peers;
+                }
 
                 if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
                 {
@@ -214,13 +227,14 @@ namespace USBAnywhere.Services
         public async Task<IEnumerable<VpnPeer>> GetWireGuardPeersAsync()
         {
             var peers = new List<VpnPeer>();
-            if (!IsWireGuardInstalled()) return peers;
+            var exePath = GetWireGuardExePath();
+            if (exePath == null || !File.Exists(exePath)) return peers;
 
             try
             {
                 var psi = new ProcessStartInfo
                 {
-                    FileName = "wg",
+                    FileName = exePath,
                     Arguments = "show all dump",
                     RedirectStandardOutput = true,
                     UseShellExecute = false,
@@ -230,8 +244,18 @@ namespace USBAnywhere.Services
                 using var process = Process.Start(psi);
                 if (process == null) return peers;
 
-                var output = await process.StandardOutput.ReadToEndAsync();
-                await process.WaitForExitAsync();
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                string output;
+                try
+                {
+                    output = await process.StandardOutput.ReadToEndAsync(cts.Token);
+                    await process.WaitForExitAsync(cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    try { process.Kill(true); } catch { }
+                    return peers;
+                }
 
                 if (!string.IsNullOrEmpty(output))
                 {
@@ -244,7 +268,8 @@ namespace USBAnywhere.Services
                             var endpoint = parts.FirstOrDefault(p => p.Contains(':'));
                             if (endpoint != null)
                             {
-                                var ip = endpoint.Split(':')[0];
+                                var lastColon = endpoint.LastIndexOf(':');
+                                var ip = (lastColon > 0 ? endpoint[..lastColon] : endpoint).Trim('[', ']');
                                 var shortKey = parts[1].Length >= 8 ? parts[1][..8] : parts[1];
                                 peers.Add(new VpnPeer
                                 {

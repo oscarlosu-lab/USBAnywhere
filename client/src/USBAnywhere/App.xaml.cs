@@ -151,7 +151,7 @@ public partial class App : System.Windows.Application
         services.AddLogging(b =>
         {
             b.AddConsole();
-            b.Services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
+            // FileLoggerProvider already registered as Singleton above
             b.SetMinimumLevel(LogLevel.Information);
         });
 

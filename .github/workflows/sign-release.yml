@@ -41,7 +41,7 @@ jobs:
 
       - name: Upload unsigned installer
         id: unsigned
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: unsigned-installer
           path: client/release/USBAnywhere_Setup_v*.exe

@@ -1,4 +1,4 @@
-# 📖 Manual de Usuario de USBAnywhere v3.0.1
+# 📖 Manual de Usuario de USBAnywhere v3.2.0
 
 🌐 **Idioma / Language:** [English](USAGE_EN.md) | **Español**
 

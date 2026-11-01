@@ -33,7 +33,7 @@ public class NotificationService : INotificationService
             new ToastContentBuilder()
                 .AddText($"{iconPrefix}{title}")
                 .AddText(message)
-                .AddAttributionText("USBAnywhere v3.0")
+                .AddAttributionText("USBAnywhere v3.2.0")
                 .Show();
         }
         catch (Exception ex)

@@ -258,14 +258,18 @@ public partial class MainWindow : Window
     {
         if (WindowState == WindowState.Minimized)
         {
-            Hide();
-            if (!_isFirstStartup)
+            var config = _config.Load();
+            if (config.MinimizeToTray)
             {
-                ShowNotification(_localization.GetText("title_main", _currentLanguage),
-                               _localization.GetText("tray_minimized", _currentLanguage),
-                               Forms.ToolTipIcon.Info);
+                Hide();
+                if (!_isFirstStartup)
+                {
+                    ShowNotification(_localization.GetText("title_main", _currentLanguage),
+                                   _localization.GetText("tray_minimized", _currentLanguage),
+                                   Forms.ToolTipIcon.Info);
+                }
+                _isFirstStartup = false;
             }
-            _isFirstStartup = false;
         }
         base.OnStateChanged(e);
     }
@@ -341,7 +345,19 @@ public partial class MainWindow : Window
     {
         if (_autoScanStarted) return;
         _autoScanStarted = true;
-        await AutoScanOnStartup();
+        var config = _config.Load();
+        if (config.AutoScanOnStart)
+        {
+            await AutoScanOnStartup();
+        }
+        else
+        {
+            await LoadConnectedDevicesAsync();
+            if (config.AutoConnectFavorites)
+            {
+                await AutoConnectFavorites();
+            }
+        }
     }
 
     private async Task AutoScanOnStartup()
@@ -371,7 +387,7 @@ public partial class MainWindow : Window
                     var serverNode = new TreeViewItem { Header = $"🖥️ {server}" };
                     nodeHubs.Items.Add(serverNode);
                 }
-                nodeHubs.Header = $"🖥️ USB Hubs ({servers.Count})";
+                nodeHubs.Header = $"{_localization.GetText("node_hubs", _currentLanguage)} ({servers.Count})";
 
                 txtServerIP.Text = servers[0];
 
@@ -385,7 +401,11 @@ public partial class MainWindow : Window
                 }
 
                 await LoadConnectedDevicesAsync();
-                await AutoConnectFavorites();
+                var config = _config.Load();
+                if (config.AutoConnectFavorites)
+                {
+                    await AutoConnectFavorites();
+                }
             }
             else
             {
@@ -484,7 +504,7 @@ public partial class MainWindow : Window
             var latencyMs = await MeasureServerLatencyMsAsync(serverIP);
             serverNode.Header = latencyMs >= 0 ? $"🖥️ {serverIP} ({devices.Count})  •  ⚡ {latencyMs:F1} ms" : $"🖥️ {serverIP} ({devices.Count})";
             serverNode.IsExpanded = true;
-            nodeHubs.Header = $"🖥️ USB Hubs ({nodeHubs.Items.Count})";
+            nodeHubs.Header = $"{_localization.GetText("node_hubs", _currentLanguage)} ({nodeHubs.Items.Count})";
 
             AddLocalizedLog("Info", "log_devices_on_server", devices.Count, serverIP);
         }
@@ -617,7 +637,7 @@ public partial class MainWindow : Window
                         BusId = fav.BusId,
                         Description = fav.Description
                     });
-                    _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true);
+                    _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: receiveMode);
                     _connectionMonitor.Start();
                 }
                 else
@@ -656,7 +676,7 @@ public partial class MainWindow : Window
                 ProductId = productId
             });
 
-            _connectionMonitor.AddDevice(serverIP, busId, autoReconnect: true);
+            _connectionMonitor.AddDevice(serverIP, busId, autoReconnect: true, receiveMode: mode);
             _connectionMonitor.Start();
 
             ShowNotification(
@@ -1045,7 +1065,7 @@ public partial class MainWindow : Window
                 var serverNode = new TreeViewItem { Header = $"🖥️ {server}" };
                 nodeHubs.Items.Add(serverNode);
             }
-            nodeHubs.Header = $"🖥️ USB Hubs ({servers.Count})";
+            nodeHubs.Header = $"{_localization.GetText("node_hubs", _currentLanguage)} ({servers.Count})";
 
             if (servers.Count > 0)
             {
@@ -1532,7 +1552,7 @@ public partial class MainWindow : Window
     {
         if (treeDevices.SelectedItem is TreeViewItem node && node.Tag is UsbDevice device)
         {
-            var result = _favorites.AddFavorite(device.ServerIP, device.BusId, device.Description, true);
+            var result = _favorites.AddFavorite(device.ServerIP, device.BusId, device.Description, true, _currentReceiveMode);
             if (result.Success)
             {
                 AddLocalizedLog("Success", "log_favorite_added");
@@ -1581,7 +1601,7 @@ public partial class MainWindow : Window
             if (parent == nodeHubs)
             {
                 nodeHubs.Items.Remove(node);
-                nodeHubs.Header = $"🖥️ USB Hubs ({nodeHubs.Items.Count})";
+                nodeHubs.Header = $"{_localization.GetText("node_hubs", _currentLanguage)} ({nodeHubs.Items.Count})";
             }
         }
     }
@@ -1643,7 +1663,7 @@ public partial class MainWindow : Window
 
     private void OnConnectionLost(object? sender, ConnectionLostEventArgs e)
     {
-        Dispatcher.Invoke(() =>
+        _ = Dispatcher.InvokeAsync(() =>
         {
             AddLocalizedLog("Warning", "log_connection_lost_detail", e.ServerIP, e.BusId);
             ShowNotification(
@@ -1657,7 +1677,7 @@ public partial class MainWindow : Window
 
     private void OnConnectionRestored(object? sender, ConnectionRestoredEventArgs e)
     {
-        Dispatcher.Invoke(() =>
+        _ = Dispatcher.InvokeAsync(() =>
         {
             AddLocalizedLog("Success", "log_connection_restored_detail", e.ServerIP, e.BusId);
             ShowNotification(
