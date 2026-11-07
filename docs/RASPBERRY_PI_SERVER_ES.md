@@ -168,6 +168,41 @@ sudo ufw allow 3240/tcp
 
 ---
 
+---
+
+## 🎮 Mandos DualSense y Gamepads con Audio (Prevención de Kernel Oops)
+
+El Sony **DualSense** (`054c:0ce6`), **DualSense Edge** (`054c:0df2`) y mandos similares son dispositivos USB compuestos que combinan una interfaz HID estándar (botones, gatillos, palancas, touchpad, giroscopio, vibración háptica) con interfaces de audio USB isócrono (micrófono y altavoz).
+
+En placas ARM de bajo consumo (como Raspberry Pi Zero 2 W) con kernel Linux 6.x, el envío de paquetes isócronos a través de USB/IP puede provocar un *Kernel Oops* (`stub_send_ret_submit` en el módulo `usbip_host`).
+
+USBAnywhere instala automáticamente la regla de aislamiento de audio durante la ejecución de `install-server-linux.sh`. También puedes gestionarlo en cualquier momento mediante:
+
+```bash
+# Activar mitigación (mantiene el Gamepad HID activo y desautoriza interfaces de audio)
+sudo usbanywhere-ctl fix-dualsense enable
+
+# Ver estado
+usbanywhere-ctl fix-dualsense status
+
+# Desactivar mitigación
+sudo usbanywhere-ctl fix-dualsense disable
+```
+
+O crear manualmente la regla persistente de udev:
+
+```bash
+sudo bash -c 'cat << "EOF" > /etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules
+# Desautorizar interfaces de audio de DualSense para prevenir Oops en usbip_host
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+EOF'
+
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
 ## 📝 Notas
 
 - El `bus-id` (ej: `1-1.4`) puede cambiar si reconectas el dispositivo

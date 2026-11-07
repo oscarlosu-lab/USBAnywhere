@@ -134,6 +134,18 @@ systemctl daemon-reload 2>/dev/null || true
 systemctl enable usbanywhere-autounbind 2>/dev/null || true
 systemctl restart usbanywhere-autounbind 2>/dev/null || true
 
+# Configure DualSense & Composite Gamepad Audio Isochronous Mitigation (prevents SBC kernel panics)
+cat << 'UDEV_EOF' > /etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules
+# USBAnywhere - Isolate HID and prevent usbip_host isochronous audio kernel Oops on SBCs
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+UDEV_EOF
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger --subsystem-match=usb 2>/dev/null || true
+
+
 # Configure Avahi Zeroconf / mDNS service
 if command -v avahi-daemon &> /dev/null; then
     mkdir -p /etc/avahi/services

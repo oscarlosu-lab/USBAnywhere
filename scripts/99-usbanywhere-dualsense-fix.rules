@@ -1,0 +1,18 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# USBAnywhere - DualSense & Composite Gamepad Audio Isochronous Mitigation
+# Copyright (c) 2025-2026 oscarlosu-lab - https://github.com/oscarlosu-lab/USBAnywhere
+# Licensed under GPL v3
+#
+# Prevents upstream Linux kernel usbip_host oops/panic on ARM/SBCs (e.g. Pi Zero 2 W)
+# when serializing isochronous audio streaming descriptors over TCP.
+# Interface 0 (HID Gamepad, touchpad, gyro, rumble) remains fully authorized.
+# Interfaces 1 & 2 (Audio Control & Audio Streaming) are de-authorized.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Sony DualSense Wireless Controller (054c:0ce6)
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+
+# Sony DualSense Edge Wireless Controller (054c:0df2)
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"

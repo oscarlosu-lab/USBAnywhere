@@ -175,6 +175,41 @@ sudo ufw allow from 192.168.1.0/24 to any port 3240 proto tcp comment 'USBAnywhe
 
 ---
 
+---
+
+## 🎮 DualSense & Composite Audio Controllers (Preventing Kernel Oops)
+
+The Sony **DualSense** (`054c:0ce6`), **DualSense Edge** (`054c:0df2`), and similar composite gamepads bundle both a standard HID gamepad interface (buttons, triggers, sticks, touchpad, motion gyro, rumble) and isochronous USB Audio interfaces (mic and headset).
+
+On low-power ARM boards (e.g. Raspberry Pi Zero 2 W) running Linux kernel 6.x, streaming or alternating settings on isochronous audio endpoints over USB/IP can trigger a kernel Oops (`stub_send_ret_submit` dereference in `usbip_host`).
+
+USBAnywhere automatically installs the audio isolation rule during `install-server-linux.sh`. You can also manage it anytime via:
+
+```bash
+# Enable mitigation (keeps Gamepad HID active, de-authorizes audio endpoints)
+sudo usbanywhere-ctl fix-dualsense enable
+
+# Check status
+usbanywhere-ctl fix-dualsense status
+
+# Disable mitigation
+sudo usbanywhere-ctl fix-dualsense disable
+```
+
+Or manually install the persistent udev rule:
+
+```bash
+sudo bash -c 'cat << "EOF" > /etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules
+# Disable DualSense audio interfaces to prevent usbip_host isochronous Oops
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+EOF'
+
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
 ## 📝 Notes
 
 - The `bus-id` (e.g., `1-1.4`) may change if you reconnect the device

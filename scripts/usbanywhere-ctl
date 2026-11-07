@@ -695,6 +695,57 @@ def run_self_test(host="127.0.0.1", port=PORT):
         if s: s.close()
         return False
 
+
+DUALSENSE_UDEV_PATH = "/etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules"
+DUALSENSE_UDEV_CONTENT = """# USBAnywhere - DualSense & Composite Gamepad Audio Isochronous Mitigation
+# Prevents upstream Linux kernel usbip_host oops/panic on ARM/SBCs when serializing isochronous audio
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+"""
+
+def manage_dualsense_fix(action="enable"):
+    """Enable, disable, or query DualSense audio isochronous mitigation udev rule."""
+    if not IS_LINUX:
+        print(f"{YELLOW}DualSense udev fix is only applicable on Linux / SBC systems.{RESET}")
+        return False
+    
+    if action == "status":
+        exists = os.path.exists(DUALSENSE_UDEV_PATH)
+        st = f"{GREEN}ACTIVE{RESET}" if exists else f"{YELLOW}INACTIVE{RESET}"
+        print(f"DualSense Audio Isochronous Fix: {st}")
+        print(f"Rules file: {DUALSENSE_UDEV_PATH}")
+        return exists
+    elif action == "enable":
+        if not is_root():
+            return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        try:
+            os.makedirs(os.path.dirname(DUALSENSE_UDEV_PATH), exist_ok=True)
+            with open(DUALSENSE_UDEV_PATH, "w", encoding="utf-8") as f:
+                f.write(DUALSENSE_UDEV_CONTENT)
+            run_cmd(["udevadm", "control", "--reload-rules"])
+            run_cmd(["udevadm", "trigger", "--subsystem-match=usb"])
+            print(f"{GREEN}✓ DualSense audio isochronous mitigation enabled.{RESET}")
+            print(f"  HID Gamepad interface is active; audio interfaces are de-authorized to protect SBC kernels.")
+            return True
+        except Exception as e:
+            print(f"{RED}Error enabling DualSense fix: {e}{RESET}")
+            return False
+    elif action == "disable":
+        if not is_root():
+            return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        try:
+            if os.path.exists(DUALSENSE_UDEV_PATH):
+                os.remove(DUALSENSE_UDEV_PATH)
+            run_cmd(["udevadm", "control", "--reload-rules"])
+            run_cmd(["udevadm", "trigger", "--subsystem-match=usb"])
+            print(f"{YELLOW}✓ DualSense audio isochronous mitigation disabled.{RESET}")
+            return True
+        except Exception as e:
+            print(f"{RED}Error disabling DualSense fix: {e}{RESET}")
+            return False
+
 def run_doctor():
     """System health check and diagnostic inspection."""
     print(f"\n{BOLD}{CYAN}═══ 🩺 USBAnywhere System Doctor ═══{RESET}\n")
@@ -735,6 +786,19 @@ def run_doctor():
         print(f"    {DIM}{d}{RESET}")
     if len(devs) > 5:
         print(f"    {DIM}... and {len(devs) - 5} more{RESET}")
+    # 6. Gaming Controller & Audio Isochronous Check (Linux only)
+    if IS_LINUX:
+        has_ds_rule = os.path.exists(DUALSENSE_UDEV_PATH)
+        rule_str = f"{GREEN}INSTALLED{RESET}" if has_ds_rule else f"{YELLOW}NOT INSTALLED (run: sudo usbanywhere-ctl fix-dualsense enable){RESET}"
+        print(f"• DualSense SBC Audio Fix: {rule_str}")
+        ds_devs = [d for d in devs if "054c:0ce6" in d or "054c:0df2" in d or "dualsense" in d.lower()]
+        if ds_devs:
+            if has_ds_rule:
+                print(f"    {GREEN}✓ DualSense gamepad detected and protected against SBC isoc kernel oops.{RESET}")
+            else:
+                print(f"    {RED}⚠ DualSense detected without audio isolation rule! To prevent kernel oops on Raspberry Pi:{RESET}")
+                print(f"      {BOLD}sudo usbanywhere-ctl fix-dualsense enable{RESET}")
+
 
     print(f"\n{GREEN}Doctor completed.{RESET}\n")
 
@@ -835,7 +899,7 @@ def main():
     )
     parser.add_argument("command", nargs="?", default="dashboard",
                         choices=["dashboard", "status", "start", "stop", "restart",
-                                 "list", "share", "unshare", "policy", "auto-unbind", "dynamic-daemon", "doctor", "test", "logs"],
+                                 "list", "share", "unshare", "policy", "auto-unbind", "dynamic-daemon", "doctor", "test", "logs", "fix-dualsense"],
                         help="Action to perform (default: interactive dashboard)")
     parser.add_argument("busid", nargs="?", default=None, help="Target USB bus ID or action parameter")
     parser.add_argument("extra", nargs="?", default=None, help="Additional argument for policy management")
@@ -941,6 +1005,13 @@ def main():
             os.system("tail -f /var/log/usbanywhere-server.log")
         elif IS_LINUX:
             os.system("journalctl -u usbipd -f")
+
+    elif args.command == "fix-dualsense":
+        subaction = (args.busid or "enable").lower()
+        if subaction not in ["status", "enable", "disable"]:
+            print("Usage: usbanywhere-ctl fix-dualsense [enable|disable|status]")
+        else:
+            manage_dualsense_fix(subaction)
 
 if __name__ == "__main__":
     main()

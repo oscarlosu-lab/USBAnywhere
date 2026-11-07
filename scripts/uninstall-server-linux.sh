@@ -35,6 +35,7 @@ echo -e "${BLUE}[3/5] Removing Avahi discovery service, udev rules & export poli
 rm -f /etc/avahi/services/usbanywhere.service
 rm -f /etc/udev/rules.d/99-usbip-autobind.rules
 rm -f /etc/udev/rules.d/99-usbanywhere-autobind.rules
+rm -f /etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules
 rm -rf /etc/usbanywhere
 systemctl restart avahi-daemon 2>/dev/null || true
 udevadm control --reload-rules 2>/dev/null || true

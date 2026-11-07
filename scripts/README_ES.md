@@ -18,6 +18,7 @@ Panel interactivo con interfaz TUI para terminal y herramienta de gestión CLI s
 - **Autoprueba del Protocolo**: `usbanywhere-ctl test`
 - **Gestión del Servicio**: `sudo usbanywhere-ctl start|stop|restart|status`
 - **Gestión de Dispositivos**: `usbanywhere-ctl list`, `sudo usbanywhere-ctl share <busid>`
+- **Parche DualSense para SBCs**: `sudo usbanywhere-ctl fix-dualsense enable|disable|status`
 
 ### 2. `install-server-mac.sh` — Instalador 1-Click para macOS
 Instalador automático para macOS (Apple Silicon M1-M4 e Intel x86_64).

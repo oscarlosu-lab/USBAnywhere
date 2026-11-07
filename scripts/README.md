@@ -18,6 +18,7 @@ Interactive Terminal User Interface (TUI) dashboard and CLI management tool with
 - **Protocol Loopback Test**: `usbanywhere-ctl test`
 - **Service Control**: `sudo usbanywhere-ctl start|stop|restart|status`
 - **Device Management**: `usbanywhere-ctl list`, `sudo usbanywhere-ctl share <busid>`
+- **DualSense SBC Fix**: `sudo usbanywhere-ctl fix-dualsense enable|disable|status`
 
 ### 2. `install-server-mac.sh` — 1-Click macOS Server Installer
 Automated installer for macOS (Apple Silicon M1-M4 & Intel x86_64).
