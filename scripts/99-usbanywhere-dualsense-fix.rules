@@ -5,14 +5,17 @@
 #
 # Prevents upstream Linux kernel usbip_host oops/panic on ARM/SBCs (e.g. Pi Zero 2 W)
 # when serializing isochronous audio streaming descriptors over TCP.
-# Interface 0 (HID Gamepad, touchpad, gyro, rumble) remains fully authorized.
-# Interfaces 1 & 2 (Audio Control & Audio Streaming) are de-authorized.
+# Matches usb_interface child nodes via parent ATTRS{idVendor}/ATTRS{idProduct}
+# and disables all USB Audio Class (bInterfaceClass=="01") interfaces regardless
+# of firmware interface numbering (e.g. DualSense fw 0x0110002a where HID is if 03).
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Sony DualSense Wireless Controller (054c:0ce6)
+# Sony DualSense Wireless Controller (054c:0ce6) - Disable USB Audio interfaces (Class 01)
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
 
-# Sony DualSense Edge Wireless Controller (054c:0df2)
+# Sony DualSense Edge Wireless Controller (054c:0df2) - Disable USB Audio interfaces (Class 01)
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
 ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"

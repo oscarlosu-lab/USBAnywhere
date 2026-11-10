@@ -96,7 +96,7 @@ if [ -f "$SCRIPT_DIR/usbanywhere-ctl" ]; then
     chmod +x /usr/local/bin/usbanywhere-ctl
 else
     # Download latest if running via curl pipe
-    curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere-Server/main/scripts/usbanywhere-ctl -o /usr/local/bin/usbanywhere-ctl
+    curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/usbanywhere-ctl -o /usr/local/bin/usbanywhere-ctl
     chmod +x /usr/local/bin/usbanywhere-ctl
 fi
 
@@ -108,7 +108,20 @@ rm -f /etc/systemd/system/usbanywhere-autobind.service
 rm -f /usr/local/bin/usbanywhere-autobind.sh
 rm -f /etc/udev/rules.d/99-usbip-autobind.rules
 rm -f /etc/udev/rules.d/99-usbanywhere-autobind.rules
+
+# Install DualSense / DualSense Edge udev protection rule (inhibits hid-playstation race, USB autosuspend & ARM64 isoc audio Oops)
+cat << 'UDEV_EOF' > /etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules
+# USBAnywhere — Prevent hid-playstation race, USB autosuspend, and ARM64 usbip_host isoc audio Oops on Sony DualSense / DualSense Edge
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="hid", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", RUN+="/bin/sh -c 'echo $kernel > /sys/bus/hid/drivers/playstation/unbind 2>/dev/null || true'"
+ACTION=="add", SUBSYSTEM=="hid", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", RUN+="/bin/sh -c 'echo $kernel > /sys/bus/hid/drivers/playstation/unbind 2>/dev/null || true'"
+UDEV_EOF
+
 udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger 2>/dev/null || true
 mkdir -p /etc/usbanywhere
 
 # Install Dynamic Auto-Unbind & Control API service (now usbanywhere-ctl is guaranteed to exist!)
@@ -134,18 +147,6 @@ systemctl daemon-reload 2>/dev/null || true
 systemctl enable usbanywhere-autounbind 2>/dev/null || true
 systemctl restart usbanywhere-autounbind 2>/dev/null || true
 
-# Configure DualSense & Composite Gamepad Audio Isochronous Mitigation (prevents SBC kernel panics)
-cat << 'UDEV_EOF' > /etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules
-# USBAnywhere - Isolate HID and prevent usbip_host isochronous audio kernel Oops on SBCs
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
-UDEV_EOF
-udevadm control --reload-rules 2>/dev/null || true
-udevadm trigger --subsystem-match=usb 2>/dev/null || true
-
-
 # Configure Avahi Zeroconf / mDNS service
 if command -v avahi-daemon &> /dev/null; then
     mkdir -p /etc/avahi/services
@@ -158,7 +159,7 @@ if command -v avahi-daemon &> /dev/null; then
     <type>_usbanywhere._tcp</type>
     <port>3240</port>
     <txt-record>proto=usbip</txt-record>
-    <txt-record>version=3.2.0</txt-record>
+    <txt-record>version=1.0.0</txt-record>
   </service>
   <service>
     <type>_usbip._tcp</type>

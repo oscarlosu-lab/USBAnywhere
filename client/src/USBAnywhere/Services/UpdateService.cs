@@ -30,9 +30,9 @@ public class UpdateService : IUpdateService
         _logger = logger;
         _env = env;
         _currentVersion = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetName().Version?.ToString(3) ?? "3.2.0";
+            .GetName().Version?.ToString(3) ?? "3.3.0";
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "USBAnywhere-WPF/3.2.0");
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "USBAnywhere-WPF/3.3.0");
     }
 
     public async Task<UpdateInfo> CheckForUpdatesAsync(CancellationToken ct = default)

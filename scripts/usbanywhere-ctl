@@ -24,7 +24,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-VERSION = "3.2.0"
+VERSION = "3.3.0"
 PORT = 3240
 CONTROL_PORT = 3241
 
@@ -695,57 +695,6 @@ def run_self_test(host="127.0.0.1", port=PORT):
         if s: s.close()
         return False
 
-
-DUALSENSE_UDEV_PATH = "/etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules"
-DUALSENSE_UDEV_CONTENT = """# USBAnywhere - DualSense & Composite Gamepad Audio Isochronous Mitigation
-# Prevents upstream Linux kernel usbip_host oops/panic on ARM/SBCs when serializing isochronous audio
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
-"""
-
-def manage_dualsense_fix(action="enable"):
-    """Enable, disable, or query DualSense audio isochronous mitigation udev rule."""
-    if not IS_LINUX:
-        print(f"{YELLOW}DualSense udev fix is only applicable on Linux / SBC systems.{RESET}")
-        return False
-    
-    if action == "status":
-        exists = os.path.exists(DUALSENSE_UDEV_PATH)
-        st = f"{GREEN}ACTIVE{RESET}" if exists else f"{YELLOW}INACTIVE{RESET}"
-        print(f"DualSense Audio Isochronous Fix: {st}")
-        print(f"Rules file: {DUALSENSE_UDEV_PATH}")
-        return exists
-    elif action == "enable":
-        if not is_root():
-            return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
-        try:
-            os.makedirs(os.path.dirname(DUALSENSE_UDEV_PATH), exist_ok=True)
-            with open(DUALSENSE_UDEV_PATH, "w", encoding="utf-8") as f:
-                f.write(DUALSENSE_UDEV_CONTENT)
-            run_cmd(["udevadm", "control", "--reload-rules"])
-            run_cmd(["udevadm", "trigger", "--subsystem-match=usb"])
-            print(f"{GREEN}✓ DualSense audio isochronous mitigation enabled.{RESET}")
-            print(f"  HID Gamepad interface is active; audio interfaces are de-authorized to protect SBC kernels.")
-            return True
-        except Exception as e:
-            print(f"{RED}Error enabling DualSense fix: {e}{RESET}")
-            return False
-    elif action == "disable":
-        if not is_root():
-            return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
-        try:
-            if os.path.exists(DUALSENSE_UDEV_PATH):
-                os.remove(DUALSENSE_UDEV_PATH)
-            run_cmd(["udevadm", "control", "--reload-rules"])
-            run_cmd(["udevadm", "trigger", "--subsystem-match=usb"])
-            print(f"{YELLOW}✓ DualSense audio isochronous mitigation disabled.{RESET}")
-            return True
-        except Exception as e:
-            print(f"{RED}Error disabling DualSense fix: {e}{RESET}")
-            return False
-
 def run_doctor():
     """System health check and diagnostic inspection."""
     print(f"\n{BOLD}{CYAN}═══ 🩺 USBAnywhere System Doctor ═══{RESET}\n")
@@ -779,15 +728,20 @@ def run_doctor():
         print(f"• Kernel Module core: {core_str}")
         print(f"• Kernel Module host: {host_str}")
 
+        # Check Raspberry Pi legacy dwc_otg driver (causes kernel Oops in stub_send_ret_submit behind USB 2.0 Hub HATs)
         if os.path.exists("/sys/bus/platform/drivers/dwc_otg") and any(
             x.startswith("20980000.usb") or x.startswith("3f980000.usb") or x.startswith("fe980000.usb")
             for x in os.listdir("/sys/bus/platform/drivers/dwc_otg")
         ):
             print(f"• RPi USB Controller: {YELLOW}WARNING: Legacy 'dwc_otg' active!{RESET}")
-            print(f"    {YELLOW}↳ High-speed HID/DualSense behind USB 2.0 Hub HATs may trigger a kernel Oops (Issue #6).{RESET}")
-            print(f"    {CYAN}↳ Fix: Add 'dtoverlay=dwc2,dr_mode=host' under [all] in /boot/firmware/config.txt and reboot.{RESET}")
+            print(f"    {YELLOW}↳ High-speed HID/DualSense behind USB 2.0 Hub HATs may trigger a kernel Oops.{RESET}")
+            print(f"    {CYAN}↳ Fix: Run 'sudo usbanywhere-ctl fix-dualsense' or add 'dtoverlay=dwc2,dr_mode=host' to /boot/firmware/config.txt{RESET}")
         elif os.path.exists("/sys/bus/platform/drivers/dwc2"):
             print(f"• RPi USB Controller: {GREEN}dwc2 (Modern split-transaction safe){RESET}")
+
+        dualsense_rule = "/etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules"
+        if os.path.exists(dualsense_rule):
+            print(f"• DualSense Quirk:    {GREEN}INSTALLED ({dualsense_rule}){RESET}")
 
     # 5. Device Inventory
     devs = list_devices()
@@ -796,19 +750,6 @@ def run_doctor():
         print(f"    {DIM}{d}{RESET}")
     if len(devs) > 5:
         print(f"    {DIM}... and {len(devs) - 5} more{RESET}")
-    # 6. Gaming Controller & Audio Isochronous Check (Linux only)
-    if IS_LINUX:
-        has_ds_rule = os.path.exists(DUALSENSE_UDEV_PATH)
-        rule_str = f"{GREEN}INSTALLED{RESET}" if has_ds_rule else f"{YELLOW}NOT INSTALLED (run: sudo usbanywhere-ctl fix-dualsense enable){RESET}"
-        print(f"• DualSense SBC Audio Fix: {rule_str}")
-        ds_devs = [d for d in devs if "054c:0ce6" in d or "054c:0df2" in d or "dualsense" in d.lower()]
-        if ds_devs:
-            if has_ds_rule:
-                print(f"    {GREEN}✓ DualSense gamepad detected and protected against SBC isoc kernel oops.{RESET}")
-            else:
-                print(f"    {RED}⚠ DualSense detected without audio isolation rule! To prevent kernel oops on Raspberry Pi:{RESET}")
-                print(f"      {BOLD}sudo usbanywhere-ctl fix-dualsense enable{RESET}")
-
 
     print(f"\n{GREEN}Doctor completed.{RESET}\n")
 
@@ -855,10 +796,11 @@ def render_dashboard():
   {BOLD}[2]{RESET} Stop Service                  {BOLD}[6]{RESET} Run Protocol Self-Test
   {BOLD}[3]{RESET} Share a USB Device            {BOLD}[7]{RESET} View Live Logs
   {BOLD}[4]{RESET} Unshare a USB Device          {BOLD}[8]{RESET} Refresh Dashboard
+  {BOLD}[9]{RESET} Client: Connect Remote USB    {BOLD}[0]{RESET} Client: Detach Remote USB
   {BOLD}[q]{RESET} Quit Control Suite
 """)
 
-        choice = input(f"{BOLD}Select an action [1-8, q]: {RESET}").strip().lower()
+        choice = input(f"{BOLD}Select an action [0-9, q]: {RESET}").strip().lower()
 
         if choice == "1":
             start_service()
@@ -894,13 +836,303 @@ def render_dashboard():
             input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
         elif choice == "8" or choice == "":
             continue
+        elif choice == "9":
+            scan_network_servers()
+            srv_ip = input("Enter Remote Server IP (e.g. 192.168.1.50): ").strip()
+            if srv_ip:
+                list_remote_devices(srv_ip)
+                rem_bus = input("Enter Remote Bus ID to attach (e.g. 1-1): ").strip()
+                if rem_bus:
+                    connect_remote_device(srv_ip, rem_bus)
+            input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
+        elif choice == "0":
+            list_client_ports()
+            port_or_bus = input("Enter Port number, Bus ID, or 'all' to detach: ").strip()
+            if port_or_bus:
+                disconnect_remote_device(port_or_bus)
+            input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
         elif choice in ["q", "quit", "exit"]:
             print(f"\n{GREEN}Exiting USBAnywhere Control Suite. Have a great day!{RESET}\n")
             break
 
 # ══════════════════════════════════════════════════════════════════════════════
+# LINUX CLIENT MODE (vhci_hcd + On-Demand Dynamic BIND/UNBIND TCP 3241)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def is_valid_host(host):
+    """Validate hostname or IPv4 address strictly against command injection."""
+    return bool(host and isinstance(host, str) and re.match(r"^[a-zA-Z0-9.\-_]+$", host.strip()))
+
+def send_control_command(server_ip, cmd_line, port=CONTROL_PORT, timeout=2.5):
+    """Send a single-line control command to remote TCP 3241 daemon and parse JSON response."""
+    if not is_valid_host(server_ip):
+        return None
+    try:
+        with socket.create_connection((server_ip.strip(), port), timeout=timeout) as s:
+            s.sendall((cmd_line.strip() + "\n").encode("utf-8"))
+            raw = s.recv(16384).decode("utf-8", errors="ignore").strip()
+            if raw:
+                return json.loads(raw.splitlines()[0])
+    except Exception:
+        pass
+    return None
+
+def scan_network_servers(port=CONTROL_PORT, timeout=1.2):
+    """Broadcast UDP discovery probe on port 3241 to find USB/IP servers on LAN."""
+    print(f"\n{CYAN}═══ 🔍 Scanning LAN for USB/IP Servers (UDP {port}) ═══{RESET}")
+    found = []
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        sock.settimeout(0.35)
+        targets = {"255.255.255.255"}
+        lan_ip = get_lan_ip()
+        if lan_ip and "." in lan_ip and not lan_ip.startswith("127."):
+            parts = lan_ip.split(".")
+            if len(parts) == 4:
+                targets.add(f"{parts[0]}.{parts[1]}.{parts[2]}.255")
+        for bcast in targets:
+            for probe in (b"USBANYWHERE_DISCOVERY_PROBE\n", b"USBANYWHERE_DISCOVERY_PROBE\n"):
+                try:
+                    sock.sendto(probe, (bcast, port))
+                except Exception:
+                    pass
+        deadline = time.time() + timeout
+        seen_ips = set()
+        while time.time() < deadline:
+            try:
+                data, addr = sock.recvfrom(1024)
+                ip = addr[0]
+                if ip not in seen_ips:
+                    seen_ips.add(ip)
+                    msg = data.decode("utf-8", errors="ignore").strip()
+                    host = msg.split(":", 1)[1] if ":" in msg else msg
+                    found.append((ip, host))
+            except socket.timeout:
+                continue
+            except Exception:
+                break
+        sock.close()
+    except Exception as e:
+        print(f"{YELLOW}Discovery warning: {e}{RESET}")
+
+    if found:
+        for ip, host in found:
+            print(f"  {GREEN}●{RESET} {BOLD}{ip}{RESET} ({host})")
+    else:
+        print(f"  {DIM}No broadcast responders replied within {timeout:.1f}s (you can still connect by direct IP).{RESET}")
+    return found
+
+def list_remote_devices(server_ip):
+    """List remote USB devices on server_ip using both TCP 3241 dynamic inventory and TCP 3240."""
+    if not is_valid_host(server_ip):
+        print(f"{RED}[Error] Invalid server IP or hostname: {server_ip}{RESET}")
+        return []
+    ip = server_ip.strip()
+    print(f"\n{CYAN}═══ 🌐 Remote USB Devices on {ip} ═══{RESET}")
+    results = []
+
+    # 1. Query On-Demand Dynamic Control API (TCP 3241)
+    dyn = send_control_command(ip, "LIST")
+    if isinstance(dyn, dict) and isinstance(dyn.get("devices"), list):
+        for item in dyn["devices"]:
+            if isinstance(item, dict):
+                bid = item.get("busid") or item.get("busId") or ""
+                vid = item.get("vid") or item.get("vendorId") or ""
+                pid = item.get("pid") or item.get("productId") or ""
+                prod = item.get("product") or item.get("description") or "USB Device"
+                line = f"  {bid:<8} : {prod} ({vid}:{pid})"
+                results.append(line)
+            elif isinstance(item, str) and item.strip():
+                results.append("  " + item.strip())
+
+    # 2. Fallback / supplement via standard usbip list -r <ip> (TCP 3240)
+    if not results:
+        bin_path = shutil.which("usbip")
+        if bin_path:
+            out = run_cmd([bin_path, "list", "-r", ip])
+            for line in out.splitlines():
+                if re.search(r"^\s*\d+-[\d.]+\s*:", line):
+                    results.append("  " + line.strip())
+
+    if results:
+        for r in results:
+            print(r)
+    else:
+        print(f"  {YELLOW}No remote USB devices found on {ip} (verify server IP and ports 3240/3241).{RESET}")
+    return results
+
+def connect_remote_device(server_ip, busid):
+    """Attach a remote USB/IP device into local Linux vhci_hcd client driver (with on-demand TCP 3241 BIND)."""
+    if not IS_LINUX:
+        print(f"{RED}[Error] Native vhci_hcd client attach is only supported on Linux.{RESET}")
+        return False
+    if not is_valid_host(server_ip) or not is_valid_busid(busid):
+        print(f"{RED}[Error] Invalid Server IP ({server_ip}) or Bus ID ({busid}).{RESET}")
+        return False
+    if not is_root():
+        print(f"{YELLOW}[!] Superuser privileges required for vhci_hcd attach. Re-running with sudo...{RESET}")
+        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+
+    ip = server_ip.strip()
+    bid = busid.strip()
+
+    # 1. Load Linux USB/IP client kernel modules
+    run_cmd(["modprobe", "usbip_core"])
+    run_cmd(["modprobe", "vhci_hcd"])
+
+    # 2. Request on-demand BIND via TCP 3241 if server supports Dynamic Control
+    bind_resp = send_control_command(ip, f"BIND {bid}")
+    if isinstance(bind_resp, dict):
+        st = (bind_resp.get("status") or "").upper()
+        if st == "DENIED":
+            print(f"{RED}[Policy Denied] Remote server blocked export of {bid}: {bind_resp.get('message')}{RESET}")
+            return False
+        elif st == "OK":
+            print(f"{GREEN}✓ On-demand BIND {bid} accepted by {ip}:{CONTROL_PORT}{RESET}")
+            time.sleep(0.25)
+
+    # 3. Attach into local vhci_hcd
+    bin_path = shutil.which("usbip")
+    if not bin_path:
+        print(f"{RED}[Error] 'usbip' client binary not found. Install linux-tools-generic or usbip.{RESET}")
+        return False
+
+    out = run_cmd([bin_path, "attach", "-r", ip, "-b", bid])
+    if "error" in out.lower() or "failed" in out.lower():
+        print(f"{RED}✗ Failed to attach {bid} from {ip}: {out}{RESET}")
+        return False
+
+    print(f"{GREEN}✓ Attached {bid} from {ip} into local Linux vhci_hcd!{RESET}")
+    return True
+
+def parse_client_ports(port_output):
+    """Parse 'usbip port' output into list of dicts: [{'port': '00', 'ip': '...', 'busid': '...', 'desc': '...'}]."""
+    entries = []
+    cur = None
+    for line in (port_output or "").splitlines():
+        m_port = re.search(r"Port\s+(\d+)\s*:", line, re.IGNORECASE)
+        if m_port:
+            if cur:
+                entries.append(cur)
+            cur = {"port": str(int(m_port.group(1))), "ip": "", "busid": "", "desc": line.strip()}
+            continue
+        if cur:
+            m_url = re.search(r"usbip://([a-zA-Z0-9.\-_]+):\d+/(\d+-[\d.]+)", line)
+            if m_url:
+                cur["ip"] = m_url.group(1)
+                cur["busid"] = m_url.group(2)
+            else:
+                m_bus = re.search(r"busid\s+(\d+-[\d.]+)", line, re.IGNORECASE)
+                if m_bus and not cur["busid"]:
+                    cur["busid"] = m_bus.group(1)
+            if "->" not in line and not m_url and line.strip():
+                cur["desc"] = line.strip()
+    if cur:
+        entries.append(cur)
+    return entries
+
+def list_client_ports():
+    """Display currently attached remote USB devices on this Linux client."""
+    bin_path = shutil.which("usbip")
+    if not bin_path:
+        print(f"{YELLOW}'usbip' binary not found.{RESET}")
+        return []
+    out = run_cmd([bin_path, "port"])
+    entries = parse_client_ports(out)
+    print(f"\n{CYAN}═══ 🔌 Attached Remote USB Ports ({len(entries)}) ═══{RESET}")
+    if not entries:
+        print(f"  {DIM}No remote USB devices currently attached.{RESET}")
+    else:
+        for e in entries:
+            remote_str = f"{e['ip']}/{e['busid']}" if e["ip"] or e["busid"] else "remote"
+            print(f"  • Port {BOLD}{e['port']}{RESET}: {remote_str} — {e['desc']}")
+    return entries
+
+def disconnect_remote_device(target="all"):
+    """Detach a remote USB/IP port on Linux client and send on-demand UNBIND to remote TCP 3241."""
+    if not IS_LINUX:
+        print(f"{RED}[Error] Native vhci_hcd client detach is only supported on Linux.{RESET}")
+        return False
+    if not is_root():
+        print(f"{YELLOW}[!] Superuser privileges required for vhci_hcd detach. Re-running with sudo...{RESET}")
+        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+
+    bin_path = shutil.which("usbip")
+    if not bin_path:
+        print(f"{RED}[Error] 'usbip' client binary not found.{RESET}")
+        return False
+
+    entries = parse_client_ports(run_cmd([bin_path, "port"]))
+    if not entries:
+        print(f"{YELLOW}No attached USB/IP client ports found.{RESET}")
+        return True
+
+    tgt = (target or "all").strip().lower()
+    matched = [
+        e for e in entries
+        if tgt == "all" or e["port"] == tgt.lstrip("0") or e["port"] == tgt or e["busid"].lower() == tgt
+    ]
+    if not matched and tgt.isdigit():
+        matched = [{"port": tgt, "ip": "", "busid": "", "desc": ""}]
+
+    for e in matched:
+        run_cmd([bin_path, "detach", "-p", e["port"]])
+        print(f"{GREEN}✓ Detached local vhci_hcd Port {e['port']}{RESET}")
+        if e["ip"] and e["busid"]:
+            unbind_resp = send_control_command(e["ip"], f"UNBIND {e['busid']}")
+            if isinstance(unbind_resp, dict) and (unbind_resp.get("status") or "").upper() == "OK":
+                print(f"{GREEN}✓ Released {e['busid']} back to remote host {e['ip']}{RESET}")
+    return True
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN DISPATCHER
 # ══════════════════════════════════════════════════════════════════════════════
+
+def apply_dualsense_fix():
+    """Install udev quirk for Sony DualSense (054c:0ce6 / 054c:0df2) and check Raspberry Pi dwc2 overlay."""
+    if not IS_LINUX:
+        print(f"{YELLOW}DualSense udev/dwc2 fix is only applicable on Linux / Raspberry Pi hosts.{RESET}")
+        return False
+    if not is_root():
+        print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
+        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+
+    rule_path = "/etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules"
+    rule_content = (
+        "# USBAnywhere — Prevent hid-playstation race, USB autosuspend, and ARM64 usbip_host isoc audio Oops on DualSense / DualSense Edge\n"
+        'ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{power/control}="on"\n'
+        'ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{power/control}="on"\n'
+        'ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"\n'
+        'ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"\n'
+        'ACTION=="add", SUBSYSTEM=="hid", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0ce6", RUN+="/bin/sh -c \'echo $kernel > /sys/bus/hid/drivers/playstation/unbind 2>/dev/null || true\'"\n'
+        'ACTION=="add", SUBSYSTEM=="hid", ATTRS{idVendor}=="054c", ATTRS{idProduct}=="0df2", RUN+="/bin/sh -c \'echo $kernel > /sys/bus/hid/drivers/playstation/unbind 2>/dev/null || true\'"\n'
+    )
+    try:
+        os.makedirs("/etc/udev/rules.d", exist_ok=True)
+        with open(rule_path, "w", encoding="utf-8") as f:
+            f.write(rule_content)
+        run_cmd(["udevadm", "control", "--reload-rules"])
+        run_cmd(["udevadm", "trigger"])
+        print(f"{GREEN}✓ Installed DualSense udev protection rule at {rule_path}{RESET}")
+    except Exception as e:
+        print(f"{RED}✗ Failed to write udev rule: {e}{RESET}")
+        return False
+
+    # Check Raspberry Pi config.txt for dwc2 host mode if dwc_otg is currently bound
+    for cfg in ("/boot/firmware/config.txt", "/boot/config.txt"):
+        if os.path.isfile(cfg):
+            try:
+                with open(cfg, "r", encoding="utf-8") as f:
+                    txt = f.read()
+                if "dtoverlay=dwc2" not in txt:
+                    print(f"{YELLOW}[!] Raspberry Pi detected ({cfg}) without 'dtoverlay=dwc2,dr_mode=host'.{RESET}")
+                    print(f"    To prevent dwc_otg kernel Oops behind USB 2.0 Hub HATs, add under [all]:")
+                    print(f"    {CYAN}dtoverlay=dwc2,dr_mode=host{RESET}")
+            except Exception:
+                pass
+            break
+    return True
 
 def main():
     parser = argparse.ArgumentParser(
@@ -909,7 +1141,9 @@ def main():
     )
     parser.add_argument("command", nargs="?", default="dashboard",
                         choices=["dashboard", "status", "start", "stop", "restart",
-                                 "list", "share", "unshare", "policy", "auto-unbind", "dynamic-daemon", "doctor", "test", "logs", "fix-dualsense"],
+                                 "list", "share", "unshare", "policy", "auto-unbind",
+                                 "dynamic-daemon", "fix-dualsense", "doctor", "test", "logs",
+                                 "scan", "remote", "connect", "attach", "disconnect", "detach", "ports"],
                         help="Action to perform (default: interactive dashboard)")
     parser.add_argument("busid", nargs="?", default=None, help="Target USB bus ID or action parameter")
     parser.add_argument("extra", nargs="?", default=None, help="Additional argument for policy management")
@@ -1005,6 +1239,9 @@ def main():
         run_auto_unbind_daemon()
     elif args.command == "dynamic-daemon":
         run_dynamic_daemon()
+    elif args.command == "fix-dualsense":
+        ok = apply_dualsense_fix()
+        sys.exit(0 if ok else 1)
     elif args.command == "doctor":
         run_doctor()
     elif args.command == "test":
@@ -1015,13 +1252,24 @@ def main():
             os.system("tail -f /var/log/usbanywhere-server.log")
         elif IS_LINUX:
             os.system("journalctl -u usbipd -f")
-
-    elif args.command == "fix-dualsense":
-        subaction = (args.busid or "enable").lower()
-        if subaction not in ["status", "enable", "disable"]:
-            print("Usage: usbanywhere-ctl fix-dualsense [enable|disable|status]")
-        else:
-            manage_dualsense_fix(subaction)
+    elif args.command == "scan":
+        scan_network_servers()
+    elif args.command == "remote":
+        if not args.busid:
+            print(f"{RED}Error: Missing server IP. Usage: usbanywhere-ctl remote <server_ip>{RESET}")
+            sys.exit(1)
+        list_remote_devices(args.busid)
+    elif args.command in ("connect", "attach"):
+        if not args.busid or not args.extra:
+            print(f"{RED}Error: Missing arguments. Usage: sudo usbanywhere-ctl connect <server_ip> <busid>{RESET}")
+            sys.exit(1)
+        ok = connect_remote_device(args.busid, args.extra)
+        sys.exit(0 if ok else 1)
+    elif args.command in ("disconnect", "detach"):
+        ok = disconnect_remote_device(args.busid or "all")
+        sys.exit(0 if ok else 1)
+    elif args.command == "ports":
+        list_client_ports()
 
 if __name__ == "__main__":
     main()

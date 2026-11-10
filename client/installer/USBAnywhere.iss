@@ -2,7 +2,9 @@
 ; Copyright (c) 2025-2026 SnakeFoxu (OscarLosu)
 
 #define MyAppName "USBAnywhere"
-#define MyAppVersion "3.2.0"
+#ifndef MyAppVersion
+#define MyAppVersion "3.3.0"
+#endif
 #define MyAppPublisher "SnakeFoxu (OscarLosu)"
 #define MyAppURL "https://github.com/oscarlosu-lab/USBAnywhere"
 #define MyAppExeName "USBAnywhere.exe"

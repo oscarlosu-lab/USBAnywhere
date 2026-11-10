@@ -2,7 +2,7 @@
 
 🌐 **Language / Idioma:** **English** | [Español](README_ES.md)
 
-**v3.2.0** | [🌍 Official Website](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases & Downloads](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Reddit Community](https://www.reddit.com/r/UsbAnywhere/) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
+**v3.3.0** | [🌍 Official Website](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases & Downloads](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Reddit Community](https://www.reddit.com/r/UsbAnywhere/) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
 
 > **Why pay $49.00 per server and be restricted to a single USB device?**
 > **USBAnywhere** connects **unlimited** remote USB peripherals over LAN, Wi-Fi, and Internet with **zero licensing fees**, **Microsoft WHQL-certified drivers**, and **tunable ultra-low latency**.
@@ -146,6 +146,16 @@ curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scri
 Run a Plug & Play USB/IP server on **Unraid, TrueNAS, Synology, or Proxmox** using [`docker/docker-compose.yml`](docker/docker-compose.yml):
 ```bash
 git clone --recursive https://github.com/oscarlosu-lab/USBAnywhere.git && cd USBAnywhere/docker && docker compose up -d
+```
+
+### 🐧 Linux Client Mode (`usbanywhere-ctl` — SteamOS, Bazzite, Ubuntu, Mint, Arch, Fedora)
+Connect remote USB devices from any USBAnywhere server (Android, Raspberry Pi, Linux, Windows, macOS) directly to a **Linux client** using `usbanywhere-ctl` (with full On-Demand Dynamic Binding `TCP 3241` + `vhci_hcd` support):
+```bash
+sudo usbanywhere-ctl scan                  # Discover USBAnywhere servers on LAN & Tailscale/VPN
+sudo usbanywhere-ctl remote 192.168.1.50   # List exported + On-Demand USB devices on a remote server
+sudo usbanywhere-ctl connect 192.168.1.50 1-1.4   # Dynamically bind & attach a remote USB device
+sudo usbanywhere-ctl ports                 # List currently attached virtual USB client ports
+sudo usbanywhere-ctl disconnect all        # Detach client port(s) & release back to remote host
 ```
 
 ### 🎮 Moonlight / Sunshine / Playnite CLI Automation

@@ -1,5 +1,21 @@
 # CHANGELOG - USBAnywhere
 
+## [3.3.0] - 2026-11-10
+
+### Added
+- **Universal Linux Client Mode (`usbanywhere-ctl` v3.3.0)**:
+  - Full client support on Linux (Ubuntu, Debian, Mint, Arch, Fedora, SteamOS, Bazzite) via the kernel `vhci_hcd` virtual host controller.
+  - Seamless compatibility with **On-Demand Dynamic Binding (`TCP 3241`)**: `usbanywhere-ctl` automatically queries `LIST` on TCP 3241, dispatches `BIND <busid>` prior to `usbip attach`, and sends `UNBIND <busid>` on `disconnect` to return the peripheral to the remote host.
+  - New CLI commands (`scan [subnet]`, `remote <ip>`, `connect <ip> <busid>`, `disconnect [port|all]`, `ports`) and interactive Control Dashboard options (`[9]` Connect Remote Device, `[0]` Disconnect Client Port).
+
+### Fixed
+- **DualSense Audio Interface De-Authorization & Raspberry Pi `dwc_otg` Diagnostics (Issue #6)**:
+  - Updated `99-usbanywhere-dualsense-fix.rules` to match `ENV{DEVTYPE}=="usb_interface"` using parent `ATTRS{idVendor}=="054c"` and `ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"` for both `0ce6` (DualSense) and `0df2` (DualSense Edge), plus automatic `dwc_otg` warning in `usbanywhere-ctl doctor`.
+- **Unix LF Line-Ending Enforcement**:
+  - Enforced `eol=lf` via `.gitattributes` across all shell scripts (`*.sh`), `udev` rules (`*.rules`), and `usbanywhere-ctl`.
+
+---
+
 ## [3.2.0] - 2026-11-01
 
 ### Added
