@@ -779,6 +779,16 @@ def run_doctor():
         print(f"• Kernel Module core: {core_str}")
         print(f"• Kernel Module host: {host_str}")
 
+        if os.path.exists("/sys/bus/platform/drivers/dwc_otg") and any(
+            x.startswith("20980000.usb") or x.startswith("3f980000.usb") or x.startswith("fe980000.usb")
+            for x in os.listdir("/sys/bus/platform/drivers/dwc_otg")
+        ):
+            print(f"• RPi USB Controller: {YELLOW}WARNING: Legacy 'dwc_otg' active!{RESET}")
+            print(f"    {YELLOW}↳ High-speed HID/DualSense behind USB 2.0 Hub HATs may trigger a kernel Oops (Issue #6).{RESET}")
+            print(f"    {CYAN}↳ Fix: Add 'dtoverlay=dwc2,dr_mode=host' under [all] in /boot/firmware/config.txt and reboot.{RESET}")
+        elif os.path.exists("/sys/bus/platform/drivers/dwc2"):
+            print(f"• RPi USB Controller: {GREEN}dwc2 (Modern split-transaction safe){RESET}")
+
     # 5. Device Inventory
     devs = list_devices()
     print(f"• USB Devices Found:  {BOLD}{len(devs)}{RESET}")

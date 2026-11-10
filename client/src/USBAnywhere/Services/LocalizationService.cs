@@ -391,4 +391,18 @@ public class LocalizationService : ILocalizationService
         }
         return key;
     }
+
+    public string GetText(string key, string language, params object[] args)
+    {
+        var text = GetText(key, language);
+        if (args == null || args.Length == 0) return text;
+        try
+        {
+            return string.Format(text, args);
+        }
+        catch (FormatException)
+        {
+            return text;
+        }
+    }
 }

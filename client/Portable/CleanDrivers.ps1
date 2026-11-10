@@ -61,8 +61,25 @@ if ($driverList.Count -eq 0) {
     exit
 }
 
-# Detener servicios relacionados
-Write-Host "`n[2] Deteniendo servicios USB/IP..." -ForegroundColor Yellow
+# Detener servicios relacionados y limpiar UpperFilters antes de borrar paquetes INF (previene fallos #155 y #201)
+Write-Host "`n[2] Deteniendo servicios USB/IP y sanitizando filtros USB..." -ForegroundColor Yellow
+$filterSvcKey = "HKLM:\SYSTEM\CurrentControlSet\Services\usbip2_filter"
+if (Test-Path $filterSvcKey) {
+    Set-ItemProperty -Path $filterSvcKey -Name "ErrorControl" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+}
+$usbClassKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{36fc9e60-c465-11cf-8056-444553540000}"
+if (Test-Path $usbClassKey) {
+    $prop = Get-ItemProperty -Path $usbClassKey -Name "UpperFilters" -ErrorAction SilentlyContinue
+    if ($null -ne $prop -and $null -ne $prop.UpperFilters) {
+        $cleaned = @($prop.UpperFilters | Where-Object { $_ -and $_.Trim() -ne "usbip2_filter" })
+        if ($cleaned.Count -eq 0) {
+            Remove-ItemProperty -Path $usbClassKey -Name "UpperFilters" -ErrorAction SilentlyContinue
+        } else {
+            Set-ItemProperty -Path $usbClassKey -Name "UpperFilters" -Value $cleaned -ErrorAction SilentlyContinue
+        }
+        Write-Host "  Sanitizado UpperFilters en clase USB" -ForegroundColor Gray
+    }
+}
 $services = @("usbip2_ude", "usbip2_filter", "vhci_ude", "usbip_vhci")
 foreach ($svc in $services) {
     try {

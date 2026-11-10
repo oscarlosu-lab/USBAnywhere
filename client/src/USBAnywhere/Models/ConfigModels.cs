@@ -20,8 +20,9 @@ public class AppConfig
     public bool MinimizeToTray { get; set; } = true;
     public bool StartMinimized { get; set; } = false;
     public string? LastServerIP { get; set; }
-    public string DefaultReceiveMode { get; set; } = "zero-copy";
+    public string DefaultReceiveMode { get; set; } = "low-latency";
     public bool AutoDetachOnExit { get; set; } = true;
+    public bool AutoDetachOnSleep { get; set; } = true;
 }
 
 /// <summary>
@@ -34,5 +35,5 @@ public class FavoriteDevice
     public string Description { get; set; } = string.Empty;
     public bool AutoConnect { get; set; } = true;
     public string AddedDate { get; set; } = string.Empty;
-    public string ReceiveMode { get; set; } = "zero-copy";
+    public string ReceiveMode { get; set; } = "low-latency";
 }

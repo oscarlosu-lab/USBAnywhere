@@ -47,16 +47,18 @@ public partial class MainWindow : Window
     // State
     private string _currentLanguage = "es";
     private string _currentTheme = "dark";
-    private string _currentReceiveMode = "zero-copy";
+    private string _currentReceiveMode = "low-latency";
     private record LogEntry(DateTime Timestamp, string Type, string? Key, object[] Args, string? RawMessage);
+    private record SuspendedDeviceState(string ServerIP, string BusId, string Description, string VendorId, string ProductId, string ReceiveMode);
     private readonly List<LogEntry> _logEntries = new();
+    private readonly List<SuspendedDeviceState> _suspendedDevices = new();
     private Forms.ToolStripMenuItem? _trayScanItem;
     private Forms.ToolStripMenuItem? _trayStartMinimizedItem;
     private Forms.ToolStripMenuItem? _trayShowItem;
     private Forms.ToolStripMenuItem? _trayExitItem;
     private bool _autoScanStarted;
     private bool _isFirstStartup = true;
-    private List<string> _availableSubnets = new();
+    private readonly List<string> _availableSubnets = new();
 
     public MainWindow(
         ILocalizationService localization,
@@ -71,23 +73,24 @@ public partial class MainWindow : Window
         IConnectionMonitorService connectionMonitor,
         INotificationService? notificationService = null)
     {
-        _localization      = localization;
-        _config            = config;
-        _networkScanner    = networkScanner;
-        _usbip             = usbip;
-        _drivers           = drivers;
-        _favorites         = favorites;
-        _updates           = updates;
-        _vpn               = vpn;
-        _usbIds            = usbIds;
+        _localization = localization;
+        _config = config;
+        _networkScanner = networkScanner;
+        _usbip = usbip;
+        _drivers = drivers;
+        _favorites = favorites;
+        _updates = updates;
+        _vpn = vpn;
+        _usbIds = usbIds;
         _connectionMonitor = connectionMonitor;
         _notificationService = notificationService ?? new NotificationService();
 
         InitializeComponent();
 
         // Subscribe to connection events
-        _connectionMonitor.ConnectionLost     += OnConnectionLost;
+        _connectionMonitor.ConnectionLost += OnConnectionLost;
         _connectionMonitor.ConnectionRestored += OnConnectionRestored;
+        Microsoft.Win32.SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
 
         // Load config and apply language + theme
         LoadConfiguration();
@@ -224,7 +227,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            AddLog("Warning", string.Format(_localization.GetText("log_tray_init_error", _currentLanguage), ex.Message));
+            AddLocalizedLog("Warning", "log_tray_init_error", ex.Message);
         }
     }
 
@@ -654,7 +657,11 @@ public partial class MainWindow : Window
 
     private async Task ConnectDeviceCoreAsync(string serverIP, string busId, string description, string vendorId = "", string productId = "", string? receiveMode = null)
     {
-        var mode = !string.IsNullOrWhiteSpace(receiveMode) ? receiveMode : _currentReceiveMode;
+        var requested = !string.IsNullOrWhiteSpace(receiveMode) ? receiveMode : _currentReceiveMode;
+        var hwId = (!string.IsNullOrWhiteSpace(vendorId) && !string.IsNullOrWhiteSpace(productId))
+            ? $"{vendorId}:{productId}"
+            : null;
+        var mode = UsbipService.ResolveEffectiveReceiveMode(requested, description, hwId);
         AddLocalizedLog("Info", "log_connecting_device", busId, serverIP);
         lblStatus.Text = $"{_localization.GetText("status_connecting", _currentLanguage)} {busId}...";
         lblStatus.Foreground = (SolidColorBrush)FindResource("StatusInfo");
@@ -944,7 +951,7 @@ public partial class MainWindow : Window
 
         if (theme == "light")
         {
-            // Obsidian Precision Light Theme (v3.2.0)
+            // Obsidian Precision Light Theme (v1.0.0)
             resources["BackgroundDark"] = BrushFromHex("#F4F4F6");
             resources["BackgroundPanel"] = BrushFromHex("#FFFFFF");
             resources["BackgroundTitleBar"] = BrushFromHex("#EAEAEF");
@@ -968,7 +975,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            // Obsidian Precision Dark Theme (v3.2.0)
+            // Obsidian Precision Dark Theme (v1.0.0)
             resources["BackgroundDark"] = BrushFromHex("#0B0C0E");
             resources["BackgroundPanel"] = BrushFromHex("#131417");
             resources["BackgroundTitleBar"] = BrushFromHex("#16171B");
@@ -1300,7 +1307,7 @@ public partial class MainWindow : Window
                 lblStatus.Text = $"⬆️ {_localization.GetText("update_available", _currentLanguage)}: v{updateInfo.LatestVersion}";
                 lblStatus.Foreground = (SolidColorBrush)FindResource("StatusWarning");
 
-                var prompt = string.Format(_localization.GetText("msg_update_prompt", _currentLanguage), updateInfo.LatestVersion, updateInfo.ReleaseNotes);
+                var prompt = _localization.GetText("msg_update_prompt", _currentLanguage, updateInfo.LatestVersion ?? "", updateInfo.ReleaseNotes ?? "");
                 var title = _localization.GetText("msg_update_title", _currentLanguage);
                 var result = System.Windows.MessageBox.Show(prompt, title, System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Information);
 
@@ -1486,7 +1493,8 @@ public partial class MainWindow : Window
         var config = _config.Load();
         _currentLanguage = config.Language ?? "es";
         _currentTheme = config.Theme ?? "dark";
-        _currentReceiveMode = string.IsNullOrWhiteSpace(config.DefaultReceiveMode) ? "zero-copy" : config.DefaultReceiveMode;
+        _currentReceiveMode = string.IsNullOrWhiteSpace(config.DefaultReceiveMode) ? "low-latency" : config.DefaultReceiveMode;
+        UpdateReceiveModeButton();
 
         if (!string.IsNullOrEmpty(config.LastServerIP))
             txtServerIP.Text = config.LastServerIP;
@@ -1498,8 +1506,62 @@ public partial class MainWindow : Window
         _usbIds.LoadCustomNames(config.CustomDeviceNames);
     }
 
+    private async void OnSystemPowerModeChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+    {
+        try
+        {
+            var config = _config.Load();
+            if (!config.AutoDetachOnSleep) return;
+
+            if (e.Mode == Microsoft.Win32.PowerModes.Suspend)
+            {
+                _connectionMonitor.Stop();
+                var connected = await _usbip.GetConnectedDevicesAsync();
+                _suspendedDevices.Clear();
+                foreach (var dev in connected)
+                {
+                    _suspendedDevices.Add(new SuspendedDeviceState(
+                        dev.ServerIP,
+                        dev.BusId,
+                        dev.Description,
+                        dev.VendorId,
+                        dev.ProductId,
+                        _currentReceiveMode));
+                }
+
+                if (_suspendedDevices.Count > 0)
+                {
+                    await _usbip.DetachAllConnectedDevicesAsync();
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        nodeConnected.Items.Clear();
+                        UpdateConnectedCount();
+                    });
+                }
+            }
+            else if (e.Mode == Microsoft.Win32.PowerModes.Resume && _suspendedDevices.Count > 0)
+            {
+                var toRestore = _suspendedDevices.ToList();
+                _suspendedDevices.Clear();
+                await Task.Delay(2500);
+                await Dispatcher.InvokeAsync(async () =>
+                {
+                    foreach (var dev in toRestore)
+                    {
+                        await ConnectDeviceCoreAsync(dev.ServerIP, dev.BusId, dev.Description, dev.VendorId, dev.ProductId, dev.ReceiveMode);
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[PowerModeChanged] {ex.Message}");
+        }
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        Microsoft.Win32.SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
         _connectionMonitor.Stop();
         _connectionMonitor.Dispose();
 
@@ -1629,7 +1691,7 @@ public partial class MainWindow : Window
         {
             var currentName = _usbIds.GetDeviceDescription(device.VendorId, device.ProductId);
 
-            var prompt = string.Format(_localization.GetText("rename_prompt", _currentLanguage), device.VendorId, device.ProductId);
+            var prompt = _localization.GetText("rename_prompt", _currentLanguage, device.VendorId, device.ProductId);
             var title = _localization.GetText("rename_title", _currentLanguage);
 
             var newName = Microsoft.VisualBasic.Interaction.InputBox(

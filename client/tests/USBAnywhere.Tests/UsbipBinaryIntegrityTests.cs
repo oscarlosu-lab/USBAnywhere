@@ -122,4 +122,40 @@ public class UsbipBinaryIntegrityTests
         Assert.DoesNotContain(untrustedHash, UsbipService.ValidDllHashes);
         Assert.DoesNotContain(untrustedHash, DriverService.KnownDevnodeHashes);
     }
+
+    [Fact]
+    public void RemoveFilterFromMultiString_RemovesOnlyUsbip2Filter_PreservingSystemFilters()
+    {
+        var input = new[] { "TsUsbFlt", "usbip2_filter", "USBIP2_FILTER", "usbfilter" };
+        var cleaned = DriverService.RemoveFilterFromMultiString(input);
+
+        Assert.Equal(2, cleaned.Length);
+        Assert.Contains("TsUsbFlt", cleaned);
+        Assert.Contains("usbfilter", cleaned);
+        Assert.DoesNotContain("usbip2_filter", cleaned, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RemoveFilterFromMultiString_ReturnsEmpty_WhenOnlyUsbip2FilterPresent()
+    {
+        var input = new[] { "usbip2_filter" };
+        var cleaned = DriverService.RemoveFilterFromMultiString(input);
+
+        Assert.Empty(cleaned);
+        Assert.Empty(DriverService.RemoveFilterFromMultiString(null));
+    }
+
+    [Theory]
+    [InlineData("zero-copy", "Sony Interactive Entertainment DualSense Wireless Controller", "054c:0ce6", "low-latency")]
+    [InlineData("zero-copy", "GameSir 2.4G Wireless Dongle", "3537:1040", "low-latency")]
+    [InlineData("zero-copy", "Logitech USB Receiver", "046d:c53f", "low-latency")]
+    [InlineData("zero-copy", "USB Audio Headset Microphone", "0d8c:0014", "low-latency")]
+    [InlineData("zero-copy", "SanDisk Ultra Mass Storage", "0781:5581", "zero-copy")]
+    [InlineData("low-latency", "SanDisk Ultra Mass Storage", "0781:5581", "low-latency")]
+    public void ResolveEffectiveReceiveMode_SelectsLowLatencyForInteractiveDevices(
+        string requested, string description, string hwId, string expected)
+    {
+        var actual = UsbipService.ResolveEffectiveReceiveMode(requested, description, hwId);
+        Assert.Equal(expected, actual);
+    }
 }

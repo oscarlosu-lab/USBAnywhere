@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using USBAnywhere.Models;
@@ -21,7 +23,115 @@ public class DriverService : IDriverService
         "686F7D053599DBC7E8DE0ED2AA215B2218538FADD923A2985FFB72F452F0B8B1", // v0.9.8.1 arm64
     };
     private const string UdeHardwareId = "ROOT\\USBIP_WIN2\\UDE";
+    private const string UsbClassRegistryPath = @"SYSTEM\CurrentControlSet\Control\Class\{36fc9e60-c465-11cf-8056-444553540000}";
+    private const string FilterServiceRegistryPath = @"SYSTEM\CurrentControlSet\Services\usbip2_filter";
+    private const string UsbRootHub30EnumPath = @"SYSTEM\CurrentControlSet\Enum\USB\ROOT_HUB30";
+    private const string FilterDriverName = "usbip2_filter";
     private static readonly string PnputilPath = GetSystemPnputilPath();
+
+    /// <summary>
+    /// Pure helper to strip usbip2_filter from a Registry REG_MULTI_SZ UpperFilters array
+    /// while preserving all other system filter drivers (e.g. TsUsbFlt, usbfilter).
+    /// Prevents loss of local USB input devices or INACCESSIBLE_BOOT_DEVICE on driver removal
+    /// (upstream vadimgrn/usbip-win2 issues #155 and #201).
+    /// </summary>
+    public static string[] RemoveFilterFromMultiString(string[]? currentFilters, string filterToRemove = FilterDriverName)
+    {
+        if (currentFilters == null || currentFilters.Length == 0)
+            return Array.Empty<string>();
+
+        return currentFilters
+            .Where(f => !string.IsNullOrWhiteSpace(f) &&
+                        !string.Equals(f.Trim(), filterToRemove, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Detects if Windows is running as Windows To Go / Portable USB-booted OS.
+    /// Installing usbip2_filter (StartType=3 DEMAND_START, ErrorControl=2 SEVERE on USB\ROOT_HUB30)
+    /// on a USB-booted Windows installation causes INACCESSIBLE_BOOT_DEVICE at next boot (issue #201).
+    /// </summary>
+    public static bool IsPortableOperatingSystem()
+    {
+        try
+        {
+            using var controlKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control", writable: false);
+            if (controlKey?.GetValue("PortableOperatingSystem") is int portableVal && portableVal != 0)
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            // Non-fatal if registry read is restricted
+        }
+        return false;
+    }
+
+    private void SanitizeUsbFilterBeforeUninstall()
+    {
+        try
+        {
+            // 1. Disarm SERVICE_ERROR_SEVERE (2) -> SERVICE_ERROR_IGNORE (0) on usbip2_filter service
+            using (var svcKey = Registry.LocalMachine.OpenSubKey(FilterServiceRegistryPath, writable: true))
+            {
+                if (svcKey != null)
+                {
+                    svcKey.SetValue("ErrorControl", 0, RegistryValueKind.DWord);
+                    _logger.LogInformation("Desarmado ErrorControl=0 en servicio usbip2_filter antes de desinstalar.");
+                }
+            }
+
+            // 2. Clean UpperFilters in USB Class key {36fc9e60-c465-11cf-8056-444553540000}
+            using (var usbClassKey = Registry.LocalMachine.OpenSubKey(UsbClassRegistryPath, writable: true))
+            {
+                if (usbClassKey?.GetValue("UpperFilters") is string[] upperFilters)
+                {
+                    var cleaned = RemoveFilterFromMultiString(upperFilters, FilterDriverName);
+                    if (cleaned.Length != upperFilters.Length)
+                    {
+                        if (cleaned.Length == 0)
+                            usbClassKey.DeleteValue("UpperFilters", throwOnMissingValue: false);
+                        else
+                            usbClassKey.SetValue("UpperFilters", cleaned, RegistryValueKind.MultiString);
+
+                        _logger.LogInformation("Limpiada entrada {Filter} de USB Class UpperFilters.", FilterDriverName);
+                    }
+                }
+            }
+
+            // 3. Clean UpperFilters on Enum\USB\ROOT_HUB30 instances if orphaned
+            using (var rootHubKey = Registry.LocalMachine.OpenSubKey(UsbRootHub30EnumPath, writable: false))
+            {
+                if (rootHubKey != null)
+                {
+                    foreach (var subKeyName in rootHubKey.GetSubKeyNames())
+                    {
+                        try
+                        {
+                            using var instKey = rootHubKey.OpenSubKey(subKeyName, writable: true);
+                            if (instKey?.GetValue("UpperFilters") is string[] instFilters)
+                            {
+                                var cleaned = RemoveFilterFromMultiString(instFilters, FilterDriverName);
+                                if (cleaned.Length != instFilters.Length)
+                                {
+                                    if (cleaned.Length == 0)
+                                        instKey.DeleteValue("UpperFilters", throwOnMissingValue: false);
+                                    else
+                                        instKey.SetValue("UpperFilters", cleaned, RegistryValueKind.MultiString);
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Aviso no fatal al sanitizar registro de filtros USB antes de desinstalar.");
+        }
+    }
 
     private static string GetSystemPnputilPath()
     {
@@ -150,16 +260,24 @@ public class DriverService : IDriverService
                 return new OperationResult { Success = false, Error = "Directorio de drivers no detectado." };
             }
 
-            // 1. Install filter driver first if present
+            // 1. Install filter driver first if present (unless running Windows To Go / Portable USB OS — upstream issue #201)
             var filterInf = Path.Combine(driverDir, "usbip2_filter.inf");
             if (File.Exists(filterInf))
             {
-                progress?.Report("Instalando filtro de drivers USB/IP (usbip2_filter)...");
-                _logger.LogInformation("Instalando driver de filtro: {Inf}", filterInf);
-                var filterRes = await RunProcessAsync(PnputilPath, $"/add-driver \"{filterInf}\" /install");
-                if (!filterRes.Success && filterRes.Error != "Reinicio requerido")
+                if (IsPortableOperatingSystem())
                 {
-                    _logger.LogWarning("Aviso en usbip2_filter: {Err}", filterRes.Error);
+                    _logger.LogWarning("Detectado Windows To Go / PortableOperatingSystem=1. Se omite usbip2_filter.inf para prevenir BSOD INACCESSIBLE_BOOT_DEVICE (upstream issue #201).");
+                    progress?.Report("Omitiendo usbip2_filter en Windows To Go (protección de arranque USB)...");
+                }
+                else
+                {
+                    progress?.Report("Instalando filtro de drivers USB/IP (usbip2_filter)...");
+                    _logger.LogInformation("Instalando driver de filtro: {Inf}", filterInf);
+                    var filterRes = await RunProcessAsync(PnputilPath, $"/add-driver \"{filterInf}\" /install");
+                    if (!filterRes.Success && filterRes.Error != "Reinicio requerido")
+                    {
+                        _logger.LogWarning("Aviso en usbip2_filter: {Err}", filterRes.Error);
+                    }
                 }
             }
 
@@ -227,6 +345,10 @@ public class DriverService : IDriverService
                 await RunProcessAsync(devnodePath, $"remove {UdeHardwareId} root");
             }
 
+            // 1.5. Sanitize USB Class UpperFilters and disarm ErrorControl on usbip2_filter BEFORE pnputil removal
+            // to prevent dead local USB ports (#155) or INACCESSIBLE_BOOT_DEVICE (#201)
+            SanitizeUsbFilterBeforeUninstall();
+
             // 2. Enumerate installed driver packages from DriverStore
             progress?.Report("Enumerando drivers en DriverStore...");
             var enumResult = await RunProcessAsync(PnputilPath, "/enum-drivers");
@@ -263,6 +385,9 @@ public class DriverService : IDriverService
                     }
                 }
             }
+
+            // Re-run sanitization after pnputil removal in case pnputil left a stale UpperFilters reference
+            SanitizeUsbFilterBeforeUninstall();
 
             _logger.LogInformation("Secuencia de desinstalación finalizada.");
             progress?.Report("Drivers removidos.");

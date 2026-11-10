@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,6 +42,74 @@ namespace USBAnywhere.Services
             "B9FF5A60212F7BDED02A16510EEE031C59C312A4A396AC2956478E6A32165928"  // resources.dll (ARM64)
         };
 
+        private static readonly string[] RequiredNativeDlls = { "libusbip.dll", "resources.dll" };
+        private static readonly string[] HijackCandidateDlls = { "version.dll", "winmm.dll", "dbghelp.dll", "cryptbase.dll", "dwmapi.dll" };
+
+        // High-speed metadata cache so 2-second 'usbip port' polling does not re-read 2.5 MB from disk
+        // unless file length, write timestamp, or directory contents change.
+        private readonly object _integrityCacheLock = new();
+        private string? _cachedIntegritySignature;
+        private bool _cachedIntegrityResult;
+
+        /// <summary>
+        /// Resolves the optimal usbip2_ude receive mode. Interactive Interrupt IN and Isochronous
+        /// peripherals (controllers, mice, keyboards, HID dongles, audio headsets) require 'low-latency'
+        /// to avoid Linux/UDE EOVERFLOW (-75) stalls (upstream issue #187).
+        /// </summary>
+        public static string ResolveEffectiveReceiveMode(string? requestedMode, string? description = null, string? hardwareId = null)
+        {
+            if (!string.IsNullOrWhiteSpace(requestedMode))
+            {
+                var norm = requestedMode.Trim().ToLowerInvariant();
+                if (norm == "low-latency") return "low-latency";
+                if (norm == "zero-copy" && !IsInteractiveOrIsochronousDevice(description, hardwareId))
+                {
+                    return "zero-copy";
+                }
+            }
+
+            if (IsInteractiveOrIsochronousDevice(description, hardwareId))
+            {
+                return "low-latency";
+            }
+
+            return "low-latency";
+        }
+
+        public static bool IsInteractiveOrIsochronousDevice(string? description, string? hardwareId)
+        {
+            if (!string.IsNullOrWhiteSpace(hardwareId))
+            {
+                var vid = hardwareId.Split(':')[0].Trim().ToLowerInvariant();
+                // Sony, Microsoft, Nintendo, GameSir, Logitech, Razer, 8BitDo, Thrustmaster, Fanatec, SteelSeries, Corsair, Elgato
+                if (vid is "054c" or "045e" or "057e" or "3537" or "046d" or "1532" or "2dc8" or "044f" or "0eb7" or "1038" or "1b1c" or "0fd9")
+                {
+                    return true;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                var d = description.ToLowerInvariant();
+                string[] interactiveKeywords =
+                {
+                    "hid", "controller", "gamepad", "dualsense", "dualshock", "wireless controller",
+                    "xbox", "gamesir", "8bitdo", "joystick", "wheel", "pedal", "mouse", "keyboard",
+                    "receiver", "lightspeed", "dongle", "audio", "headset", "microphone", "dac",
+                    "sound", "speaker", "webcam", "camera", "input"
+                };
+                foreach (var kw in interactiveKeywords)
+                {
+                    if (d.Contains(kw, StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public UsbipService(
             ILogger<UsbipService> logger,
             IEnvironmentService envService,
@@ -67,89 +136,89 @@ namespace USBAnywhere.Services
                 var result = await RunCommandAsync(new[] { "list", "-r", ip }, 15000, ct);
                 if (!string.IsNullOrEmpty(result.Output))
                 {
-                // Pattern 1: Modern usbip / usbipw format:
-                //   3-1    : Realtek Semiconductor Corp. : unknown product (0bda:5100)
-                var regexModern = new Regex(@"^\s+([\d\-\.]+)\s*:\s*(.+?)\s*\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\)\s*$", RegexOptions.Multiline);
-                var matchesModern = regexModern.Matches(result.Output);
+                    // Pattern 1: Modern usbip / usbipw format:
+                    //   3-1    : Realtek Semiconductor Corp. : unknown product (0bda:5100)
+                    var regexModern = new Regex(@"^\s+([\d\-\.]+)\s*:\s*(.+?)\s*\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\)\s*$", RegexOptions.Multiline);
+                    var matchesModern = regexModern.Matches(result.Output);
 
-                if (matchesModern.Count > 0)
-                {
-                    foreach (Match match in matchesModern)
+                    if (matchesModern.Count > 0)
                     {
-                        devices.Add(new UsbDevice
+                        foreach (Match match in matchesModern)
                         {
-                            BusId = match.Groups[1].Value.Trim(),
-                            Description = match.Groups[2].Value.Trim(),
-                            HardwareId = match.Groups[3].Value.Trim(),
-                            RemoteIp = ip,
-                            ServerIP = ip,
-                            IsConnected = false
-                        });
-                    }
-                }
-                else
-                {
-                    // Pattern 2: Legacy usbip format:
-                    //   3-1    : 0bda:5100 Realtek Semiconductor Corp.
-                    var regexLegacy = new Regex(@"^\s+([\d\-\.]+)\s*:\s*([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\s+(.+)$", RegexOptions.Multiline);
-                    var matchesLegacy = regexLegacy.Matches(result.Output);
-
-                    foreach (Match match in matchesLegacy)
-                    {
-                        devices.Add(new UsbDevice
-                        {
-                            BusId = match.Groups[1].Value.Trim(),
-                            HardwareId = match.Groups[2].Value.Trim(),
-                            Description = match.Groups[3].Value.Trim(),
-                            RemoteIp = ip,
-                            ServerIP = ip,
-                            IsConnected = false
-                        });
-                    }
-                }
-
-                // Pattern 3: Fallback line-by-line if still empty
-                if (devices.Count == 0)
-                {
-                    var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var rawLine in lines)
-                    {
-                        var line = rawLine.Trim();
-                        if (line.StartsWith("=") || line.StartsWith("/") || line.StartsWith("Exportable", StringComparison.OrdinalIgnoreCase))
-                            continue;
-
-                        var headerMatch = Regex.Match(line, @"^([\d\-\.]+)\s*:\s*(.+)$");
-                        if (headerMatch.Success)
-                        {
-                            var busId = headerMatch.Groups[1].Value.Trim();
-                            var rest = headerMatch.Groups[2].Value.Trim();
-
-                            if (Regex.IsMatch(busId, @"^\d+$") && rest.Contains("Interface", StringComparison.OrdinalIgnoreCase))
-                                continue;
-
-                            var vidPidMatch = Regex.Match(rest, @"\b([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\b");
-                            string hardwareId = vidPidMatch.Success ? vidPidMatch.Groups[1].Value : string.Empty;
-
-                            string desc = rest;
-                            if (vidPidMatch.Success)
-                            {
-                                desc = Regex.Replace(desc, @"\s*\(" + Regex.Escape(hardwareId) + @"\)", "").Trim();
-                                desc = Regex.Replace(desc, @"\b" + Regex.Escape(hardwareId) + @"\b", "").Trim();
-                            }
-                            if (string.IsNullOrWhiteSpace(desc)) desc = "USB Device";
-
                             devices.Add(new UsbDevice
                             {
-                                BusId = busId,
-                                HardwareId = hardwareId,
-                                Description = desc,
+                                BusId = match.Groups[1].Value.Trim(),
+                                Description = match.Groups[2].Value.Trim(),
+                                HardwareId = match.Groups[3].Value.Trim(),
                                 RemoteIp = ip,
                                 ServerIP = ip,
                                 IsConnected = false
                             });
                         }
                     }
-                }
+                    else
+                    {
+                        // Pattern 2: Legacy usbip format:
+                        //   3-1    : 0bda:5100 Realtek Semiconductor Corp.
+                        var regexLegacy = new Regex(@"^\s+([\d\-\.]+)\s*:\s*([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\s+(.+)$", RegexOptions.Multiline);
+                        var matchesLegacy = regexLegacy.Matches(result.Output);
+
+                        foreach (Match match in matchesLegacy)
+                        {
+                            devices.Add(new UsbDevice
+                            {
+                                BusId = match.Groups[1].Value.Trim(),
+                                HardwareId = match.Groups[2].Value.Trim(),
+                                Description = match.Groups[3].Value.Trim(),
+                                RemoteIp = ip,
+                                ServerIP = ip,
+                                IsConnected = false
+                            });
+                        }
+                    }
+
+                    // Pattern 3: Fallback line-by-line if still empty
+                    if (devices.Count == 0)
+                    {
+                        var lines = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var rawLine in lines)
+                        {
+                            var line = rawLine.Trim();
+                            if (line.StartsWith("=") || line.StartsWith("/") || line.StartsWith("Exportable", StringComparison.OrdinalIgnoreCase))
+                                continue;
+
+                            var headerMatch = Regex.Match(line, @"^([\d\-\.]+)\s*:\s*(.+)$");
+                            if (headerMatch.Success)
+                            {
+                                var busId = headerMatch.Groups[1].Value.Trim();
+                                var rest = headerMatch.Groups[2].Value.Trim();
+
+                                if (Regex.IsMatch(busId, @"^\d+$") && rest.Contains("Interface", StringComparison.OrdinalIgnoreCase))
+                                    continue;
+
+                                var vidPidMatch = Regex.Match(rest, @"\b([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\b");
+                                string hardwareId = vidPidMatch.Success ? vidPidMatch.Groups[1].Value : string.Empty;
+
+                                string desc = rest;
+                                if (vidPidMatch.Success)
+                                {
+                                    desc = Regex.Replace(desc, @"\s*\(" + Regex.Escape(hardwareId) + @"\)", "").Trim();
+                                    desc = Regex.Replace(desc, @"\b" + Regex.Escape(hardwareId) + @"\b", "").Trim();
+                                }
+                                if (string.IsNullOrWhiteSpace(desc)) desc = "USB Device";
+
+                                devices.Add(new UsbDevice
+                                {
+                                    BusId = busId,
+                                    HardwareId = hardwareId,
+                                    Description = desc,
+                                    RemoteIp = ip,
+                                    ServerIP = ip,
+                                    IsConnected = false
+                                });
+                            }
+                        }
+                    }
                 } // end if (!string.IsNullOrEmpty(result.Output))
 
                 // Dynamic Control API (TCP 3241) discovery for unbound/local physical devices
@@ -167,12 +236,21 @@ namespace USBAnywhere.Services
 
         public async Task<bool> AttachDeviceAsync(string ip, string busId, string? receiveMode = null, CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(ip) || string.IsNullOrWhiteSpace(busId)) return false;
+            var result = await AttachDeviceWithResultAsync(ip, busId, receiveMode, ct);
+            return result.Success;
+        }
+
+        private async Task<OperationResult> AttachDeviceWithResultAsync(string ip, string busId, string? receiveMode, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(ip) || string.IsNullOrWhiteSpace(busId))
+            {
+                return OperationResult.Fail("Server IP and USB bus ID are required.");
+            }
 
             if (!InputValidator.IsValidHost(ip) || !InputValidator.IsValidBusId(busId))
             {
                 _logger.LogWarning("SEGURIDAD: Parámetros inválidos rechazados (ip='{IP}', busId='{BusId}')", ip, busId);
-                return false;
+                return OperationResult.Fail("Invalid server IP or USB bus ID.");
             }
 
             _logger.LogInformation("Intentando conectar dispositivo {BusId} desde {IP} (modo: {Mode})...", busId, ip, receiveMode ?? "default");
@@ -184,15 +262,13 @@ namespace USBAnywhere.Services
                     _logger.LogWarning("Driver usbip-win no detectado. La conexión podría fallar.");
                 }
 
-                _lastAttachError.Value = null;
-
                 // Dynamic on-demand binding (USBAnywhere Dynamic Daemon on port 3241)
                 var bindStatus = await TryDynamicBindAsync(ip, busId, ct);
                 if (!bindStatus.Allowed)
                 {
-                    _lastAttachError.Value = bindStatus.ErrorMessage ?? $"Device {busId} blocked by server export policy";
-                    _logger.LogWarning("Conexión denegada por política del servidor {IP}: {Reason}", ip, _lastAttachError.Value);
-                    return false;
+                    var error = bindStatus.ErrorMessage ?? $"Device {busId} blocked by server export policy";
+                    _logger.LogWarning("Conexión denegada por política del servidor {IP}: {Reason}", ip, error);
+                    return OperationResult.Fail(error);
                 }
 
                 if (bindStatus.BoundOnDemand)
@@ -201,14 +277,13 @@ namespace USBAnywhere.Services
                     await Task.Delay(150, ct);
                 }
 
-                var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId };
-                if (!string.IsNullOrWhiteSpace(receiveMode))
+                var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId, "--once" };
+                var effectiveMode = string.IsNullOrWhiteSpace(receiveMode)
+                    ? "low-latency"
+                    : receiveMode.Trim().ToLowerInvariant();
+                if (effectiveMode == "zero-copy" || effectiveMode == "low-latency")
                 {
-                    var normalized = receiveMode.Trim().ToLowerInvariant();
-                    if (normalized == "zero-copy" || normalized == "low-latency")
-                    {
-                        cmdArgs.Add($"--receive-mode={normalized}");
-                    }
+                    cmdArgs.Add($"--receive-mode={effectiveMode}");
                 }
 
                 var result = await RunCommandAsync(cmdArgs, 10000, ct);
@@ -233,16 +308,29 @@ namespace USBAnywhere.Services
                     success = result.ExitCode == 0 && !hasError;
                 }
 
-                if (success) _logger.LogInformation("Dispositivo {BusId} conectado exitosamente.", busId);
-                else _logger.LogError("Fallo al conectar {BusId}. ExitCode: {ExitCode}, Output: {Output}, Error: {Error}",
-                    busId, result.ExitCode, result.Output, result.Error);
-
-                return success;
+                if (success)
+                {
+                    _logger.LogInformation("Dispositivo {BusId} conectado exitosamente.", busId);
+                    return OperationResult.Ok();
+                }
+                else
+                {
+                    var details = !string.IsNullOrWhiteSpace(result.Error)
+                        ? result.Error.Trim()
+                        : result.Output.Trim();
+                    if (details.Length > 512) details = details[..512];
+                    var error = string.IsNullOrWhiteSpace(details)
+                        ? $"usbip attach failed with exit code {result.ExitCode}."
+                        : $"usbip attach failed with exit code {result.ExitCode}: {details}";
+                    _logger.LogError("Fallo al conectar {BusId}. ExitCode: {ExitCode}, Output: {Output}, Error: {Error}",
+                        busId, result.ExitCode, result.Output, result.Error);
+                    return OperationResult.Fail(error);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Excepción al conectar dispositivo {BusId}", busId);
-                return false;
+                return OperationResult.Fail(ex.Message);
             }
         }
 
@@ -386,10 +474,62 @@ namespace USBAnywhere.Services
             return null;
         }
 
+        internal void InvalidateIntegrityCache()
+        {
+            lock (_integrityCacheLock)
+            {
+                _cachedIntegritySignature = null;
+                _cachedIntegrityResult = false;
+            }
+        }
+
+        private static string BuildDirectoryIntegritySignature(string exePath)
+        {
+            var sb = new StringBuilder(256);
+            var exeInfo = new FileInfo(exePath);
+            sb.Append(exePath).Append('|')
+              .Append(exeInfo.Exists ? exeInfo.Length : -1).Append('|')
+              .Append(exeInfo.Exists ? exeInfo.LastWriteTimeUtc.Ticks : -1);
+
+            var binDir = Path.GetDirectoryName(exePath);
+            if (!string.IsNullOrEmpty(binDir) && Directory.Exists(binDir))
+            {
+                foreach (var dllName in RequiredNativeDlls)
+                {
+                    var fi = new FileInfo(Path.Combine(binDir, dllName));
+                    sb.Append('|').Append(dllName).Append(':')
+                      .Append(fi.Exists ? fi.Length : -1).Append(':')
+                      .Append(fi.Exists ? fi.LastWriteTimeUtc.Ticks : -1);
+                }
+
+                foreach (var hijackName in HijackCandidateDlls)
+                {
+                    var fi = new FileInfo(Path.Combine(binDir, hijackName));
+                    if (fi.Exists)
+                    {
+                        sb.Append("|H:").Append(hijackName).Append(':')
+                          .Append(fi.Length).Append(':')
+                          .Append(fi.LastWriteTimeUtc.Ticks);
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+
         private bool ValidateBinaryHash(string path)
         {
             try
             {
+                string currentSignature = BuildDirectoryIntegritySignature(path);
+                lock (_integrityCacheLock)
+                {
+                    if (_cachedIntegritySignature == currentSignature)
+                    {
+                        return _cachedIntegrityResult;
+                    }
+                }
+
                 using (var sha256 = SHA256.Create())
                 {
                     // 1. Validate the executable itself
@@ -403,6 +543,11 @@ namespace USBAnywhere.Services
                     if (!ValidHashes.Contains(exeHash))
                     {
                         _logger.LogCritical("SEGURIDAD: Hash de ejecutable NO reconocido: {Hash} ({Path}). Ejecución bloqueada.", exeHash, path);
+                        lock (_integrityCacheLock)
+                        {
+                            _cachedIntegritySignature = currentSignature;
+                            _cachedIntegrityResult = false;
+                        }
                         return false;
                     }
 
@@ -410,8 +555,7 @@ namespace USBAnywhere.Services
                     var binDir = Path.GetDirectoryName(path);
                     if (!string.IsNullOrEmpty(binDir) && Directory.Exists(binDir))
                     {
-                        var requiredNativeDlls = new[] { "libusbip.dll", "resources.dll" };
-                        foreach (var dllName in requiredNativeDlls)
+                        foreach (var dllName in RequiredNativeDlls)
                         {
                             var dll = Path.Combine(binDir, dllName);
                             if (File.Exists(dll))
@@ -423,13 +567,17 @@ namespace USBAnywhere.Services
                                 if (!ValidDllHashes.Contains(dllHash))
                                 {
                                     _logger.LogCritical("SEGURIDAD: DLL nativa no autorizada o manipulada detectada: {Dll} (Hash: {Hash}). Operación abortada.", dll, dllHash);
+                                    lock (_integrityCacheLock)
+                                    {
+                                        _cachedIntegritySignature = currentSignature;
+                                        _cachedIntegrityResult = false;
+                                    }
                                     return false;
                                 }
                             }
                         }
 
-                        var hijackDlls = new[] { "version.dll", "winmm.dll", "dbghelp.dll", "cryptbase.dll", "dwmapi.dll" };
-                        foreach (var hijackName in hijackDlls)
+                        foreach (var hijackName in HijackCandidateDlls)
                         {
                             var hijackPath = Path.Combine(binDir, hijackName);
                             if (File.Exists(hijackPath))
@@ -441,12 +589,22 @@ namespace USBAnywhere.Services
                                 if (!ValidDllHashes.Contains(dllHash))
                                 {
                                     _logger.LogCritical("SEGURIDAD: DLL de secuestro detectada: {Dll} (Hash: {Hash}). Operación abortada.", hijackPath, dllHash);
+                                    lock (_integrityCacheLock)
+                                    {
+                                        _cachedIntegritySignature = currentSignature;
+                                        _cachedIntegrityResult = false;
+                                    }
                                     return false;
                                 }
                             }
                         }
                     }
 
+                    lock (_integrityCacheLock)
+                    {
+                        _cachedIntegritySignature = currentSignature;
+                        _cachedIntegrityResult = true;
+                    }
                     return true;
                 }
             }
@@ -462,12 +620,9 @@ namespace USBAnywhere.Services
         public Task<List<UsbDevice>> ListDevicesAsync(string serverIP)
             => ListRemoteDevicesAsync(serverIP);
 
-        private readonly AsyncLocal<string?> _lastAttachError = new();
-
         public async Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null)
         {
-            bool ok = await AttachDeviceAsync(serverIP, busId, receiveMode);
-            return new OperationResult { Success = ok, Error = ok ? null : (_lastAttachError.Value ?? "Attach failed") };
+            return await AttachDeviceWithResultAsync(serverIP, busId, receiveMode, CancellationToken.None);
         }
 
         public async Task<OperationResult> DisconnectAsync(int port)
@@ -482,6 +637,9 @@ namespace USBAnywhere.Services
             try
             {
                 _logger.LogInformation("Iniciando desconexión limpia de todos los dispositivos...");
+                // Stop any active background kernel attach loops in usbip2_ude.sys first
+                try { await RunCommandAsync(new[] { "attach", "-X" }, 3000, ct); } catch { }
+
                 var connected = await GetConnectedDevicesAsync();
                 foreach (var dev in connected)
                 {
@@ -687,11 +845,13 @@ namespace USBAnywhere.Services
                     if (doc.RootElement.TryGetProperty("status", out var statusProp))
                     {
                         var status = statusProp.GetString() ?? "";
-                        if (status.Equals("DENIED", StringComparison.OrdinalIgnoreCase))
+                        if (status.Equals("DENIED", StringComparison.OrdinalIgnoreCase) ||
+                            status.Equals("ERROR", StringComparison.OrdinalIgnoreCase) ||
+                            status.Equals("UNSUPPORTED", StringComparison.OrdinalIgnoreCase))
                         {
                             var reason = doc.RootElement.TryGetProperty("message", out var msgProp)
                                 ? msgProp.GetString()
-                                : $"Device {busId} blocked by server export policy";
+                                : $"Server rejected the bind request for device {busId}";
                             return (false, false, reason);
                         }
                         if (status.Equals("OK", StringComparison.OrdinalIgnoreCase))
@@ -730,27 +890,12 @@ namespace USBAnywhere.Services
                         var existing = new HashSet<string>(devices.Select(d => d.BusId), StringComparer.OrdinalIgnoreCase);
                         foreach (var item in devsProp.EnumerateArray())
                         {
-                            var line = item.GetString();
-                            if (string.IsNullOrWhiteSpace(line)) continue;
-                            var m = Regex.Match(line, @"^\s*([0-9a-zA-Z\-\.]+)\s*:\s*(.+?)\s*(?:\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\))?$");
-                            if (m.Success)
+                            if (TryParseDynamicInventoryItem(item, ip, out var device) &&
+                                device is not null &&
+                                !existing.Contains(device.BusId))
                             {
-                                var busId = m.Groups[1].Value.Trim();
-                                if (InputValidator.IsValidBusId(busId) && !existing.Contains(busId))
-                                {
-                                    var desc = m.Groups[2].Value.Trim();
-                                    var hwId = m.Groups[3].Success ? m.Groups[3].Value.Trim() : string.Empty;
-                                    devices.Add(new UsbDevice
-                                    {
-                                        BusId = busId,
-                                        HardwareId = hwId,
-                                        Description = desc,
-                                        RemoteIp = ip,
-                                        ServerIP = ip,
-                                        IsConnected = false
-                                    });
-                                    existing.Add(busId);
-                                }
+                                devices.Add(device);
+                                existing.Add(device.BusId);
                             }
                         }
                     }
@@ -760,6 +905,74 @@ namespace USBAnywhere.Services
             {
                 // Dynamic inventory not available
             }
+        }
+
+        internal static bool TryParseDynamicInventoryItem(JsonElement item, string ip, out UsbDevice? device)
+        {
+            device = null;
+            string busId;
+            string description;
+            string hardwareId;
+
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                var line = item.GetString();
+                if (string.IsNullOrWhiteSpace(line)) return false;
+
+                var match = Regex.Match(
+                    line,
+                    @"^\s*([0-9a-zA-Z\-\.]+)\s*:\s*(.+?)\s*(?:\(([0-9a-fA-F]{4}:[0-9a-fA-F]{4})\))?$");
+                if (!match.Success) return false;
+
+                busId = match.Groups[1].Value.Trim();
+                description = match.Groups[2].Value.Trim();
+                hardwareId = match.Groups[3].Success ? match.Groups[3].Value.Trim() : string.Empty;
+            }
+            else if (item.ValueKind == JsonValueKind.Object)
+            {
+                busId = ReadJsonString(item, "busid");
+                description = ReadJsonString(item, "description");
+                var vidPid = ReadJsonString(item, "vid_pid");
+                if (!Regex.IsMatch(vidPid, @"^[0-9a-fA-F]{4}:[0-9a-fA-F]{4}$"))
+                {
+                    var vendorId = ReadJsonString(item, "vid");
+                    var productId = ReadJsonString(item, "pid");
+                    vidPid = Regex.IsMatch(vendorId, @"^[0-9a-fA-F]{4}$") &&
+                        Regex.IsMatch(productId, @"^[0-9a-fA-F]{4}$")
+                        ? $"{vendorId}:{productId}"
+                        : string.Empty;
+                }
+
+                hardwareId = vidPid;
+            }
+            else
+            {
+                return false;
+            }
+
+            if (!InputValidator.IsValidBusId(busId)) return false;
+
+            device = new UsbDevice
+            {
+                BusId = busId,
+                HardwareId = hardwareId,
+                Description = string.IsNullOrWhiteSpace(description) ? "USB Device" : description,
+                RemoteIp = ip,
+                ServerIP = ip,
+                IsConnected = false
+            };
+            return true;
+        }
+
+        private static string ReadJsonString(JsonElement item, string propertyName)
+        {
+            if (!item.TryGetProperty(propertyName, out var property)) return string.Empty;
+            return property.ValueKind switch
+            {
+                JsonValueKind.String => property.GetString() ?? string.Empty,
+                JsonValueKind.Number => property.GetRawText(),
+                _ => string.Empty
+            };
         }
     }
 }
