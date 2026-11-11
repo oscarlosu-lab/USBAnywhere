@@ -243,12 +243,12 @@
             <span class="select-all font-semibold">curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | sudo bash</span>
           </div>
           <div class="mt-4 text-xs text-slate-400 space-y-1">
-            <p class="text-slate-500">[*] Step 1/4: Installing USB/IP kernel packages (usbip, hwdata, usbutils)...</p>
-            <p class="text-slate-500">[*] Step 2/4: Loading kernel drivers in /etc/modules-load.d/usbip.conf...</p>
-            <p class="text-slate-500">[*] Step 3/4: Installing Plug & Play Auto-Bind engine to /usr/local/bin/usbanywhere-autobind.sh...</p>
-            <p class="text-slate-500">[*] Step 4/4: Enabling systemd background daemon (usbanywhere.service) and udev rules...</p>
-            <p class="text-accent-emerald font-semibold pt-1">[+] SUCCESS: USBAnywhere Server is now active on TCP port 3240!</p>
-            <p class="text-brand-300">[+] HOTPLUG ACTIVE: Any device you plug in is automatically shared across your network instantly.</p>
+            <p class="text-slate-500">[*] Step 1/4: Installing USB/IP kernel packages (usbip, vhci-hcd, hwdata, usbutils)...</p>
+            <p class="text-slate-500">[*] Step 2/4: Loading Server (usbip_host) &amp; Client (vhci_hcd) kernel drivers...</p>
+            <p class="text-slate-500">[*] Step 3/4: Installing On-Demand Control Daemon (TCP 3241) &amp; DualSense udev rules...</p>
+            <p class="text-slate-500">[*] Step 4/4: Enabling systemd background daemons &amp; bidirectional CLI (usbanywhere-ctl)...</p>
+            <p class="text-accent-emerald font-semibold pt-1">[+] SUCCESS: USBAnywhere v3.3.0 Server (TCP 3240/3241) &amp; Linux Client (vhci_hcd) active!</p>
+            <p class="text-brand-300">[+] LINUX CLIENT CLI: Run 'usbanywhere-ctl scan' or 'sudo usbanywhere-ctl connect &lt;ip&gt; &lt;busid&gt;' to attach remote USB devices on Linux!</p>
           </div>
         </div>
       </div>
@@ -505,15 +505,15 @@
             <thead>
               <tr class="border-b border-slate-800 bg-slate-950/80 text-xs font-mono uppercase tracking-wider text-slate-400">
                 <th class="py-4 px-6">Feature</th>
-                <th class="py-4 px-6 text-brand-400 font-bold bg-brand-950/30">USBAnywhere v3.0</th>
+                <th class="py-4 px-6 text-brand-400 font-bold bg-brand-950/30">USBAnywhere v3.3.0</th>
                 <th class="py-4 px-6">VirtualHere</th>
                 <th class="py-4 px-6">USB Network Gate</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-800/60 text-slate-300">
               <tr>
-                <td class="py-4 px-6 font-semibold">Pricing & Licensing</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">100% Free (Personal & Gaming)</td>
+                <td class="py-4 px-6 font-semibold">Pricing &amp; Licensing</td>
+                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">100% Free (GPL-3.0 Open Source)</td>
                 <td class="py-4 px-6 text-slate-400">$49.00 USD / Server</td>
                 <td class="py-4 px-6 text-slate-400">$159.00+ USD</td>
               </tr>
@@ -528,6 +528,18 @@
                 <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Microsoft WHQL Certified</td>
                 <td class="py-4 px-6 text-slate-300">✅ Signed Driver</td>
                 <td class="py-4 px-6 text-slate-300">✅ Signed Driver</td>
+              </tr>
+              <tr>
+                <td class="py-4 px-6 font-semibold">Linux Client (`vhci_hcd`)</td>
+                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Native CLI + TCP 3241 On-Demand Bind</td>
+                <td class="py-4 px-6 text-slate-300">✅ Proprietary Binary</td>
+                <td class="py-4 px-6 text-slate-400">⚠️ Paid Add-on</td>
+              </tr>
+              <tr>
+                <td class="py-4 px-6 font-semibold">Android / Android TV Server</td>
+                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Rootless APK (Gamepad &amp; USB Keyboard HID)</td>
+                <td class="py-4 px-6 text-slate-300">⚠️ Paid Server</td>
+                <td class="py-4 px-6 text-red-400">❌ None</td>
               </tr>
               <tr>
                 <td class="py-4 px-6 font-semibold">Core Isolation / HVCI</td>
@@ -636,7 +648,7 @@
         <span class="text-accent-emerald font-mono text-xs uppercase tracking-widest font-semibold" data-i18n="dl_badge">Official Releases</span>
         <h2 class="text-3xl sm:text-5xl font-extrabold mt-2 text-white" data-i18n="dl_title">Download USBAnywhere v3.3.0</h2>
         <p class="text-slate-400 mt-4 max-w-2xl mx-auto" data-i18n="dl_desc">
-          Official packages include SHA-256 checksums. Compatible with Windows 10 & 11 (x64 and ARM64), Linux (Client & Server), macOS, and Android / Android TV.
+          Official packages include SHA-256 checksums and Sigstore provenance attestations. Compatible with Windows 10 & 11, Linux (Client & Server), macOS, and Android / Android TV.
         </p>
       </div>
 
@@ -669,8 +681,8 @@
             <div class="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-4">
               <i data-lucide="archive" class="w-6 h-6"></i>
             </div>
-            <h3 class="text-base font-bold text-white">Portable Client (x64)</h3>
-            <p class="text-xs text-slate-400 mt-1">Zero-install standalone package. Extract and run directly from USB flash drives.</p>
+            <h3 class="text-base font-bold text-white">Portable Suite (x64)</h3>
+            <p class="text-xs text-slate-400 mt-1">Zero-install standalone Client + Server package. Extract and run directly.</p>
             <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-v3.3.0-x64.zip</div>
           </div>
           <div class="mt-6">
@@ -681,20 +693,20 @@
           </div>
         </div>
 
-        <!-- Package 3: Portable ARM64 -->
+        <!-- Package 3: Linux Client & Server -->
         <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 flex flex-col justify-between">
           <div>
             <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-4">
-              <i data-lucide="cpu" class="w-6 h-6"></i>
+              <i data-lucide="terminal" class="w-6 h-6"></i>
             </div>
-            <h3 class="text-base font-bold text-white">Portable (ARM64)</h3>
-            <p class="text-xs text-slate-400 mt-1">Native ARM64 for Snapdragon X Elite, Surface Pro, and Windows on ARM.</p>
-            <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-v3.3.0-arm64.zip</div>
+            <h3 class="text-base font-bold text-white">Linux Client & Server</h3>
+            <p class="text-xs text-slate-400 mt-1">Universal Linux Client (vhci_hcd + TCP 3241) & Server suite for SteamOS, Ubuntu, Debian, Arch.</p>
+            <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Linux-v3.3.0.tar.gz</div>
           </div>
           <div class="mt-6">
-            <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/USBAnywhere-v3.3.0-arm64.zip" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+            <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/USBAnywhere-Linux-v3.3.0.tar.gz" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
               <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Download (.zip)</span>
+              <span>Download (.tar.gz)</span>
             </a>
           </div>
         </div>
@@ -710,7 +722,7 @@
             <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Server_Setup_v3.3.0.exe</div>
           </div>
           <div class="mt-6">
-            <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/tag/v3.3.0" target="_blank" rel="noopener" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+            <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.0/USBAnywhere-Server_Setup_v3.3.0.exe" target="_blank" rel="noopener" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
               <i data-lucide="download" class="w-4 h-4"></i>
               <span>Download Server</span>
             </a>
@@ -743,10 +755,8 @@
         <div class="mt-2 flex items-center justify-center gap-4 text-xs font-mono">
           <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.0" target="_blank" rel="noopener" class="text-brand-400 hover:underline">All v3.3.0 Downloads</a>
           <span class="text-slate-600">•</span>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/USBAnywhere-Linux-v3.3.0.tar.gz" target="_blank" rel="noopener" class="text-slate-400 hover:underline">Linux Client & Server (.tar.gz)</a>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-slate-400 hover:underline">Client SHA256SUMS.txt</a>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.0/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-slate-400 hover:underline">Server SHA256SUMS.txt</a>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android/releases/download/v3.3.0/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-slate-400 hover:underline">Android SHA256SUMS.txt</a>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-slate-400 hover:underline">SHA256SUMS.txt</a>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.0/USBAnywhere-Server-macOS-v3.3.0.tar.gz" target="_blank" rel="noopener" class="text-slate-400 hover:underline">macOS Server (.tar.gz)</a>
         </div>
       </div>
 
@@ -788,7 +798,7 @@
         <div class="w-6 h-6 rounded-lg bg-brand-500 flex items-center justify-center text-slate-950 font-bold text-xs">
           🌐
         </div>
-        <span class="text-slate-400 font-semibold">USBAnywhere v3.2.0</span>
+        <span class="text-slate-400 font-semibold">USBAnywhere v3.3.0</span>
         <span>•</span>
         <span data-i18n="footer_license">GPLv3 Open Source</span>
       </div>
@@ -797,8 +807,8 @@
         <a href="https://github.com/oscarlosu-lab/USBAnywhere/blob/main/docs/USAGE_EN.md" class="hover:text-slate-300 transition-colors">Documentation</a>
         <a href="https://github.com/oscarlosu-lab/USBAnywhere/blob/main/docs/VPN_INTERNET_EN.md" class="hover:text-slate-300 transition-colors">VPN Guide</a>
         <a href="https://github.com/oscarlosu-lab/USBAnywhere" class="hover:text-slate-300 transition-colors">Client Repo</a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server" class="hover:text-slate-300 transition-colors">Server Repo</a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android" class="hover:text-slate-300 transition-colors">Android Repo</a>
+        <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server" class="hover:text-slate-300 transition-colors">Server Suite</a>
+        <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android" class="hover:text-slate-300 transition-colors">Android Suite</a>
         <a href="https://www.reddit.com/r/UsbAnywhere/" class="hover:text-slate-300 transition-colors">Reddit</a>
         <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="hover:text-rose-400 text-rose-400/90 font-semibold transition-colors flex items-center gap-1.5"><i data-lucide="coffee" class="w-3.5 h-3.5 text-rose-400"></i> Ko-fi</a>
         <a href="https://github.com/oscarlosu-lab/USBAnywhere/blob/main/LICENSE" class="hover:text-slate-300 transition-colors">License</a>
@@ -846,8 +856,8 @@
         nav_compare: "Comparison",
         nav_videos: "Masterclasses",
         nav_downloads: "Downloads",
-        btn_get_usbanywhere: "Get v3.2.0",
-        hero_pill: "v3.2.0 WHQL Certified • Multi-Device Ready • 100% Free",
+        btn_get_usbanywhere: "Get v3.3.0",
+        hero_pill: "v3.3.0 WHQL Certified • Windows & Linux Client • 100% Free",
         hero_title_1: "Next-Generation",
         hero_title_2: "USB over Network",
         hero_subtitle: "Stream game controllers, SimRacing wheels, diode lasers, and 3D printer webcams over Wi-Fi, Ethernet, or VPN. Zero licensing fees, zero artificial device limits, and Microsoft WHQL certified drivers.",
@@ -895,7 +905,7 @@
         video_desc: "Watch our in-depth video tutorials covering full setup, gaming streaming, and remote workshop workflows.",
         dl_badge: "Official Releases",
         dl_title: "Download USBAnywhere v3.3.0",
-        dl_desc: "Official packages include SHA-256 checksums. Compatible with Windows 10 & 11 (x64 and ARM64), Linux (Client & Server), macOS, and Android / Android TV.",
+        dl_desc: "Official packages include SHA-256 checksums and Sigstore provenance attestations. Compatible with Windows 10 & 11, Linux (Client & Server), macOS, and Android / Android TV.",
         sha_notice: "SHA-256 checksums for each package are available with its release.",
         community_title: "Join the Official r/UsbAnywhere Community",
         community_desc: "Share your setups, ask troubleshooting questions, post benchmark latencies, and request new features with makers and gamers worldwide.",
@@ -959,7 +969,7 @@
         video_desc: "Visualiza nuestros tutoriales detallados que cubren la instalación completa, el streaming de juegos y el taller láser remoto.",
         dl_badge: "Lanzamientos Oficiales",
         dl_title: "Descargar USBAnywhere v3.3.0",
-        dl_desc: "Los paquetes oficiales incluyen sumas SHA-256. Compatibles con Windows 10 y 11 (x64 y ARM64), Linux (Cliente y Servidor), macOS y Android / Android TV.",
+        dl_desc: "Los paquetes oficiales incluyen sumas SHA-256 y atestación Sigstore. Compatibles con Windows 10 y 11, Linux (Cliente y Servidor), macOS y Android / Android TV.",
         sha_notice: "Las sumas SHA-256 de cada paquete están disponibles junto con su lanzamiento.",
         community_title: "Únete a la Comunidad Oficial r/UsbAnywhere",
         community_desc: "Comparte tus montajes, resuelve dudas técnicas, publica tus pruebas de latencia y propone mejoras con usuarios de todo el mundo.",
