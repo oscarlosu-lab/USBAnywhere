@@ -1,0 +1,19 @@
+--- a/drivers/usb/usbip/stub_rx.c
++++ b/drivers/usb/usbip/stub_rx.c
+@@ -591,6 +591,16 @@
+ 		priv->urbs[i]->context = (void *) priv;
+ 		priv->urbs[i]->dev = udev;
+ 		priv->urbs[i]->pipe = pipe;
++
++		/* Test: decode high-speed isochronous endpoint interval. */
++		if (usb_pipeisoc(pipe) && udev->speed == USB_SPEED_HIGH) {
++			struct usb_host_endpoint *ep = usb_pipe_endpoint(udev, pipe);
++
++			if (ep && ep->desc.bInterval >= 1 &&
++			    ep->desc.bInterval <= 16)
++				priv->urbs[i]->interval =
++					1U << (ep->desc.bInterval - 1);
++		}
+ 		priv->urbs[i]->complete = stub_complete;
+ 
+ 		/*

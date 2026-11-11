@@ -3,7 +3,7 @@
 
 #define MyAppName "USBAnywhere"
 #ifndef MyAppVersion
-#define MyAppVersion "3.3.0"
+#define MyAppVersion "3.3.1"
 #endif
 #define MyAppPublisher "SnakeFoxu (OscarLosu)"
 #define MyAppURL "https://github.com/oscarlosu-lab/USBAnywhere"

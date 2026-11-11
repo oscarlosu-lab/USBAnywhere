@@ -1,5 +1,14 @@
 # CHANGELOG - USBAnywhere
 
+## [3.3.1] - 2026-11-11
+
+### Fixed
+- **Client Instant TCP `UNBIND` & Replug Backoff (Issue #9)**:
+  - `UsbipService.DetachDeviceAsync` now dispatches an asynchronous fire-and-forget `UNBIND <busid>` to TCP `3241` alongside `usbipw detach` so Linux servers release shared devices immediately instead of waiting for the kernel status transition.
+  - `ConnectionMonitorService` tracks progressive reconnect delays (`3s`, `6s`, `12s`, capped at `30s`) while `BindRemoteDeviceAsync` retries cleanly during slow USB re-enumeration.
+- **Linux Server `usbanywhere-ctl` & Raspberry Pi `dwc_otg` Kernel Patch Bundle (Issue #9)**:
+  - Synced `scripts/usbanywhere-ctl` (per-`busid` locks, `udevadm settle`, real `usbip_status` verification, and automatic `SDEV_ST_ERROR` recovery) and bundled `patches/rpi-dwc-usbip-host/` into `USBAnywhere-Linux-v3.3.1.tar.gz` (with the corrected `usbip-host-y := stub_dev.o stub_main.o stub_rx.o stub_tx.o` Kbuild fix).
+
 ## [3.3.0] - 2026-11-10
 
 ### Added

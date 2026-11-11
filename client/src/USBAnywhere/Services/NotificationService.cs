@@ -12,7 +12,7 @@ namespace USBAnywhere.Services;
 public class NotificationService : INotificationService
 {
     private static readonly string AppVersion =
-        typeof(NotificationService).Assembly.GetName().Version?.ToString(3) ?? "3.3.0";
+        typeof(NotificationService).Assembly.GetName().Version?.ToString(3) ?? "3.3.1";
 
     private Forms.NotifyIcon? _fallbackIcon;
 

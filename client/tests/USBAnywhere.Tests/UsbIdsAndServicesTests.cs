@@ -115,7 +115,7 @@ public class UsbIdsAndServicesTests
             var logFiles = Directory.GetFiles(tempLogs, "usbanywhere_*.log");
             Assert.Single(logFiles);
             var content = File.ReadAllText(logFiles[0]);
-            var expectedVer = typeof(LoggerService).Assembly.GetName().Version?.ToString(3) ?? "3.3.0";
+            var expectedVer = typeof(LoggerService).Assembly.GetName().Version?.ToString(3) ?? "3.3.1";
             Assert.Contains($"v{expectedVer} Logger Initialized", content);
         }
         finally

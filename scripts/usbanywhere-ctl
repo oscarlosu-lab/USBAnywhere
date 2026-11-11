@@ -18,13 +18,14 @@ import json
 import shutil
 import re
 import argparse
+import threading
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-VERSION = "3.3.0"
+VERSION = "3.3.1"
 PORT = 3240
 CONTROL_PORT = 3241
 
@@ -403,6 +404,104 @@ def list_devices():
                         devices.append(line.strip())
     return devices
 
+_busid_locks = {}
+_busid_locks_guard = threading.Lock()
+_last_bind_error = {}
+
+def _get_busid_lock(busid):
+    with _busid_locks_guard:
+        lock = _busid_locks.get(busid)
+        if lock is None:
+            lock = threading.Lock()
+            _busid_locks[busid] = lock
+        return lock
+
+def _wait_udev_settle(timeout=3):
+    udevadm = shutil.which("udevadm")
+    if udevadm:
+        run_cmd([udevadm, "settle", f"--timeout={timeout}"], timeout=timeout + 2)
+
+def _get_usbip_host_status(busid):
+    status_file = f"/sys/bus/usb/drivers/usbip-host/{busid}/usbip_status"
+    if not os.path.isfile(status_file):
+        return None
+    try:
+        with open(status_file, "r", encoding="utf-8") as f:
+            raw = f.read().strip()
+        return int(raw) if raw.isdigit() else None
+    except Exception:
+        return None
+
+def _share_device_linux(busid, bin_path):
+    dev_sysfs = f"/sys/bus/usb/devices/{busid}"
+    with _get_busid_lock(busid):
+        _last_bind_error.pop(busid, None)
+        _wait_udev_settle(2)
+
+        if not os.path.exists(dev_sysfs):
+            _last_bind_error[busid] = f"Device {busid} not found on USB bus"
+            print(f"{RED}✗ Device {busid} not found on USB bus.{RESET}")
+            return False
+
+        st = _get_usbip_host_status(busid)
+        if st == 1:
+            print(f"{GREEN}✓ Device {busid} already bound via usbip.{RESET}")
+            return True
+
+        # Wait briefly if a previous disconnect cleanup / auto-unbind is settling
+        if st in (2, 3):
+            deadline = time.monotonic() + 4.5
+            while time.monotonic() < deadline and st in (2, 3):
+                time.sleep(0.25)
+                if not os.path.exists(dev_sysfs):
+                    _last_bind_error[busid] = f"Device {busid} disconnected during cleanup"
+                    print(f"{RED}✗ Device {busid} disconnected during cleanup.{RESET}")
+                    return False
+                st = _get_usbip_host_status(busid)
+                if st == 1:
+                    print(f"{GREEN}✓ Device {busid} bound via usbip.{RESET}")
+                    return True
+
+            if st == 3:
+                try:
+                    subprocess.run([bin_path, "unbind", "-b", busid], capture_output=True, text=True, timeout=15)
+                except Exception:
+                    pass
+                _wait_udev_settle(2)
+                st = _get_usbip_host_status(busid)
+
+            if st == 2:
+                _last_bind_error[busid] = f"Device {busid} is busy while finishing prior disconnect"
+                print(f"{YELLOW}[!] Device {busid} still releasing prior client session.{RESET}")
+                return False
+
+        try:
+            res = subprocess.run([bin_path, "bind", "-b", busid], capture_output=True, text=True, timeout=15)
+        except Exception as e:
+            _last_bind_error[busid] = f"usbip bind execution failed: {e}"
+            print(f"{RED}✗ Failed binding {busid}: {e}{RESET}")
+            return False
+
+        # Verify in sysfs that usbip-host actually owns the device in SDEV_ST_AVAILABLE (1)
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            if not os.path.exists(dev_sysfs):
+                _last_bind_error[busid] = f"Device {busid} disappeared before bind completed"
+                print(f"{RED}✗ Device {busid} disappeared before bind completed.{RESET}")
+                return False
+            if _get_usbip_host_status(busid) == 1:
+                out_msg = (res.stdout or "").strip()
+                print(out_msg or f"{GREEN}✓ Device {busid} bound via usbip.{RESET}")
+                return True
+            time.sleep(0.15)
+
+        err_text = (res.stderr or res.stdout or "").strip()
+        if not err_text:
+            err_text = f"usbip bind failed (exit={res.returncode}, status={_get_usbip_host_status(busid)})"
+        _last_bind_error[busid] = err_text
+        print(f"{RED}✗ Failed binding {busid}: {err_text}{RESET}")
+        return False
+
 def share_device(busid):
     """Export a specific USB peripheral by bus ID."""
     if not re.match(r"^\d+-[\d.]+$", str(busid or "")):
@@ -427,9 +526,7 @@ def share_device(busid):
     elif IS_LINUX:
         bin_path = shutil.which("usbip")
         if bin_path:
-            out = run_cmd([bin_path, "bind", "-b", busid])
-            print(out or f"{GREEN}✓ Device {busid} bound via usbip.{RESET}")
-            return True
+            return _share_device_linux(busid, bin_path)
     return False
 
 def unshare_device(busid):
@@ -451,22 +548,41 @@ def unshare_device(busid):
     elif IS_LINUX:
         bin_path = shutil.which("usbip")
         if bin_path:
-            out = run_cmd([bin_path, "unbind", "-b", busid])
-            print(out or f"{GREEN}✓ Device {busid} unbound via usbip.{RESET}")
-            return True
+            with _get_busid_lock(busid):
+                if _get_usbip_host_status(busid) is None:
+                    print(f"{GREEN}✓ Device {busid} already unbound.{RESET}")
+                    return True
+                try:
+                    res = subprocess.run([bin_path, "unbind", "-b", busid], capture_output=True, text=True, timeout=15)
+                except Exception as e:
+                    print(f"{RED}✗ Failed unbinding {busid}: {e}{RESET}")
+                    return False
+
+                deadline = time.monotonic() + 3.0
+                while time.monotonic() < deadline and _get_usbip_host_status(busid) is not None:
+                    time.sleep(0.15)
+                _wait_udev_settle(2)
+
+                if _get_usbip_host_status(busid) is None:
+                    out_msg = (res.stdout or "").strip()
+                    print(out_msg or f"{GREEN}✓ Device {busid} unbound via usbip.{RESET}")
+                    return True
+                err_text = (res.stderr or res.stdout or "").strip()
+                print(f"{RED}✗ Failed unbinding {busid}: {err_text}{RESET}")
+                return False
     return False
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DYNAMIC AUTO-UNBIND & CONTROL API (Zero-Host-Lockout)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_auto_unbind_daemon(interval=1.0, standalone=True):
+def run_auto_unbind_daemon(interval=0.5, standalone=True):
     """
     Dynamic Auto-Unbind Watcher:
     Monitors /sys/bus/usb/drivers/usbip-host/*/usbip_status on Linux.
-    When a remote client disconnects (status transitions from SDEV_ST_USED [2] to SDEV_ST_AVAILABLE [1]),
-    automatically unbinds the peripheral so the local operating system (HTPC, Raspberry Pi, Steam Deck)
-    instantly reclaims it without manual intervention.
+    When a remote client disconnects (SDEV_ST_USED [2] -> SDEV_ST_AVAILABLE [1])
+    or hits transport error (SDEV_ST_ERROR [3]), automatically unbinds the peripheral
+    so the local OS reclaims it promptly without manual intervention.
     """
     if standalone:
         print(f"\n{CYAN}═══ 🔄 USBAnywhere Dynamic Auto-Unbind Daemon ═══{RESET}")
@@ -479,27 +595,28 @@ def run_auto_unbind_daemon(interval=1.0, standalone=True):
             if IS_LINUX:
                 sysfs_base = "/sys/bus/usb/drivers/usbip-host"
                 if os.path.exists(sysfs_base):
-                    for entry in os.listdir(sysfs_base):
-                        status_file = os.path.join(sysfs_base, entry, "usbip_status")
-                        if os.path.isfile(status_file):
-                            try:
-                                with open(status_file, "r") as f:
-                                    raw = f.read().strip()
-                                status_code = int(raw) if raw.isdigit() else -1
-                                
-                                prev = prev_statuses.get(entry)
-                                # 2 = SDEV_ST_USED (client attached)
-                                # 1 = SDEV_ST_AVAILABLE (idle shared)
-                                if prev == 2 and status_code == 1:
-                                    print(f"{YELLOW}[Auto-Unbind] Remote client disconnected from device {entry}.{RESET}")
-                                    print(f"{GREEN}✓ Auto-releasing {entry} back to local host OS...{RESET}")
-                                    unshare_device(entry)
-                                    prev_statuses.pop(entry, None)
-                                    continue
-                                
-                                prev_statuses[entry] = status_code
-                            except Exception:
-                                pass
+                    entries = [e for e in os.listdir(sysfs_base) if re.match(r"^\d+-[\d.]+$", e)]
+                    current_set = set(entries)
+                    for stale in list(prev_statuses.keys()):
+                        if stale not in current_set:
+                            prev_statuses.pop(stale, None)
+
+                    for entry in entries:
+                        status_code = _get_usbip_host_status(entry)
+                        if status_code is None:
+                            continue
+
+                        prev = prev_statuses.get(entry)
+                        # 2 = SDEV_ST_USED, 1 = SDEV_ST_AVAILABLE, 3 = SDEV_ST_ERROR
+                        if (prev == 2 and status_code == 1) or status_code == 3:
+                            print(f"{YELLOW}[Auto-Unbind] Releasing device {entry} (status {prev} -> {status_code}).{RESET}")
+                            unshare_device(entry)
+                            prev_statuses.pop(entry, None)
+                            continue
+
+                        prev_statuses[entry] = status_code
+                else:
+                    prev_statuses.clear()
             elif IS_MACOS:
                 bin_path = shutil.which("usbanywhere-server-mac")
                 if bin_path:
@@ -553,7 +670,10 @@ def handle_control_client(sock, addr):
                 sock.sendall(resp.encode("utf-8"))
             else:
                 ok = share_device(target_bus)
-                resp = json.dumps({"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "bind"}) + "\n"
+                payload = {"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "bind"}
+                if not ok:
+                    payload["message"] = _last_bind_error.get(target_bus, f"Failed to bind {target_bus}")
+                resp = json.dumps(payload) + "\n"
                 sock.sendall(resp.encode("utf-8"))
         elif cmd == "POLICY":
             pol = load_policy()
@@ -618,7 +738,7 @@ def run_dynamic_daemon(port=CONTROL_PORT):
     print(f"• Discovery Responder: LISTENING on UDP port {port} (Broadcast Auto-Scan Responder)")
     print(f"• Main USB/IP Port:    LISTENING on TCP port {PORT}")
     
-    watcher_t = threading.Thread(target=run_auto_unbind_daemon, kwargs={"interval": 1.0, "standalone": False}, daemon=True)
+    watcher_t = threading.Thread(target=run_auto_unbind_daemon, kwargs={"interval": 0.5, "standalone": False}, daemon=True)
     watcher_t.start()
 
     udp_t = threading.Thread(target=run_udp_discovery_responder, kwargs={"port": port}, daemon=True)

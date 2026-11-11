@@ -1,0 +1,35 @@
+--- a/drivers/usb/usbip/stub_tx.c
++++ b/drivers/usb/usbip/stub_tx.c
+@@ -168,6 +168,32 @@
+ 		int ret;
+ 		int i;
+ 
++		/* Test: derive ISO IN total from validated packet lengths. */
++		if (usb_pipeisoc(urb->pipe) && usb_pipein(urb->pipe)) {
++			u32 total = 0;
++
++			for (i = 0; i < urb->number_of_packets; i++) {
++				struct usb_iso_packet_descriptor *f =
++					&urb->iso_frame_desc[i];
++
++				if (f->actual_length > f->length ||
++				    f->offset > urb->transfer_buffer_length ||
++				    f->actual_length >
++					urb->transfer_buffer_length - f->offset ||
++				    total > urb->transfer_buffer_length ||
++				    f->actual_length >
++					urb->transfer_buffer_length - total) {
++					dev_err(&sdev->udev->dev,
++						"invalid ISO IN packet length\n");
++					usbip_event_add(&sdev->ud,
++						SDEV_EVENT_ERROR_TCP);
++					return -1;
++				}
++				total += f->actual_length;
++			}
++			urb->actual_length = total;
++		}
++
+ 		txsize = 0;
+ 		memset(&pdu_header, 0, sizeof(pdu_header));
+ 		memset(&msg, 0, sizeof(msg));

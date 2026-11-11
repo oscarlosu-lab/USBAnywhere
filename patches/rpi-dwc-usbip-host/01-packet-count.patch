@@ -1,0 +1,19 @@
+--- a/drivers/usb/usbip/stub_rx.c
++++ b/drivers/usb/usbip/stub_rx.c
+@@ -567,6 +567,8 @@
+ 		}
+ 
+ 		usbip_pack_pdu(pdu, priv->urbs[0], USBIP_CMD_SUBMIT, 0);
++		/* Keep the packet count consistent with usb_alloc_urb(). */
++		priv->urbs[0]->number_of_packets = np;
+ 	} else {
+ 		for_each_sg(sgl, sg, nents, i) {
+ 			priv->urbs[i] = usb_alloc_urb(0, GFP_KERNEL);
+@@ -577,6 +579,7 @@
+ 				goto err_urb;
+ 
+ 			usbip_pack_pdu(pdu, priv->urbs[i], USBIP_CMD_SUBMIT, 0);
++			priv->urbs[i]->number_of_packets = 0;
+ 			priv->urbs[i]->transfer_buffer = sg_virt(sg);
+ 			priv->urbs[i]->transfer_buffer_length = sg->length;
+ 		}

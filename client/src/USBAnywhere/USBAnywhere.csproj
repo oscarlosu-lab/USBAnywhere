@@ -12,10 +12,10 @@
     <!-- App Info -->
     <AssemblyName>USBAnywhere</AssemblyName>
     <RootNamespace>USBAnywhere</RootNamespace>
-    <Version>3.3.0</Version>
-    <AssemblyVersion>3.3.0.0</AssemblyVersion>
-    <FileVersion>3.3.0.0</FileVersion>
-    <InformationalVersion>3.3.0</InformationalVersion>
+    <Version>3.3.1</Version>
+    <AssemblyVersion>3.3.1.0</AssemblyVersion>
+    <FileVersion>3.3.1.0</FileVersion>
+    <InformationalVersion>3.3.1</InformationalVersion>
     <Description>The Free, Open-Source VirtualHere Alternative for Windows - Connect unlimited remote USB devices over network</Description>
     
     <!-- Build Options -->
