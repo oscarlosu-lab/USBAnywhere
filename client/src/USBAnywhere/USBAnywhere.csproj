@@ -32,6 +32,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="USBAnywhere.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Assets\**\*" />
   </ItemGroup>
   

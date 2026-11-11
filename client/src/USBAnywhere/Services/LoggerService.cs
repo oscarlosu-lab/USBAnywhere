@@ -31,7 +31,8 @@ public class LoggerService : ILoggerService
 
         CleanupOldLogs(logsDir, keepDays: 7);
 
-        Info("=== USBAnywhere v3.2.0 Logger Initialized ===");
+        var appVersion = typeof(LoggerService).Assembly.GetName().Version?.ToString(3) ?? "3.3.0";
+        Info($"=== USBAnywhere v{appVersion} Logger Initialized ===");
     }
 
     public void Info(string message)    => Write("INFO",    message);

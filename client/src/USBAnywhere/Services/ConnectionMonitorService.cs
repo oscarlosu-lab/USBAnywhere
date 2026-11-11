@@ -148,19 +148,21 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
                         {
                             device.IsConnected = false;
                             device.ReconnectAttempts = 0;
+                            device.LastReconnectAttemptUtc = DateTime.MinValue;
                             fireLost = true;
-                            shouldReconnect = device.AutoReconnect && device.ReconnectAttempts < 3;
+                            shouldReconnect = ShouldAttemptReconnect(device, DateTime.UtcNow);
                         }
-                        // Still disconnected: retry up to 3 attempts
+                        // Still disconnected: keep watching for transient drop or physical replug
                         else if (!device.IsConnected && !isNowConnected)
                         {
-                            shouldReconnect = device.AutoReconnect && device.ReconnectAttempts < 3;
+                            shouldReconnect = ShouldAttemptReconnect(device, DateTime.UtcNow);
                         }
                         // Transition: Disconnected -> Connected externally
                         else if (!device.IsConnected && isNowConnected)
                         {
                             device.IsConnected = true;
                             device.ReconnectAttempts = 0;
+                            device.LastReconnectAttemptUtc = DateTime.MinValue;
                             fireRestored = true;
                         }
                     }
@@ -206,17 +208,49 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
         }
     }
 
+    internal static bool ShouldAttemptReconnect(MonitoredDevice device, DateTime nowUtc)
+    {
+        if (!device.AutoReconnect || device.IsReconnecting)
+            return false;
+
+        if (device.LastReconnectAttemptUtc == DateTime.MinValue)
+            return true;
+
+        double requiredSeconds = device.ReconnectAttempts < 3
+            ? 2.0
+            : Math.Min(15.0, 4.0 + (device.ReconnectAttempts - 3) * 2.0);
+
+        return (nowUtc - device.LastReconnectAttemptUtc).TotalSeconds >= requiredSeconds;
+    }
+
     private async Task TryReconnect(MonitoredDevice device)
     {
+        int attemptNumber;
         lock (_lock)
         {
-            if (!_isRunning || _disposed || !_monitoredDevices.Contains(device))
+            if (!_isRunning || _disposed || !_monitoredDevices.Contains(device) || device.IsReconnecting)
                 return;
+            device.IsReconnecting = true;
+            device.LastReconnectAttemptUtc = DateTime.UtcNow;
             device.ReconnectAttempts++;
+            attemptNumber = device.ReconnectAttempts;
         }
 
         try
         {
+            // After initial attempt fails (e.g. physical unplug or cleanup wait),
+            // verify the device actually exists on the server before issuing BIND + attach.
+            if (attemptNumber > 1)
+            {
+                var remoteDevices = await _usbip.ListDevicesAsync(device.ServerIP);
+                var target = remoteDevices.FirstOrDefault(d =>
+                    string.Equals(d.BusId, device.BusId, StringComparison.OrdinalIgnoreCase));
+                if (target == null || target.IsConnected)
+                {
+                    return;
+                }
+            }
+
             var result = await _usbip.ConnectAsync(device.ServerIP, device.BusId, device.ReceiveMode);
             if (result.Success)
             {
@@ -227,6 +261,7 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
                     {
                         device.IsConnected = true;
                         device.ReconnectAttempts = 0;
+                        device.LastReconnectAttemptUtc = DateTime.MinValue;
                         fireRestored = true;
                     }
                 }
@@ -244,6 +279,13 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
         catch (Exception dbgEx)
         {
             System.Diagnostics.Debug.WriteLine($"[ConnectionMonitorService] {dbgEx.Message}");
+        }
+        finally
+        {
+            lock (_lock)
+            {
+                device.IsReconnecting = false;
+            }
         }
     }
 
@@ -268,4 +310,6 @@ internal class MonitoredDevice
     public bool AutoReconnect { get; set; }
     public int ReconnectAttempts { get; set; }
     public DateTime LastCheck { get; set; }
+    public DateTime LastReconnectAttemptUtc { get; set; } = DateTime.MinValue;
+    public bool IsReconnecting { get; set; }
 }

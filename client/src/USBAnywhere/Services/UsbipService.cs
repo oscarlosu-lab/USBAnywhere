@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -24,6 +25,7 @@ namespace USBAnywhere.Services
         private readonly ILogger<UsbipService> _logger;
         private readonly IEnvironmentService _envService;
         private readonly IDriverService _driverService;
+        private readonly ConcurrentDictionary<int, (string ServerIP, string BusId)> _portBindings = new();
 
         // Integrity check: SHA-256 of the bundled usbip-win client binaries, Portable/usbipw.exe == usbip.exe)
         // Any binary not listed here is NOT executed (fail-closed). Update when shipping a new usbip build.
@@ -348,6 +350,22 @@ namespace USBAnywhere.Services
 
             try
             {
+                (string ServerIP, string BusId)? targetBinding = null;
+                if (int.TryParse(port.Trim(), out var portNum))
+                {
+                    if (!_portBindings.TryGetValue(portNum, out var cached))
+                    {
+                        var current = await GetConnectedDevicesAsync();
+                        var matched = current.FirstOrDefault(d => d.Port == portNum);
+                        if (matched != null && !string.IsNullOrWhiteSpace(matched.ServerIP) && !string.IsNullOrWhiteSpace(matched.BusId))
+                            targetBinding = (matched.ServerIP, matched.BusId);
+                    }
+                    else
+                    {
+                        targetBinding = cached;
+                    }
+                }
+
                 var result = await RunCommandAsync(new[] { "detach", "-p", port }, 5000, ct);
 
                 // FIX: usbip detach produces empty output on success — use exit code
@@ -356,9 +374,22 @@ namespace USBAnywhere.Services
 
                 bool success = result.ExitCode == 0 && !hasError;
 
-                if (success) _logger.LogInformation("Puerto {Port} liberado.", port);
-                else _logger.LogError("Fallo al desconectar puerto {Port}. ExitCode: {ExitCode}, Error: {Error}",
-                    port, result.ExitCode, result.Error);
+                if (success)
+                {
+                    _logger.LogInformation("Puerto {Port} liberado.", port);
+                    if (int.TryParse(port.Trim(), out var detachedPort))
+                        _portBindings.TryRemove(detachedPort, out _);
+
+                    if (targetBinding.HasValue)
+                    {
+                        await TryDynamicUnbindAsync(targetBinding.Value.ServerIP, targetBinding.Value.BusId, ct);
+                    }
+                }
+                else
+                {
+                    _logger.LogError("Fallo al desconectar puerto {Port}. ExitCode: {ExitCode}, Error: {Error}",
+                        port, result.ExitCode, result.Error);
+                }
 
                 return success;
             }
@@ -786,6 +817,12 @@ namespace USBAnywhere.Services
                     });
                 }
 
+                foreach (var d in devices)
+                {
+                    if (d.Port >= 0 && !string.IsNullOrWhiteSpace(d.ServerIP) && !string.IsNullOrWhiteSpace(d.BusId))
+                        _portBindings[d.Port] = (d.ServerIP, d.BusId);
+                }
+
                 _logger.LogDebug("GetConnectedDevicesAsync found {Count} connected device(s)", devices.Count);
             }
             catch (Exception ex)
@@ -837,7 +874,7 @@ namespace USBAnywhere.Services
                 _logger.LogDebug("Comando dinámico BIND {BusId} enviado a {IP}:3241", busId, ip);
 
                 using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                readCts.CancelAfter(3000);
+                readCts.CancelAfter(6000);
                 var respLine = await ReadBoundedUtf8Async(stream, 4096, stopAtNewLine: true, readCts.Token);
                 if (!string.IsNullOrWhiteSpace(respLine))
                 {
@@ -866,6 +903,33 @@ namespace USBAnywhere.Services
             {
                 // Dynamic daemon not running or timeout; fallback to standard attach
                 return (true, false, null);
+            }
+        }
+
+        private async Task TryDynamicUnbindAsync(string ip, string busId, CancellationToken ct)
+        {
+            if (!InputValidator.IsValidHost(ip) || !InputValidator.IsValidBusId(busId))
+                return;
+
+            try
+            {
+                using var tcp = new System.Net.Sockets.TcpClient();
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(700);
+                await tcp.ConnectAsync(ip, 3241, cts.Token);
+
+                using var stream = tcp.GetStream();
+                var msg = Encoding.UTF8.GetBytes($"UNBIND {busId}\n");
+                await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
+                _logger.LogDebug("Comando dinámico UNBIND {BusId} enviado a {IP}:3241", busId, ip);
+
+                using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                readCts.CancelAfter(2500);
+                await ReadBoundedUtf8Async(stream, 1024, stopAtNewLine: true, readCts.Token);
+            }
+            catch
+            {
+                // Best-effort instant server release; auto-unbind daemon handles fallback
             }
         }
 
