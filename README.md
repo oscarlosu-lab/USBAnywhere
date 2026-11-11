@@ -29,7 +29,7 @@ The project continues to evolve through a mix of usability, interoperability, an
 
 ## ⚔️ Why Switch from VirtualHere to USBAnywhere?
 
-| Feature | **USBAnywhere v3.0** | **VirtualHere** | **USB Network Gate** |
+| Feature | **USBAnywhere v3.3.0** | **VirtualHere** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: |
 | **Price & License** | **100% Free & Open Source (GPLv3)** | $49.00 USD / Server | $159.00+ USD |
 | **Simultaneous Devices (Free)** | **♾️ Unlimited** | ⚠️ 1 Device Only | ❌ Trial Expired |
@@ -76,16 +76,16 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 
 ---
 
-## 🆕 What's New in v3.0.0 (USBAnywhere Evolution)
+## 🆕 What's New in v3.3.0 (USBAnywhere Multiplatform Suite)
 
-- 🌐 **Rebranded to USBAnywhere** - A modern identity built to be the #1 open-source alternative to VirtualHere and VirtualUSB, with automatic configuration migration from `SnakeUSBIP` v2.x.
-- ⚡ **1-Click SSH & Plug & Play Server Auto-Setup** - Turn any Raspberry Pi, Debian, or Ubuntu machine into a ready-to-use USB over IP server with automatic `udev` hotplug device export.
+- 🐧 **Universal Linux Client Mode (`usbanywhere-ctl` v3.3.0)** - Full client support on Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) via `vhci_hcd` with automatic **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** (`scan`, `remote`, `connect`, `disconnect`, `ports` + interactive Dashboard `[9]` / `[0]`).
+- ⌨️ **Android USB Keyboard & Pure HID Enumeration Fix (`UrbSession.kt`)** - Accurate Full/Low/High-Speed deduction (`deduceSpeed`), `URB_SHORT_NOT_OK` clearance, `rawDescriptors` fallback (`0x01`/`0x02`/`0x21`), synthesized `0x22` HID Report Descriptors (Boot Keyboard/Mouse/Gamepad), and benign `SET_IDLE`/`SET_PROTOCOL` completion for Windows UDE clients.
+- 📺 **Android TV / Nvidia Shield D-Pad & Gamepad Navigation (`TvFocus.kt`)** - Full remote-control and gamepad focus navigation across all tabs, switches, and device cards.
+- 🎮 **DualSense Audio Interface De-Authorization & Raspberry Pi `dwc_otg` Diagnostics** - Class-based `udev` rule (`ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"`) preventing `usbip_host` isochronous audio panics across all DualSense (`0ce6`/`0df2`) firmware revisions.
+- ⚡ **1-Click SSH & Plug & Play Server Auto-Setup** - Turn any Raspberry Pi, Debian, or Ubuntu machine into a ready-to-use USB over IP server with automatic On-Demand dynamic export.
 - 🏎️ **Interactive Dual Performance Modes (`⚡ Mode: Zero-Copy` / `🏎️ Mode: Low-Latency`)** - Switch between `zero-copy` (high bandwidth storage/video) and `low-latency` (fast WSK event callbacks for HID/gaming/SimRacing) directly from the status bar.
-- 📊 **Live Server Latency Meter (`[ms]`) & Custom Device Renaming (`✏️`)** - Real-time TCP ping indicator next to each discovered server and persistent friendly naming per device.
-- 🔌 **Graceful Detach & Hardened Driver Lifecycle** - Automatically frees connected remote USB ports on exit/uninstall and safely manages the `ROOT\USBIP_WIN2\UDE` virtual controller without duplicate nodes or forced USB root hub resets.
 - 🛡️ **Certified WHQL Drivers** - Official Microsoft-certified drivers for Windows 10/11 x64 with full Core Isolation (HVCI) support.
 - 📦 **Hybrid Portable & Installer Mode** - ZIP releases store config locally; the hardened Inno Setup installer uses `%AppData%\USBAnywhere` and supports quiet `--minimized` Windows startup.
-- 📚 **Updated USB Database** - Latest `usb.ids` with 25,000+ recognized devices.
 
 ---
 
@@ -107,15 +107,16 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 ## 📦 Installation
 
 ### Option 1: Portable (No installation required)
-1. Download from [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.2.0):
-   - **Windows x64**: `USBAnywhere-v3.2.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.2.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Download from [USBAnywhere Releases (v3.3.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.0):
+   - **Windows x64**: `USBAnywhere-v3.3.0-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.3.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+   - **Linux Client & Server Suite**: `USBAnywhere-Linux-v3.3.0.tar.gz`
 2. Extract the ZIP to any folder
 3. Run `USBAnywhere.exe` as Administrator
 4. Done!
 
 ### Option 2: Installer (x64 Recommended)
-1. Download `USBAnywhere_Setup_v3.2.0.exe` from [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.2.0)
+1. Download `USBAnywhere_Setup_v3.3.0.exe` from [USBAnywhere Releases (v3.3.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.0)
 2. Run the installer as Administrator
 3. Follow the installation wizard
 

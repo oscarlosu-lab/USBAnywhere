@@ -2,7 +2,7 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.2.0** | [Descargar v3.2.0](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.2.0) | [🌐 USBAnywhere Server (Windows)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.3.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
@@ -10,19 +10,20 @@
 Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de alto rendimiento accesible desde Windows 10 y 11. Compatible con **Raspberry Pi, Orange Pi, Banana Pi, Proxmox/HomeLab, Steam Deck, routers OpenWRT, CrealityBox** y cualquier servidor ARM/x86 con Linux.
 
 [![CI Build & Tests](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml)
-[![GitHub Downloads](https://img.shields.io/github/downloads/oscarlosu-lab/USBAnywhere/total?style=flat-square&logo=github&color=blue)](https://github.com/oscarlosu-lab/USBAnywhere/releases)
+[![GitHub Downloads](https://img.shields.io/github/downloads/oscarlosu-lab/USBAnywhere-Downloads/total?style=flat-square&logo=github&color=blue)](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases)
 [![GitHub Stars](https://img.shields.io/github/stars/oscarlosu-lab/USBAnywhere?style=flat-square&logo=github&color=yellow)](https://github.com/oscarlosu-lab/USBAnywhere/stargazers)
-[![Licencia](https://img.shields.io/badge/licencia-Gratis%20Uso%20Personal%20y%20Gaming-blue?style=flat-square)](LICENSE)
+[![Licencia](https://img.shields.io/badge/Licencia-GPLv3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20(x64%20%26%20ARM64)-lightgrey?style=flat-square&logo=windows)](https://github.com/oscarlosu-lab/USBAnywhere)
+[![Comunidad Reddit](https://img.shields.io/badge/Reddit-r%2FUsbAnywhere-FF4500?style=flat-square&logo=reddit&logoColor=white)](https://www.reddit.com/r/UsbAnywhere/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Apoyar%20Proyecto-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/oscarlosu)
 
 ---
 
 ## ⚔️ ¿Por qué cambiar de VirtualHere a USBAnywhere?
 
-| Característica | **USBAnywhere v3.0** | **VirtualHere** | **USB Network Gate** |
+| Característica | **USBAnywhere v3.3.0** | **VirtualHere** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: |
-| **Precio y Licencia** | **100% Gratis para Uso Personal y Gaming** | 49,00 USD / Servidor | +159,00 USD |
+| **Precio y Licencia** | **100% Gratis y Código Abierto (GPLv3)** | 49,00 USD / Servidor | +159,00 USD |
 | **Dispositivos Simultáneos (Free)** | **♾️ Ilimitados** | ⚠️ Solo 1 dispositivo | ❌ Trial limitado |
 | **Instalación Servidor en 1-Click** | ✅ **Auto-Instalador SSH y `udev` Hotplug** | ❌ Manual por consola | ❌ Demonio privativo |
 | **Modos de Latencia de Red** | ✅ **Dual: Low-Latency WSK y Zero-Copy** | ⚙️ Genérico | ⚙️ Genérico |
@@ -42,32 +43,41 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
    Comparte múltiples cámaras USB, acelerómetros ADXL345 y placas de impresoras 3D sin cables.
 4. 🖥️ **HomeLab, Proxmox y Self-Hosted**
    Pasa coordinadores Zigbee/Z-Wave, llaves de seguridad física y dongles de licencia (AutoCAD, iLok, eToken) por LAN o VPN Tailscale.
+5. 🥽 **Realidad Virtual y Seguimiento Facial (HTC Vive Facial Tracker, VRChat, Quest)**
+   Transmite streams duales de cámaras infrarrojas a 60 FPS sin comprimir hacia VRCFaceTracking (VRCFT) usando el modo **Zero-Copy** y arranque minimizado en bandeja sin los congelamientos ni cortes habituales de VirtualHere. 👉 **[Leer la Guía de Optimización para VR y Facial Tracker](docs/VR_FACIAL_TRACKER_GUIDE_ES.md)**.
 
 ---
 
-## 🎬 Vídeos Tutoriales (Español e Inglés - Edición YouTube)
+## 🎬 Vídeos Tutoriales y Guías (YouTube)
 
-<a href="https://www.youtube.com/watch?v=mETEs9INlq4">
-  <img src="docs/assets/youtube_thumbnail.png" width="50%" alt="Video Tutorial">
+### 🌟 Masterclass Completa (La Alternativa GRATIS a VirtualHere)
+<a href="https://www.youtube.com/watch?v=gKoUBd5_lj8">
+  <img src="https://img.youtube.com/vi/gKoUBd5_lj8/maxresdefault.jpg" width="70%" alt="USBAnywhere: Tutorial Completo Alternativa a VirtualHere">
 </a>
 
-▶️ **[Ver tutorial completo en YouTube](https://www.youtube.com/watch?v=mETEs9INlq4)**
+▶️ **[Ver Masterclass Completa en YouTube](https://www.youtube.com/watch?v=gKoUBd5_lj8)**
 
-- 🇪🇸 **[Ver / Descargar Vídeo Tutorial Completo 1080p (Español MP4)](docs/youtube_tutorial_es.mp4)** • [Subtítulos (.srt)](docs/youtube_tutorial_es.srt)
-- 🇺🇸 **[Watch / Download Full HD 1080p Video Tutorial (English MP4)](docs/youtube_tutorial_en.mp4)** • [Subtitles (.srt)](docs/youtube_tutorial_en.srt)
+### 🔥 Tutorial Especializado: Láser Diodo y Cámara en LightBurn
+Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneamente por Wi-Fi o VPN sin desconexiones ni límites de dispositivos:
+
+<a href="https://www.youtube.com/watch?v=xz9jhgLx3pc">
+  <img src="https://img.youtube.com/vi/xz9jhgLx3pc/maxresdefault.jpg" width="70%" alt="Conecta tu Láser Diodo y Cámara a LightBurn sin Cables">
+</a>
+
+▶️ **[Ver Tutorial de Láser y Cámara LightBurn en YouTube](https://www.youtube.com/watch?v=xz9jhgLx3pc)**
 
 ---
 
-## 🆕 Novedades en v3.0.0 (Evolución a USBAnywhere)
+## 🆕 Novedades en v3.3.0 (Suite Multiplataforma USBAnywhere)
 
-- 🌐 **Nueva marca: USBAnywhere** - Evolución de `SnakeUSBIP` para posicionarse como la alternativa abierta número 1 frente a VirtualHere y VirtualUSB, con migración automática de tu configuración desde v2.x.
-- ⚡ **Auto-Instalador SSH y Plug & Play en 1-Click** - Convierte cualquier Raspberry Pi, Debian o Ubuntu en un servidor USB/IP con auto-exportación `udev` hotplug automática al conectar dispositivos.
-- 🏎️ **Selector Interactivo de Modos de Rendimiento (`⚡ Modo: Zero-Copy` / `🏎️ Modo: Low-Latency`)** - Alterna en vivo desde la barra de estado entre `zero-copy` (máxima velocidad para almacenamiento y cámaras) y `low-latency` (callbacks WSK en kernel para periféricos HID/gaming/SimRacing).
-- 📊 **Medidor de Latencia en Vivo (`[ms]`) y Renombrado de Dispositivos (`✏️`)** - Indicador de ping TCP en tiempo real junto a cada servidor descubierto y nombres personalizados persistentes por periférico.
-- 🔌 **Desconexión Limpia y Ciclo de Vida de Drivers Blindado** - Libera automáticamente los puertos USB remotos al salir o desinstalar y gestiona de forma segura el nodo virtual `ROOT\USBIP_WIN2\UDE` sin crear controladoras duplicadas ni reiniciar concentradores USB físicos.
+- 🐧 **Modo Cliente Universal para Linux (`usbanywhere-ctl` v3.3.0)** - Soporte completo como cliente en Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) mediante `vhci_hcd` con **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** automático (`scan`, `remote`, `connect`, `disconnect`, `ports` + opciones `[9]` / `[0]` en el Dashboard interactivo).
+- ⌨️ **Fix de Enumeración de Teclados USB y Periféricos HID en Android (`UrbSession.kt`)** - Deducción exacta de velocidad (`USB_SPEED_LOW`/`FULL`/`HIGH`), limpieza de `URB_SHORT_NOT_OK`, respaldo `rawDescriptors` (`0x01`/`0x02`/`0x21`), síntesis de descriptores de informe HID `0x22` y tolerancia ante stalls de `SET_IDLE`/`SET_PROTOCOL` para clientes Windows UDE.
+- 📺 **Navegación D-Pad y Gamepad en Android TV / Nvidia Shield (`TvFocus.kt`)** - Control completo con mando a distancia o gamepad en todas las pestañas, interruptores y tarjetas de dispositivos.
+- 🎮 **Desautorización de Interfaces de Audio DualSense y Diagnóstico `dwc_otg`** - Regla `udev` por clase (`ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"`) compatible con todas las revisiones de firmware de DualSense (`0ce6`/`0df2`).
+- ⚡ **Auto-Instalador SSH y Plug & Play en 1-Click** - Convierte cualquier Raspberry Pi, Debian o Ubuntu en un servidor USB/IP con exportación dinámica bajo demanda.
+- 🏎️ **Selector Interactivo de Modos de Rendimiento (`⚡ Modo: Zero-Copy` / `🏎️ Modo: Low-Latency`)** - Alterna en vivo desde la barra de estado entre `zero-copy` y `low-latency` (callbacks WSK en kernel).
 - 🛡️ **Drivers Certificados WHQL** - Controladores oficiales firmados por Microsoft para Windows 10/11 x64 compatibles con Aislamiento de Núcleo (Core Isolation / HVCI).
 - 📦 **Modo Portable e Instalador Híbrido** - Las versiones ZIP guardan la configuración localmente; el instalador Inno Setup usa `%AppData%\USBAnywhere` e inicia silenciosamente en bandeja (`--minimized`).
-- 📚 **Base de Datos USB Actualizada** - Base `usb.ids` con más de 25.000 dispositivos identificados.
 
 ---
 
@@ -89,15 +99,16 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1):
-   - **Windows x64**: `USBAnywhere-v3.0.1-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.0.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Descarga desde [USBAnywhere Releases (v3.3.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.0):
+   - **Windows x64**: `USBAnywhere-v3.3.0-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.3.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+   - **Cliente y Servidor Linux**: `USBAnywhere-Linux-v3.3.0.tar.gz`
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.0.1.exe` desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.0.1)
+1. Descarga `USBAnywhere_Setup_v3.3.0.exe` desde [USBAnywhere Releases (v3.3.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.0)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 
@@ -120,14 +131,14 @@ Los drivers ARM64 son **test-signed**. Ver `README_ARM64.md` en el ZIP para inst
 
 **O ejecuta el Instalador Plug & Play de 1 Línea en tu Linux / Raspberry Pi:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | sudo bash
 ```
 > 💡 **100% Plug & Play (¡Igual que VirtualHere!):** Instala `usbipd`, crea el servicio `systemd` y añade una **regla `udev` hotplug** que **auto-exporta automáticamente cualquier USB en cuanto lo enchufas a la Raspberry Pi/Linux**, sin necesidad de escribir `usbip bind` a mano.
 
 ### 🐳 Servidor Docker / HomeLab / NAS (`docker-compose.yml`)
 Despliega un servidor USB/IP Plug & Play en **Unraid, TrueNAS, Synology o Proxmox** usando [`docker/docker-compose.yml`](docker/docker-compose.yml):
 ```bash
-git clone https://github.com/oscarlosu-lab/USBAnywhere.git && cd USBAnywhere/docker && docker compose up -d
+git clone --recursive https://github.com/oscarlosu-lab/USBAnywhere.git && cd USBAnywhere/docker && docker compose up -d
 ```
 
 ### 🎮 Automatización CLI para Moonlight / Sunshine / Playnite
@@ -145,27 +156,65 @@ Ver [docs/VPN_INTERNET_ES.md](docs/VPN_INTERNET_ES.md) para la guía completa.
 
 ---
 
-## 📁 Estructura
+## 🐧 Configuración Manual del Servidor Linux (Opcional)
 
-```text
-USBAnywhere/
-├── USBAnywhere.exe     # Aplicación principal (.NET 9 WPF)
-├── usbipw.exe          # Binario cliente USB/IP
-├── devnode.exe         # Gestor de nodos PnP UDE
-├── libusbip.dll        # Librería core USB/IP
-├── drivers/            # Drivers USB/IP certificados WHQL (x64)
-├── usb.ids             # Base de datos USB (+25.000 dispositivos)
-├── CleanDrivers.ps1    # Utilidad de limpieza de drivers
-└── icon.ico            # Icono de la aplicación
+Compatible con **cualquier dispositivo Linux** con puertos USB (Raspberry Pi, Orange Pi, Banana Pi, OpenWRT, CrealityBox, Debian/Ubuntu x86/ARM):
+
+**Debian / Ubuntu / Raspberry Pi OS:**
+```bash
+sudo apt update && sudo apt install -y usbip hwdata usbutils
+sudo modprobe usbip_host
+sudo usbipd -D
+sudo usbip list -l
+sudo usbip bind -b 1-1.4  # Sustituye por tu bus-id
 ```
+
+**OpenWRT:**
+```bash
+opkg update && opkg install usbip-server kmod-usb-ohci
+usbipd -D
+```
+
+Ver [docs/RASPBERRY_PI_SERVER_EN.md](docs/RASPBERRY_PI_SERVER_EN.md) para la guía detallada.
+
+---
+
+---
+
+## 🔐 Firma de Código (Code Signing)
+
+Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+Los binarios oficiales de Windows se firman criptográficamente utilizando la SignPath Foundation para verificar su autenticidad, procedencia e integridad. Consulta nuestra [Política de Firma de Código](CODE_SIGNING_POLICY.md).
 
 ---
 
 ## 📄 Licencia
 
-> **USBAnywhere es gratuito para uso personal, educativo y gaming. La redistribución comercial, cambio de marca (rebranding) o venta de este software o sus derivados está estrictamente prohibida sin el consentimiento explícito por escrito del autor.**
+Este proyecto está bajo la licencia **GNU General Public License v3.0 (GPLv3)**.
 
-Consulta el archivo [LICENSE](LICENSE) para ver los términos y condiciones legales completos.
+> **USBAnywhere es 100% software libre y código abierto.** Eres libre de ejecutar, estudiar, compartir y modificar el software bajo los términos de la Licencia Pública General de GNU publicada por la Free Software Foundation.
+
+Consulta el archivo [LICENSE](LICENSE) para ver el texto completo de la licencia.
+
+## 🔗 Ecosistema USBAnywhere
+
+| Componente | Plataforma / Rol | Descripción |
+|---|---|---|
+| **[USBAnywhere Cliente](https://github.com/oscarlosu-lab/USBAnywhere)** | 🖥️ Windows 10/11 (x64 / ARM64) | Conecta dispositivos USB remotos con drivers WHQL y motor WSK |
+| **[USBAnywhere Servidor](https://github.com/oscarlosu-lab/USBAnywhere-Server)** | 🌐 Windows 10/11 (.NET 9.0) | Comparte periféricos USB locales por red con GUI y Auto-Bind |
+| **[USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android)** | 📱 Android y Android TV | Servidor USB/IP rootless, integración Sunshine y hápticos DualSense |
+| **[Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/)** | 🌍 Portal Web | Guías interactivas, documentación y centro de descargas |
+| **[Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/)** | 💬 r/UsbAnywhere | Soporte, debates, configuraciones de la comunidad y anuncios |
+| **[Apoyar en Ko-fi](https://ko-fi.com/oscarlosu)** | ☕ Comunidad | Apoya el hosting, pruebas de hardware y desarrollo libre |
+
+---
+
+## ☕ Apoya el Proyecto
+
+Si USBAnywhere te ha servido para tu simulador, streaming o taller maker sin cables por el suelo, considera [invitarnos a un café en Ko-fi](https://ko-fi.com/oscarlosu). Tu aportación apoya directamente los certificados de firma digital de drivers, nuevo hardware de prueba (SBCs, volantes, mandos) e infraestructura.
+
+---
 
 ## 🙏 Créditos
 

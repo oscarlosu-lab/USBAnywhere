@@ -21,7 +21,7 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
 
 ## ⚔️ ¿Por qué cambiar de VirtualHere a USBAnywhere?
 
-| Característica | **USBAnywhere v3.0** | **VirtualHere** | **USB Network Gate** |
+| Característica | **USBAnywhere v3.3.0** | **VirtualHere** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: |
 | **Precio y Licencia** | **100% Gratis y Código Abierto (GPLv3)** | 49,00 USD / Servidor | +159,00 USD |
 | **Dispositivos Simultáneos (Free)** | **♾️ Ilimitados** | ⚠️ Solo 1 dispositivo | ❌ Trial limitado |
@@ -68,16 +68,16 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 
 ---
 
-## 🆕 Novedades en v3.0.0 (Evolución a USBAnywhere)
+## 🆕 Novedades en v3.3.0 (Suite Multiplataforma USBAnywhere)
 
-- 🌐 **Nueva marca: USBAnywhere** - Evolución de `SnakeUSBIP` para posicionarse como la alternativa abierta número 1 frente a VirtualHere y VirtualUSB, con migración automática de tu configuración desde v2.x.
-- ⚡ **Auto-Instalador SSH y Plug & Play en 1-Click** - Convierte cualquier Raspberry Pi, Debian o Ubuntu en un servidor USB/IP con auto-exportación `udev` hotplug automática al conectar dispositivos.
-- 🏎️ **Selector Interactivo de Modos de Rendimiento (`⚡ Modo: Zero-Copy` / `🏎️ Modo: Low-Latency`)** - Alterna en vivo desde la barra de estado entre `zero-copy` (máxima velocidad para almacenamiento y cámaras) y `low-latency` (callbacks WSK en kernel para periféricos HID/gaming/SimRacing).
-- 📊 **Medidor de Latencia en Vivo (`[ms]`) y Renombrado de Dispositivos (`✏️`)** - Indicador de ping TCP en tiempo real junto a cada servidor descubierto y nombres personalizados persistentes por periférico.
-- 🔌 **Desconexión Limpia y Ciclo de Vida de Drivers Blindado** - Libera automáticamente los puertos USB remotos al salir o desinstalar y gestiona de forma segura el nodo virtual `ROOT\USBIP_WIN2\UDE` sin crear controladoras duplicadas ni reiniciar concentradores USB físicos.
+- 🐧 **Modo Cliente Universal para Linux (`usbanywhere-ctl` v3.3.0)** - Soporte completo como cliente en Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) mediante `vhci_hcd` con **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** automático (`scan`, `remote`, `connect`, `disconnect`, `ports` + opciones `[9]` / `[0]` en el Dashboard interactivo).
+- ⌨️ **Fix de Enumeración de Teclados USB y Periféricos HID en Android (`UrbSession.kt`)** - Deducción exacta de velocidad (`USB_SPEED_LOW`/`FULL`/`HIGH`), limpieza de `URB_SHORT_NOT_OK`, respaldo `rawDescriptors` (`0x01`/`0x02`/`0x21`), síntesis de descriptores de informe HID `0x22` y tolerancia ante stalls de `SET_IDLE`/`SET_PROTOCOL` para clientes Windows UDE.
+- 📺 **Navegación D-Pad y Gamepad en Android TV / Nvidia Shield (`TvFocus.kt`)** - Control completo con mando a distancia o gamepad en todas las pestañas, interruptores y tarjetas de dispositivos.
+- 🎮 **Desautorización de Interfaces de Audio DualSense y Diagnóstico `dwc_otg`** - Regla `udev` por clase (`ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"`) compatible con todas las revisiones de firmware de DualSense (`0ce6`/`0df2`).
+- ⚡ **Auto-Instalador SSH y Plug & Play en 1-Click** - Convierte cualquier Raspberry Pi, Debian o Ubuntu en un servidor USB/IP con exportación dinámica bajo demanda.
+- 🏎️ **Selector Interactivo de Modos de Rendimiento (`⚡ Modo: Zero-Copy` / `🏎️ Modo: Low-Latency`)** - Alterna en vivo desde la barra de estado entre `zero-copy` y `low-latency` (callbacks WSK en kernel).
 - 🛡️ **Drivers Certificados WHQL** - Controladores oficiales firmados por Microsoft para Windows 10/11 x64 compatibles con Aislamiento de Núcleo (Core Isolation / HVCI).
 - 📦 **Modo Portable e Instalador Híbrido** - Las versiones ZIP guardan la configuración localmente; el instalador Inno Setup usa `%AppData%\USBAnywhere` e inicia silenciosamente en bandeja (`--minimized`).
-- 📚 **Base de Datos USB Actualizada** - Base `usb.ids` con más de 25.000 dispositivos identificados.
 
 ---
 
@@ -99,15 +99,16 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.2.0):
-   - **Windows x64**: `USBAnywhere-v3.2.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.2.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Descarga desde [USBAnywhere Releases (v3.3.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.0):
+   - **Windows x64**: `USBAnywhere-v3.3.0-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.3.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+   - **Cliente y Servidor Linux**: `USBAnywhere-Linux-v3.3.0.tar.gz`
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.2.0.exe` desde [USBAnywhere Downloads](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases/tag/client-v3.2.0)
+1. Descarga `USBAnywhere_Setup_v3.3.0.exe` desde [USBAnywhere Releases (v3.3.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.0)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 
