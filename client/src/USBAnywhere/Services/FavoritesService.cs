@@ -34,6 +34,11 @@ public class FavoritesService : IFavoritesService
         if (config.Favorites.Any(f => f.ServerIP == serverIP && f.BusId == busId))
             return new OperationResult { Success = false, Error = "Already in favorites" };
 
+        var effectiveMode = UsbipService.ResolveEffectiveReceiveMode(
+            string.IsNullOrWhiteSpace(receiveMode) ? "zero-copy" : receiveMode,
+            description,
+            null);
+
         // Add favorite
         config.Favorites.Add(new FavoriteDevice
         {
@@ -42,7 +47,7 @@ public class FavoritesService : IFavoritesService
             Description = description,
             AutoConnect = autoConnect,
             AddedDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-            ReceiveMode = string.IsNullOrWhiteSpace(receiveMode) ? "zero-copy" : receiveMode
+            ReceiveMode = effectiveMode
         });
 
         _config.Save(config);
@@ -78,7 +83,8 @@ public class FavoritesService : IFavoritesService
 
         foreach (var fav in favorites)
         {
-            var mode = string.IsNullOrWhiteSpace(fav.ReceiveMode) ? "zero-copy" : fav.ReceiveMode;
+            var requested = string.IsNullOrWhiteSpace(fav.ReceiveMode) ? "zero-copy" : fav.ReceiveMode;
+            var mode = UsbipService.ResolveEffectiveReceiveMode(requested, fav.Description, null);
             var result = await _usbip.ConnectAsync(fav.ServerIP, fav.BusId, mode);
             results.Add(new FavoriteConnectResult
             {

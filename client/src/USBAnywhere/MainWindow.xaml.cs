@@ -9,11 +9,14 @@ using System.Drawing;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using USBAnywhere.Models;
 using USBAnywhere.Services;
@@ -53,12 +56,34 @@ public partial class MainWindow : Window
     private readonly List<LogEntry> _logEntries = new();
     private readonly List<SuspendedDeviceState> _suspendedDevices = new();
     private Forms.ToolStripMenuItem? _trayScanItem;
+    private Forms.ToolStripMenuItem? _trayDisconnectAllItem;
     private Forms.ToolStripMenuItem? _trayStartMinimizedItem;
     private Forms.ToolStripMenuItem? _trayShowItem;
     private Forms.ToolStripMenuItem? _trayExitItem;
     private bool _autoScanStarted;
     private bool _isFirstStartup = true;
     private readonly List<string> _availableSubnets = new();
+    private readonly SemaphoreSlim _disconnectAllLock = new(1, 1);
+
+    // IPC Events & Global Win32 Hotkey (Ctrl+Alt+D / CLI --disconnect-all)
+    private EventWaitHandle? _disconnectAllEvent;
+    private EventWaitHandle? _gracefulExitEvent;
+    private RegisteredWaitHandle? _disconnectAllWaitHandle;
+    private RegisteredWaitHandle? _gracefulExitWaitHandle;
+    private HwndSource? _hwndSource;
+    private bool _hotkeyRegistered;
+    private const int HOTKEY_ID_DISCONNECT_ALL = 0x534B;
+    private const int WM_HOTKEY = 0x0312;
+    private const uint MOD_ALT = 0x0001;
+    private const uint MOD_CONTROL = 0x0002;
+    private const uint MOD_SHIFT = 0x0004;
+    private const uint MOD_NOREPEAT = 0x4000;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     public MainWindow(
         ILocalizationService localization,
@@ -111,6 +136,12 @@ public partial class MainWindow : Window
 
         // Load favorites on startup
         LoadFavorites();
+
+        // Initialize IPC events and global Win32 hotkey (works even when started minimized)
+        InitializeIpcAndHotkey();
+
+        // Keyboard fallback when window has focus (Ctrl+Shift+D / Ctrl+Alt+D)
+        PreviewKeyDown += MainWindow_PreviewKeyDown;
 
         // Auto-scan network on startup
         Loaded += async (s, e) => await EnsureStartedAsync();
@@ -186,6 +217,10 @@ public partial class MainWindow : Window
             _trayScanItem = new Forms.ToolStripMenuItem(_localization.GetText("tray_scan", _currentLanguage));
             _trayScanItem.Click += (s, e) => Dispatcher.Invoke(() => BtnScan_Click(this, new RoutedEventArgs()));
             trayMenu.Items.Add(_trayScanItem);
+
+            _trayDisconnectAllItem = new Forms.ToolStripMenuItem(_localization.GetText("tray_disconnect_all", _currentLanguage));
+            _trayDisconnectAllItem.Click += async (s, e) => await Dispatcher.InvokeAsync(() => DisconnectAllDevicesFromHotkeyOrCliAsync("Tray"));
+            trayMenu.Items.Add(_trayDisconnectAllItem);
 
             trayMenu.Items.Add(new Forms.ToolStripSeparator());
 
@@ -360,6 +395,7 @@ public partial class MainWindow : Window
             {
                 await AutoConnectFavorites();
             }
+            await HandleStartupCliConnectAsync();
         }
     }
 
@@ -404,11 +440,6 @@ public partial class MainWindow : Window
                 }
 
                 await LoadConnectedDevicesAsync();
-                var config = _config.Load();
-                if (config.AutoConnectFavorites)
-                {
-                    await AutoConnectFavorites();
-                }
             }
             else
             {
@@ -417,7 +448,27 @@ public partial class MainWindow : Window
                 AddLocalizedLog("Warning", "log_scan_none");
                 await LoadConnectedDevicesAsync();
             }
+        }
+        catch (Exception ex)
+        {
+            AddLog("Error", ex.Message);
+            try { await LoadConnectedDevicesAsync(); } catch { }
+        }
 
+        // Always auto-connect saved favorites using their persisted ServerIP even if subnet scan found 0 servers
+        var config = _config.Load();
+        if (config.AutoConnectFavorites)
+        {
+            await AutoConnectFavorites();
+        }
+
+        await HandleStartupCliConnectAsync();
+    }
+
+    private async Task HandleStartupCliConnectAsync()
+    {
+        try
+        {
             // Support CLI --connect <IP> <BUSID> for Moonlight / Sunshine / Playnite automation
             var cliArgs = Environment.GetCommandLineArgs();
             for (int i = 0; i < cliArgs.Length - 2; i++)
@@ -428,7 +479,11 @@ public partial class MainWindow : Window
                     var cliBusId = cliArgs[i + 2];
                     if (USBAnywhere.Utils.InputValidator.IsValidHost(cliIp) && USBAnywhere.Utils.InputValidator.IsValidBusId(cliBusId))
                     {
-                        var mode = _config.Load().DefaultReceiveMode ?? "zero-copy";
+                        var fav = _favorites.GetFavorites().FirstOrDefault(f =>
+                            string.Equals(f.ServerIP, cliIp, StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(f.BusId, cliBusId, StringComparison.OrdinalIgnoreCase));
+                        var requestedMode = _config.Load().DefaultReceiveMode;
+                        var mode = UsbipService.ResolveEffectiveReceiveMode(requestedMode, fav?.Description, null);
                         await _usbip.AttachDeviceAsync(cliIp, cliBusId, mode);
                         await LoadConnectedDevicesAsync();
                     }
@@ -612,8 +667,19 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool HasServerNode(string serverIP)
+    {
+        foreach (TreeViewItem item in nodeHubs.Items)
+        {
+            if (item.Header?.ToString()?.Contains(serverIP, StringComparison.OrdinalIgnoreCase) == true)
+                return true;
+        }
+        return false;
+    }
+
     /// <summary>
-    /// Auto-connect favorites with AutoConnect=true
+    /// Auto-connect favorites with AutoConnect=true, resolving effective receive mode
+    /// and registering offline favorites in ConnectionMonitorService for automatic plug-in attach.
     /// </summary>
     private async Task AutoConnectFavorites()
     {
@@ -624,13 +690,19 @@ public partial class MainWindow : Window
 
         foreach (var fav in favorites)
         {
+            var rawMode = !string.IsNullOrWhiteSpace(fav.ReceiveMode) ? fav.ReceiveMode : _currentReceiveMode;
+            var effectiveMode = UsbipService.ResolveEffectiveReceiveMode(rawMode, fav.Description, null);
+
             if (IsDeviceInConnectedNode(fav.ServerIP, fav.BusId))
+            {
+                _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: true);
+                _connectionMonitor.Start();
                 continue;
+            }
 
             try
             {
-                var receiveMode = !string.IsNullOrWhiteSpace(fav.ReceiveMode) ? fav.ReceiveMode : _currentReceiveMode;
-                var result = await _usbip.ConnectAsync(fav.ServerIP, fav.BusId, receiveMode);
+                var result = await _usbip.ConnectAsync(fav.ServerIP, fav.BusId, effectiveMode);
                 if (result.Success)
                 {
                     AddLocalizedLog("Success", "log_connected_favorite", fav.Description, fav.BusId);
@@ -640,17 +712,29 @@ public partial class MainWindow : Window
                         BusId = fav.BusId,
                         Description = fav.Description
                     });
-                    _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: receiveMode);
+
+                    if (!HasServerNode(fav.ServerIP))
+                    {
+                        if (string.IsNullOrWhiteSpace(txtServerIP.Text))
+                            txtServerIP.Text = fav.ServerIP;
+                        await ListDevicesOnServer(fav.ServerIP);
+                    }
+
+                    _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: true);
                     _connectionMonitor.Start();
                 }
                 else
                 {
                     AddLocalizedLog("Warning", "log_connection_failed", fav.BusId, result.Error ?? "");
+                    _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: false);
+                    _connectionMonitor.Start();
                 }
             }
             catch (Exception ex)
             {
                 AddLocalizedLog("Error", "log_connection_error", fav.BusId, ex.Message);
+                _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: false);
+                _connectionMonitor.Start();
             }
         }
     }
@@ -868,6 +952,7 @@ public partial class MainWindow : Window
         _isShuttingDown = true;
         try
         {
+            CleanupIpcAndHotkey();
             _connectionMonitor.Stop();
             var config = _config.Load();
             config.Language = _currentLanguage;
@@ -1041,6 +1126,7 @@ public partial class MainWindow : Window
 
         // Localize Tray Menu
         if (_trayScanItem != null) _trayScanItem.Text = _localization.GetText("tray_scan", _currentLanguage);
+        if (_trayDisconnectAllItem != null) _trayDisconnectAllItem.Text = _localization.GetText("tray_disconnect_all", _currentLanguage);
         if (_trayStartMinimizedItem != null) _trayStartMinimizedItem.Text = _localization.GetText("tray_start_minimized", _currentLanguage);
         if (_trayShowItem != null) _trayShowItem.Text = _localization.GetText("tray_show", _currentLanguage);
         if (_trayExitItem != null) _trayExitItem.Text = _localization.GetText("tray_exit", _currentLanguage);
@@ -1561,6 +1647,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CleanupIpcAndHotkey();
         Microsoft.Win32.SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
         _connectionMonitor.Stop();
         _connectionMonitor.Dispose();
@@ -1739,8 +1826,10 @@ public partial class MainWindow : Window
 
     private void OnConnectionRestored(object? sender, ConnectionRestoredEventArgs e)
     {
-        _ = Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.InvokeAsync(async () =>
         {
+            await RefreshConnectedDevicesAsync();
+            await RefreshServerDevicesAsync();
             AddLocalizedLog("Success", "log_connection_restored_detail", e.ServerIP, e.BusId);
             ShowNotification(
                 _localization.GetText("notify_reconnected", _currentLanguage),
@@ -1749,6 +1838,230 @@ public partial class MainWindow : Window
             lblStatus.Text = $"✓ {_localization.GetText("notify_reconnected", _currentLanguage)}: {e.BusId}";
             lblStatus.Foreground = (SolidColorBrush)FindResource("StatusSuccess");
         });
+    }
+
+    #endregion
+
+    #region Global Hotkey & Headless CLI IPC
+
+    internal static bool TryParseHotkey(string? hotkey, out uint modifiers, out uint virtualKey)
+    {
+        modifiers = 0;
+        virtualKey = 0;
+        if (string.IsNullOrWhiteSpace(hotkey)) return false;
+
+        foreach (var rawToken in hotkey.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var token = rawToken.ToUpperInvariant();
+            switch (token)
+            {
+                case "CTRL":
+                case "CONTROL":
+                    modifiers |= MOD_CONTROL;
+                    break;
+                case "ALT":
+                    modifiers |= MOD_ALT;
+                    break;
+                case "SHIFT":
+                    modifiers |= MOD_SHIFT;
+                    break;
+                default:
+                    if (token.Length == 1 && ((token[0] >= 'A' && token[0] <= 'Z') || (token[0] >= '0' && token[0] <= '9')))
+                    {
+                        virtualKey = token[0];
+                    }
+                    else if (token.StartsWith('F') && int.TryParse(token[1..], out int fNum) && fNum is >= 1 and <= 24)
+                    {
+                        virtualKey = (uint)(0x70 + fNum - 1);
+                    }
+                    break;
+            }
+        }
+
+        return modifiers != 0 && virtualKey != 0;
+    }
+
+    private void InitializeIpcAndHotkey()
+    {
+        try
+        {
+            _disconnectAllEvent = new EventWaitHandle(false, EventResetMode.AutoReset, App.DisconnectAllEventName);
+            _disconnectAllWaitHandle = ThreadPool.RegisterWaitForSingleObject(
+                _disconnectAllEvent,
+                (_, _) => _ = Dispatcher.InvokeAsync(() => DisconnectAllDevicesFromHotkeyOrCliAsync("CLI")),
+                null,
+                Timeout.Infinite,
+                false);
+
+            _gracefulExitEvent = new EventWaitHandle(false, EventResetMode.AutoReset, App.GracefulExitEventName);
+            _gracefulExitWaitHandle = ThreadPool.RegisterWaitForSingleObject(
+                _gracefulExitEvent,
+                (_, _) => _ = Dispatcher.InvokeAsync(GracefulShutdownAsync),
+                null,
+                Timeout.Infinite,
+                false);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[IPC Init] {ex.Message}");
+        }
+
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).EnsureHandle();
+            if (hwnd != IntPtr.Zero)
+            {
+                _hwndSource = HwndSource.FromHwnd(hwnd);
+                _hwndSource?.AddHook(WndProc);
+
+                if (!TryParseHotkey(_config.Load().DisconnectAllHotkey, out uint mods, out uint vk))
+                {
+                    mods = MOD_CONTROL | MOD_ALT;
+                    vk = 0x44; // 'D'
+                }
+
+                _hotkeyRegistered = RegisterHotKey(hwnd, HOTKEY_ID_DISCONNECT_ALL, mods | MOD_NOREPEAT, vk);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[Hotkey Init] {ex.Message}");
+        }
+    }
+
+    private void CleanupIpcAndHotkey()
+    {
+        try
+        {
+            if (_hwndSource != null)
+            {
+                if (_hotkeyRegistered && _hwndSource.Handle != IntPtr.Zero)
+                {
+                    UnregisterHotKey(_hwndSource.Handle, HOTKEY_ID_DISCONNECT_ALL);
+                    _hotkeyRegistered = false;
+                }
+                _hwndSource.RemoveHook(WndProc);
+                _hwndSource = null;
+            }
+        }
+        catch { }
+
+        try
+        {
+            _disconnectAllWaitHandle?.Unregister(null);
+            _disconnectAllWaitHandle = null;
+            _disconnectAllEvent?.Dispose();
+            _disconnectAllEvent = null;
+
+            _gracefulExitWaitHandle?.Unregister(null);
+            _gracefulExitWaitHandle = null;
+            _gracefulExitEvent?.Dispose();
+            _gracefulExitEvent = null;
+        }
+        catch { }
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID_DISCONNECT_ALL)
+        {
+            handled = true;
+            _ = Dispatcher.InvokeAsync(() => DisconnectAllDevicesFromHotkeyOrCliAsync("Hotkey"));
+        }
+        return IntPtr.Zero;
+    }
+
+    private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        var mods = Keyboard.Modifiers;
+        if (e.Key == Key.D &&
+            mods.HasFlag(ModifierKeys.Control) &&
+            (mods.HasFlag(ModifierKeys.Shift) || mods.HasFlag(ModifierKeys.Alt)))
+        {
+            e.Handled = true;
+            _ = DisconnectAllDevicesFromHotkeyOrCliAsync("Hotkey");
+        }
+    }
+
+    private async Task RefreshConnectedDevicesAsync()
+    {
+        try
+        {
+            var connectedDevices = await _usbip.GetConnectedDevicesAsync();
+            nodeConnected.Items.Clear();
+            foreach (var device in connectedDevices)
+            {
+                AddDeviceToConnectedTree(device);
+            }
+            UpdateConnectedCount();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[RefreshConnectedDevices] {ex.Message}");
+        }
+    }
+
+    private Task RefreshServerDevicesAsync()
+    {
+        try
+        {
+            foreach (TreeViewItem hubNode in nodeHubs.Items)
+            {
+                string serverIp = string.Empty;
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    hubNode.Header?.ToString() ?? string.Empty,
+                    @"🖥️\s+([a-zA-Z0-9\.\-]+)");
+                if (match.Success) serverIp = match.Groups[1].Value;
+
+                foreach (TreeViewItem deviceNode in hubNode.Items)
+                {
+                    if (deviceNode.Tag is UsbDevice dev)
+                    {
+                        var ip = string.IsNullOrEmpty(dev.ServerIP) ? serverIp : dev.ServerIP;
+                        var icon = IsDeviceInConnectedNode(ip, dev.BusId) ? "☑️" : "🔌";
+                        deviceNode.Header = $"{icon} {dev.BusId}: {dev.Description}";
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[RefreshServerDevices] {ex.Message}");
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task DisconnectAllDevicesFromHotkeyOrCliAsync(string triggerSource)
+    {
+        if (!await _disconnectAllLock.WaitAsync(0))
+            return;
+
+        try
+        {
+            // Clear background reconnect monitor first so devices stay unplugged
+            _connectionMonitor.ClearAll();
+
+            int detached = await _usbip.DetachAllConnectedDevicesAsync();
+            await RefreshConnectedDevicesAsync();
+            await RefreshServerDevicesAsync();
+
+            AddLocalizedLog("Info", "log_disconnect_all_done", detached, triggerSource);
+            lblStatus.Text = $"✓ {_localization.GetText("log_disconnected", _currentLanguage)} ({detached})";
+            lblStatus.Foreground = (SolidColorBrush)FindResource("StatusSuccess");
+
+            ShowNotification(
+                _localization.GetText("log_disconnected", _currentLanguage),
+                _localization.GetText("log_disconnect_all_done", _currentLanguage, detached, triggerSource),
+                Forms.ToolTipIcon.Info);
+        }
+        catch (Exception ex)
+        {
+            AddLog("Error", ex.Message);
+        }
+        finally
+        {
+            _disconnectAllLock.Release();
+        }
     }
 
     #endregion

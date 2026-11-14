@@ -23,6 +23,7 @@ public class AppConfig
     public string DefaultReceiveMode { get; set; } = "low-latency";
     public bool AutoDetachOnExit { get; set; } = true;
     public bool AutoDetachOnSleep { get; set; } = true;
+    public string DisconnectAllHotkey { get; set; } = "Ctrl+Alt+D";
 }
 
 /// <summary>

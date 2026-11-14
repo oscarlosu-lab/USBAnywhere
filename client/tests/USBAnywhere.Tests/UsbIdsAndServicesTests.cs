@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using USBAnywhere.Models;
 using USBAnywhere.Services;
 using USBAnywhere.Services.Interfaces;
@@ -93,11 +94,13 @@ public class UsbIdsAndServicesTests
 
         Assert.True(ConnectionMonitorService.ShouldAttemptReconnect(dev, now));
 
+        // After 3 attempts (e.g. device unplugged > 6s), monitoring continues with progressive backoff
         dev.ReconnectAttempts = 3;
         dev.LastReconnectAttemptUtc = now.AddSeconds(-2);
         Assert.False(ConnectionMonitorService.ShouldAttemptReconnect(dev, now));
         Assert.True(ConnectionMonitorService.ShouldAttemptReconnect(dev, now.AddSeconds(3)));
 
+        // Prevent re-entrancy while reconnect is in flight
         dev.IsReconnecting = true;
         Assert.False(ConnectionMonitorService.ShouldAttemptReconnect(dev, now.AddSeconds(30)));
     }
@@ -125,6 +128,84 @@ public class UsbIdsAndServicesTests
         }
     }
 
+    [Fact]
+    public void FavoritesService_AddFavorite_ForcesLowLatencyForDualSense()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"usbanywhere_favtest_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var env = new StubEnvironmentService(tempDir);
+            var logger = new StubLoggerService();
+            var cfg = new ConfigService(env, logger);
+            var favorites = new FavoritesService(cfg, new StubUsbipService());
+
+            var res = favorites.AddFavorite(
+                "192.168.1.50",
+                "1-1",
+                "Sony Interactive Entertainment DualSense Edge Wireless Controller",
+                autoConnect: true,
+                receiveMode: "zero-copy");
+
+            Assert.True(res.Success);
+            var saved = favorites.GetFavorites().Single();
+            Assert.Equal("low-latency", saved.ReceiveMode);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void UpdateService_SelectClientAsset_ExcludesServerInstaller()
+    {
+        var assets = new List<UpdateService.GitHubAsset>
+        {
+            new() { Name = "USBAnywhere-Server_Setup_v3.3.1.exe", BrowserDownloadUrl = "https://example.com/server.exe" },
+            new() { Name = "USBAnywhere_Setup_v3.3.1.exe", BrowserDownloadUrl = "https://example.com/client.exe" },
+            new() { Name = "USBAnywhere-Server-Portable-x64.zip", BrowserDownloadUrl = "https://example.com/server.zip" },
+            new() { Name = "USBAnywhere-Portable-x64.zip", BrowserDownloadUrl = "https://example.com/client.zip" }
+        };
+
+        var installedAsset = UpdateService.SelectClientAsset(assets, isInstalled: true);
+        Assert.NotNull(installedAsset);
+        Assert.Equal("USBAnywhere_Setup_v3.3.1.exe", installedAsset.Name);
+
+        var portableAsset = UpdateService.SelectClientAsset(assets, isInstalled: false);
+        Assert.NotNull(portableAsset);
+        Assert.Equal("USBAnywhere-Portable-x64.zip", portableAsset.Name);
+    }
+
+    [Fact]
+    public void ConnectionMonitorService_OfflineFavorite_StartsMonitoringWithInitiallyConnectedFalse()
+    {
+        using var monitor = new ConnectionMonitorService(new StubUsbipService(), new StubFavoritesService());
+
+        monitor.AddDevice("192.168.1.50", "1-1", autoReconnect: true, receiveMode: "low-latency", initiallyConnected: false);
+        var monitored = monitor.GetMonitoredDevice("192.168.1.50", "1-1");
+
+        Assert.NotNull(monitored);
+        Assert.False(monitored.IsConnected);
+        Assert.True(monitored.AutoReconnect);
+        Assert.Equal("low-latency", monitored.ReceiveMode);
+        Assert.True(ConnectionMonitorService.ShouldAttemptReconnect(monitored, DateTime.UtcNow));
+    }
+
+    [Fact]
+    public void App_HeadlessCliAndHotkeyParsing_WorksCleanly()
+    {
+        Assert.True(App.IsHeadlessCliInvocation(new[] { "--disconnect-all" }));
+        Assert.True(App.IsHeadlessCliInvocation(new[] { "--disconnect", "0" }));
+        Assert.True(App.IsHeadlessCliInvocation(new[] { "--quit" }));
+        Assert.False(App.IsHeadlessCliInvocation(new[] { "--minimized" }));
+
+        Assert.True(MainWindow.TryParseHotkey("Ctrl+Alt+D", out uint mods, out uint vk));
+        Assert.Equal(0x0002u | 0x0001u, mods);
+        Assert.Equal(0x44u, vk);
+    }
+
     private sealed class StubEnvironmentService : IEnvironmentService
     {
         public StubEnvironmentService(string logsPath) => LogsPath = logsPath;
@@ -137,5 +218,35 @@ public class UsbIdsAndServicesTests
         public bool IsPortable => true;
         public string GetConfigFilePath() => Path.Combine(LogsPath, "config.json");
         public void Initialize() { }
+    }
+
+    private sealed class StubLoggerService : ILoggerService
+    {
+        public void Initialize() { }
+        public void Debug(string message) { }
+        public void Info(string message) { }
+        public void Warning(string message) { }
+        public void Error(string message, Exception? ex = null) { }
+    }
+
+    private sealed class StubUsbipService : IUsbipService
+    {
+        public Task<List<UsbDevice>> ListRemoteDevicesAsync(string ip, CancellationToken ct = default) => Task.FromResult(new List<UsbDevice>());
+        public Task<bool> AttachDeviceAsync(string ip, string busId, string? receiveMode = null, CancellationToken ct = default) => Task.FromResult(false);
+        public Task<bool> DetachDeviceAsync(string port, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<int> DetachAllConnectedDevicesAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<List<UsbDevice>> ListDevicesAsync(string serverIP) => Task.FromResult(new List<UsbDevice>());
+        public Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null) => Task.FromResult(OperationResult.Fail("offline"));
+        public Task<OperationResult> DisconnectAsync(int port) => Task.FromResult(OperationResult.Ok());
+        public Task<List<ConnectedDevice>> GetConnectedDevicesAsync() => Task.FromResult(new List<ConnectedDevice>());
+    }
+
+    private sealed class StubFavoritesService : IFavoritesService
+    {
+        public List<FavoriteDevice> GetFavorites() => new();
+        public OperationResult AddFavorite(string serverIP, string busId, string description, bool autoConnect = true, string receiveMode = "zero-copy") => OperationResult.Ok();
+        public OperationResult RemoveFavorite(string serverIP, string busId) => OperationResult.Ok();
+        public bool IsFavorite(string serverIP, string busId) => false;
+        public Task<List<FavoriteConnectResult>> ConnectFavoritesAsync() => Task.FromResult(new List<FavoriteConnectResult>());
     }
 }

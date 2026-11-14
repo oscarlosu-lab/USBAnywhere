@@ -148,6 +148,7 @@ public class LocalizationService : ILocalizationService
 
                 // System Tray
                 ["tray_scan"] = "Escanear red",
+                ["tray_disconnect_all"] = "Desconectar Todo (Ctrl+Alt+D)",
                 ["tray_start_minimized"] = "Iniciar minimizado en bandeja",
                 ["chk_start_minimized"] = "Iniciar minimizado en bandeja",
                 ["tray_show"] = "Mostrar USBAnywhere",
@@ -179,6 +180,7 @@ public class LocalizationService : ILocalizationService
                 ["log_disconnecting"] = "Desconectando {0}...",
                 ["log_disconnected_port"] = "Desconectado puerto {0}",
                 ["log_disconnect_failed"] = "Desconexión fallida",
+                ["log_disconnect_all_done"] = "Desconectados {0} dispositivo(s) ({1})",
                 ["log_device_not_found"] = "Dispositivo no encontrado, puede que ya esté desconectado",
                 ["log_listing_devices"] = "Listando dispositivos en {0} servidor(es)...",
                 ["log_listed_devices"] = "Listados {0} dispositivos en {1} servidor(es)",
@@ -330,6 +332,7 @@ public class LocalizationService : ILocalizationService
 
                 // System Tray
                 ["tray_scan"] = "Scan network",
+                ["tray_disconnect_all"] = "Disconnect All (Ctrl+Alt+D)",
                 ["tray_start_minimized"] = "Start minimized to tray",
                 ["chk_start_minimized"] = "Start minimized to tray",
                 ["tray_show"] = "Show USBAnywhere",
@@ -361,6 +364,7 @@ public class LocalizationService : ILocalizationService
                 ["log_disconnecting"] = "Disconnecting {0}...",
                 ["log_disconnected_port"] = "Disconnected port {0}",
                 ["log_disconnect_failed"] = "Disconnect failed",
+                ["log_disconnect_all_done"] = "Disconnected {0} device(s) ({1})",
                 ["log_device_not_found"] = "Device not found, may already be disconnected",
                 ["log_listing_devices"] = "Listing devices on {0} server(s)...",
                 ["log_listed_devices"] = "Listed {0} devices on {1} server(s)",

@@ -242,7 +242,7 @@ namespace USBAnywhere.Services
             return result.Success;
         }
 
-        private async Task<OperationResult> AttachDeviceWithResultAsync(string ip, string busId, string? receiveMode, CancellationToken ct)
+        private async Task<OperationResult> AttachDeviceWithResultAsync(string ip, string busId, string? receiveMode, CancellationToken ct, string? description = null, string? hardwareId = null)
         {
             if (string.IsNullOrWhiteSpace(ip) || string.IsNullOrWhiteSpace(busId))
             {
@@ -280,9 +280,7 @@ namespace USBAnywhere.Services
                 }
 
                 var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId, "--once" };
-                var effectiveMode = string.IsNullOrWhiteSpace(receiveMode)
-                    ? "low-latency"
-                    : receiveMode.Trim().ToLowerInvariant();
+                var effectiveMode = ResolveEffectiveReceiveMode(receiveMode, description, hardwareId);
                 if (effectiveMode == "zero-copy" || effectiveMode == "low-latency")
                 {
                     cmdArgs.Add($"--receive-mode={effectiveMode}");

@@ -19,6 +19,8 @@ public partial class App : System.Windows.Application
     private static Mutex? _mutex;
     private static bool _ownsMutex;
     private const string MutexName = "USBAnywhere_SingleInstance_Mutex";
+    public const string DisconnectAllEventName = @"Local\USBAnywhere_DisconnectAll_Event";
+    public const string GracefulExitEventName = @"Local\USBAnywhere_GracefulExit_Event";
     public IServiceProvider ServiceProvider { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -84,6 +86,17 @@ public partial class App : System.Windows.Application
                 return;
             }
 
+            // ── STEP 1.5: Headless CLI commands (--disconnect-all / --disconnect / --quit) ──
+            if (IsHeadlessCliInvocation(e.Args))
+            {
+                bool handled = Task.Run(() => TryHandleHeadlessCliAsync(e.Args)).GetAwaiter().GetResult();
+                if (handled)
+                {
+                    Shutdown(0);
+                    return;
+                }
+            }
+
             // ── STEP 2: Single instance guard ──────────────────────────────
             _mutex = new Mutex(true, MutexName, out bool createdNew);
             _ownsMutex = createdNew;
@@ -106,7 +119,7 @@ public partial class App : System.Windows.Application
             // Initialize core services — order matters
             ServiceProvider.GetRequiredService<IEnvironmentService>().Initialize();
             ServiceProvider.GetRequiredService<ILoggerService>().Initialize();
-            
+
             // Create and show MainWindow via DI
             var configService = ServiceProvider.GetRequiredService<IConfigService>();
             var appConfig = configService.Load();
@@ -131,12 +144,95 @@ public partial class App : System.Windows.Application
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(
-                $"Critical Startup Error: {ex.Message}\n\n{ex.InnerException?.Message}\n\n{ex.StackTrace}", 
-                "Fatal Error", 
-                MessageBoxButton.OK, 
+                $"Critical Startup Error: {ex.Message}\n\n{ex.InnerException?.Message}\n\n{ex.StackTrace}",
+                "Fatal Error",
+                MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    internal static bool IsHeadlessCliInvocation(string[]? args)
+    {
+        if (args == null || args.Length == 0) return false;
+        return args.Any(a =>
+            a.Equals("--disconnect-all", StringComparison.OrdinalIgnoreCase) ||
+            a.Equals("--disconnect", StringComparison.OrdinalIgnoreCase) ||
+            a.Equals("--quit", StringComparison.OrdinalIgnoreCase) ||
+            a.Equals("--exit", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task<bool> TryHandleHeadlessCliAsync(string[] args)
+    {
+        bool disconnectAll = args.Any(a => a.Equals("--disconnect-all", StringComparison.OrdinalIgnoreCase));
+        bool quitApp = args.Any(a => a.Equals("--quit", StringComparison.OrdinalIgnoreCase) || a.Equals("--exit", StringComparison.OrdinalIgnoreCase));
+        string? disconnectPort = null;
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i].Equals("--disconnect", StringComparison.OrdinalIgnoreCase))
+            {
+                disconnectPort = args[i + 1];
+                break;
+            }
+        }
+
+        if (!disconnectAll && !quitApp && string.IsNullOrWhiteSpace(disconnectPort))
+            return false;
+
+        try
+        {
+            if (quitApp)
+            {
+                try
+                {
+                    if (EventWaitHandle.TryOpenExisting(GracefulExitEventName, out var exitEvent))
+                    {
+                        using (exitEvent)
+                            exitEvent.Set();
+                    }
+                }
+                catch { }
+            }
+            else if (disconnectAll)
+            {
+                try
+                {
+                    if (EventWaitHandle.TryOpenExisting(DisconnectAllEventName, out var disconnectEvent))
+                    {
+                        using (disconnectEvent)
+                            disconnectEvent.Set();
+                        await Task.Delay(75);
+                    }
+                }
+                catch { }
+            }
+
+            var services = new ServiceCollection();
+            ConfigureServices(services);
+            using var sp = services.BuildServiceProvider();
+            sp.GetRequiredService<IEnvironmentService>().Initialize();
+            var logger = sp.GetRequiredService<ILoggerService>();
+            logger.Initialize();
+            sp.GetRequiredService<IConfigService>().Load();
+            var usbip = sp.GetRequiredService<IUsbipService>();
+
+            if (disconnectAll || quitApp)
+            {
+                int detached = await usbip.DetachAllConnectedDevicesAsync();
+                logger.Info($"CLI headless {(quitApp ? "--quit" : "--disconnect-all")}: detached {detached} device(s).");
+            }
+            else if (!string.IsNullOrWhiteSpace(disconnectPort))
+            {
+                bool ok = await usbip.DetachDeviceAsync(disconnectPort.Trim());
+                logger.Info($"CLI headless --disconnect {disconnectPort}: {(ok ? "OK" : "FAILED")}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[HeadlessCli] {ex.Message}");
+        }
+
+        return true;
     }
 
     private static void ConfigureServices(IServiceCollection services)

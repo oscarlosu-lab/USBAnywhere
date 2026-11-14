@@ -61,7 +61,7 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
     /// <summary>
     /// Add device to monitor
     /// </summary>
-    public void AddDevice(string serverIP, string busId, bool autoReconnect = true, string? receiveMode = null)
+    public void AddDevice(string serverIP, string busId, bool autoReconnect = true, string? receiveMode = null, bool initiallyConnected = true)
     {
         lock (_lock)
         {
@@ -70,6 +70,9 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
             {
                 if (receiveMode != null)
                     existing.ReceiveMode = receiveMode;
+                existing.AutoReconnect = autoReconnect;
+                if (initiallyConnected)
+                    existing.IsConnected = true;
                 return;
             }
 
@@ -79,7 +82,7 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
                 BusId = busId,
                 AutoReconnect = autoReconnect,
                 ReceiveMode = receiveMode,
-                IsConnected = true,
+                IsConnected = initiallyConnected,
                 LastCheck = DateTime.Now
             });
         }
@@ -104,6 +107,16 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
         lock (_lock)
         {
             _monitoredDevices.Clear();
+        }
+    }
+
+    internal MonitoredDevice? GetMonitoredDevice(string serverIP, string busId)
+    {
+        lock (_lock)
+        {
+            return _monitoredDevices.FirstOrDefault(d =>
+                string.Equals(d.ServerIP, serverIP, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(d.BusId, busId, StringComparison.OrdinalIgnoreCase));
         }
     }
 

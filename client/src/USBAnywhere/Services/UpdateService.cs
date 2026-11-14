@@ -64,39 +64,9 @@ public class UpdateService : IUpdateService
             {
                 _logger.LogInformation("New version available: {Version}", latestVersionStr);
 
-                // Find appropriate asset based on portability
+                // Find appropriate client asset based on portability (never pick Server/Linux/macOS assets)
                 var assets = release.Assets ?? new List<GitHubAsset>();
-                GitHubAsset? selectedAsset = null;
-
-                if (_env.IsPortable)
-                {
-                    var archTag = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "arm64" : "x64";
-                    selectedAsset = assets.FirstOrDefault(a =>
-                        a.Name?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true &&
-                        a.Name.Contains(archTag, StringComparison.OrdinalIgnoreCase));
-
-                    selectedAsset ??= assets.FirstOrDefault(a =>
-                        a.Name?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true &&
-                        a.Name.Contains("Portable", StringComparison.OrdinalIgnoreCase));
-                }
-                if (_env.IsPortable && selectedAsset == null)
-                {
-                    selectedAsset = assets.FirstOrDefault(a =>
-                        a.Name?.Contains("Portable", StringComparison.OrdinalIgnoreCase) == true &&
-                        (a.Name?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true ||
-                         a.Name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true));
-                }
-
-                // Fallback or Setup
-                if (selectedAsset == null)
-                {
-                    selectedAsset = assets.FirstOrDefault(a =>
-                        a.Name?.Contains("Setup", StringComparison.OrdinalIgnoreCase) == true &&
-                        a.Name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true);
-                }
-
-                // If still null, just take the first exe
-                selectedAsset ??= assets.FirstOrDefault(a => a.Name?.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) == true);
+                var selectedAsset = SelectClientAsset(assets, isInstalled: !_env.IsPortable);
 
                 var hashAsset = assets.FirstOrDefault(a =>
                     a.Name?.Contains("sha256", StringComparison.OrdinalIgnoreCase) == true ||
@@ -309,7 +279,59 @@ public class UpdateService : IUpdateService
         }
     }
 
-    private class GitHubRelease
+    internal static GitHubAsset? SelectClientAsset(IReadOnlyList<GitHubAsset> assets, bool isInstalled)
+    {
+        static bool IsClientAsset(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            return !name.Contains("Server", StringComparison.OrdinalIgnoreCase) &&
+                   !name.Contains("Linux", StringComparison.OrdinalIgnoreCase) &&
+                   !name.Contains("macOS", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!isInstalled)
+        {
+            var archTag = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64
+                ? "arm64"
+                : "x64";
+
+            var selected = assets.FirstOrDefault(a =>
+                IsClientAsset(a.Name) &&
+                a.Name!.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                a.Name.Contains(archTag, StringComparison.OrdinalIgnoreCase));
+
+            selected ??= assets.FirstOrDefault(a =>
+                IsClientAsset(a.Name) &&
+                a.Name!.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                a.Name.Contains("Portable", StringComparison.OrdinalIgnoreCase));
+
+            selected ??= assets.FirstOrDefault(a =>
+                IsClientAsset(a.Name) &&
+                a.Name!.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                a.Name.Contains("Windows", StringComparison.OrdinalIgnoreCase));
+
+            selected ??= assets.FirstOrDefault(a =>
+                IsClientAsset(a.Name) &&
+                a.Name!.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+
+            selected ??= assets.FirstOrDefault(a =>
+                IsClientAsset(a.Name) &&
+                a.Name!.Contains("Portable", StringComparison.OrdinalIgnoreCase) &&
+                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+
+            if (selected != null) return selected;
+        }
+
+        return assets.FirstOrDefault(a =>
+                   IsClientAsset(a.Name) &&
+                   a.Name!.Contains("Setup", StringComparison.OrdinalIgnoreCase) &&
+                   a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+               ?? assets.FirstOrDefault(a =>
+                   IsClientAsset(a.Name) &&
+                   a.Name!.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal class GitHubRelease
     {
         [System.Text.Json.Serialization.JsonPropertyName("tag_name")]
         public string? TagName { get; set; }
@@ -321,7 +343,7 @@ public class UpdateService : IUpdateService
         public List<GitHubAsset>? Assets { get; set; }
     }
 
-    private class GitHubAsset
+    internal class GitHubAsset
     {
         [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string? Name { get; set; }
