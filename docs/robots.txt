@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://oscarlosu-lab.github.io/USBAnywhere/sitemap.xml

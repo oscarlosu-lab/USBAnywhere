@@ -3,8 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>USBAnywhere v3.4.0 — Industrial USB/IP Transport &amp; Native VHCI Engine</title>
-  <meta name="description" content="Industrial-grade, open-source USB/IP suite for Windows, Linux, macOS, and Android. Native Windows VHCI IOCTL engine, WHQL drivers, TCP/3240 + Control API 3241, and zero licensing limits.">
+  <title>USBAnywhere v3.4.0 — Share Joysticks, 3D Printers, Laser Engravers &amp; Any USB Over Network</title>
+  <meta name="description" content="Free open-source USB over IP software to share DualSense/Xbox joysticks, 3D printers, LightBurn/GRBL laser cutters, webcams, audio, and any USB device over LAN or VPN. Native Windows VHCI IOCTL engine with WHQL drivers.">
+  <meta name="keywords" content="USBAnywhere, USB over IP, USB over network, share USB over network, FlexiHub alternative, VirtualHere alternative, USB Network Gate alternative, share joystick over network, DualSense remote USB, 3D printer USB over network, LightBurn laser USB over IP, Raspberry Pi USB server, usbip windows WHQL">
+  <meta name="author" content="oscarlosu-lab">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <meta name="theme-color" content="#090b0e">
+  <link rel="canonical" href="https://oscarlosu-lab.github.io/USBAnywhere/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="USBAnywhere">
+  <meta property="og:title" content="USBAnywhere v3.4.0 — Share Joysticks, 3D Printers &amp; Laser Cutters Over Network">
+  <meta property="og:description" content="Free GPL-3.0 USB/IP suite for Windows, Linux, macOS &amp; Android. Share gamepads, 3D printers, laser engravers, and any USB peripheral over LAN or VPN with WHQL drivers.">
+  <meta property="og:url" content="https://oscarlosu-lab.github.io/USBAnywhere/">
+  <meta property="og:image" content="https://oscarlosu-lab.github.io/USBAnywhere/assets/captures/capture_01_mainwindow_dark.png">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="es_ES">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="USBAnywhere v3.4.0 — Open-Source USB Over Network">
+  <meta name="twitter:description" content="Share USB joysticks, 3D printers, laser cutters, and any USB device over LAN/VPN. Native Windows VHCI IOCTL + WHQL drivers, 100% free.">
+  <meta name="twitter:image" content="https://oscarlosu-lab.github.io/USBAnywhere/assets/captures/capture_01_mainwindow_dark.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "USBAnywhere",
+        "softwareVersion": "3.4.0",
+        "operatingSystem": "Windows 10, Windows 11, Linux, macOS, Android, Android TV",
+        "applicationCategory": "UtilitiesApplication",
+        "url": "https://oscarlosu-lab.github.io/USBAnywhere/",
+        "downloadUrl": "https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.4.0/USBAnywhere_Setup_v3.4.0.exe",
+        "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "description": "Free open-source USB/IP suite to share USB joysticks, gamepads, 3D printers, laser cutters/engravers, audio devices, and any USB peripheral over LAN or VPN.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "Direct Windows VHCI IOCTL engine with WHQL-signed usbip2_ude driver",
+          "Low-latency HID passthrough for DualSense, Xbox, flight sticks, and racing wheels",
+          "3D printer and LightBurn/GRBL laser engraver USB sharing",
+          "Headless Linux & Raspberry Pi / Orange Pi server with TCP/UDP 3241 control plane",
+          "Unlimited devices under GPL-3.0 license"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is USBAnywhere a free alternative to FlexiHub, VirtualHere, and USB Network Gate?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. USBAnywhere is 100% open-source under GPL-3.0 with no subscription fees and no limit on the number of shared USB devices."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What USB devices can I share with USBAnywhere?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "You can share USB joysticks and gamepads (DualSense, Xbox), 3D printers, laser cutters and engravers (LightBurn, GRBL, Ruida), webcams, DACs, scanners, smartcards, dongles, and USB drives."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I run USBAnywhere Server on a Raspberry Pi or Orange Pi?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. The Linux headless server supports Raspberry Pi, Orange Pi, Debian, Ubuntu, and Arch with udev hotplug auto-export and TCP/UDP 3241 on-demand control."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%224%22 fill=%22%2310141a%22 stroke=%22%23f59e0b%22 stroke-width=%222%22/><text x=%2216%22 y=%2221%22 text-anchor=%22middle%22 font-family=%22monospace%22 font-size=%2214%22 font-weight=%22bold%22 fill=%22%23f59e0b%22>USB</text></svg>">
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -101,6 +182,7 @@
   </header>
 
   <!-- HERO: INDUSTRIAL CONSOLE -->
+  <main>
   <section class="pt-28 pb-16 border-b border-chassis-700 tech-grid">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -112,11 +194,11 @@
           </div>
 
           <h1 class="text-3xl sm:text-5xl font-bold tracking-tight text-white leading-tight" data-i18n="hero_title">
-            Deterministic USB/IP Transport for Engineering, Lab &amp; Industrial Hosts.
+            Share Joysticks, 3D Printers, Laser Engravers &amp; Any USB Device Over Your Network.
           </h1>
 
           <p class="text-base text-slate-400 leading-relaxed max-w-2xl" data-i18n="hero_desc">
-            USBAnywhere exposes remote USB hardware over standard TCP/IP and VPN links as native local bus devices. Built around a direct C#/.NET 9 Windows VHCI IOCTL engine (zero child-process spawning overhead), WHQL-signed drivers, and an on-demand TCP/3241 control plane.
+            USBAnywhere exposes remote USB hardware—gamepads, DualSense/Xbox controllers, 3D printers, laser cutters (LightBurn/GRBL), audio interfaces, and storage—over TCP/IP and VPN links as native local devices. Built on a direct C#/.NET 9 Windows VHCI IOCTL engine, WHQL-signed drivers, and an on-demand TCP/3241 control plane.
           </p>
 
           <div class="flex flex-wrap gap-3 pt-2">
@@ -220,6 +302,49 @@
           <h3 class="text-base font-bold text-white" data-i18n="card3_title">High-Throughput &amp; SBC Ready</h3>
           <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card3_desc">
             Includes Linux <code class="font-mono text-slate-200">usbip-host</code> and RPi/OrangePi <code class="font-mono text-slate-200">dwc2</code> kernel patches for composite endpoints, isochronous audio/video, CNC/laser controllers, and DualSense HID polling.
+          </p>
+        </div>
+      </div>
+
+      <!-- TARGET WORKLOADS / USB HARDWARE -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+        <div class="p-4 rounded panel-elevated">
+          <div class="flex items-center gap-2 text-xs font-mono text-signal-amber uppercase">
+            <i data-lucide="gamepad-2" class="w-4 h-4"></i>
+            <span data-i18n="hw1_title">Joysticks &amp; Gamepads</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed" data-i18n="hw1_desc">
+            Low-latency HID passthrough for DualSense, Xbox, flight sticks, racing wheels, and VR trackers.
+          </p>
+        </div>
+
+        <div class="p-4 rounded panel-elevated">
+          <div class="flex items-center gap-2 text-xs font-mono text-signal-emerald uppercase">
+            <i data-lucide="box" class="w-4 h-4"></i>
+            <span data-i18n="hw2_title">3D Printers</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed" data-i18n="hw2_desc">
+            Direct USB/Serial access for Prusa, Creality, Marlin/Klipper boards, and slicer/firmware flashing.
+          </p>
+        </div>
+
+        <div class="p-4 rounded panel-elevated">
+          <div class="flex items-center gap-2 text-xs font-mono text-signal-amber uppercase">
+            <i data-lucide="flame" class="w-4 h-4"></i>
+            <span data-i18n="hw3_title">Laser Cutters &amp; Engravers</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed" data-i18n="hw3_desc">
+            Stable streaming for LightBurn, GRBL, Ruida/CH340 controllers, and CNC workshops from another room.
+          </p>
+        </div>
+
+        <div class="p-4 rounded panel-elevated">
+          <div class="flex items-center gap-2 text-xs font-mono text-slate-300 uppercase">
+            <i data-lucide="usb" class="w-4 h-4"></i>
+            <span data-i18n="hw4_title">Any USB Peripheral</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-2 leading-relaxed" data-i18n="hw4_desc">
+            Webcams, DACs/audio interfaces, scanners, license dongles, smartcards, and USB storage drives.
           </p>
         </div>
       </div>
@@ -413,6 +538,7 @@
       </div>
     </div>
   </section>
+  </main>
 
   <!-- FOOTER -->
   <footer class="py-8 bg-chassis-950 text-xs font-mono text-slate-500">
@@ -438,8 +564,8 @@
         nav_downloads: "Binaries",
         btn_download_nav: "Download v3.4.0",
         hero_status: "PRODUCTION BUILD v3.4.0 • DIRECT KERNEL IOCTL TRANSPORT",
-        hero_title: "Deterministic USB/IP Transport for Engineering, Lab & Industrial Hosts.",
-        hero_desc: "USBAnywhere exposes remote USB hardware over standard TCP/IP and VPN links as native local bus devices. Built around a direct C#/.NET 9 Windows VHCI IOCTL engine (zero child-process spawning overhead), WHQL-signed drivers, and an on-demand TCP/3241 control plane.",
+        hero_title: "Share Joysticks, 3D Printers, Laser Engravers & Any USB Device Over Your Network.",
+        hero_desc: "USBAnywhere exposes remote USB hardware—gamepads, DualSense/Xbox controllers, 3D printers, laser cutters (LightBurn/GRBL), audio interfaces, and storage—over TCP/IP and VPN links as native local devices. Built on a direct C#/.NET 9 Windows VHCI IOCTL engine, WHQL-signed drivers, and an on-demand TCP/3241 control plane.",
         hero_cta_primary: "Get Windows, Linux & Android Binaries",
         hero_cta_secondary: "Linux Server Bootstrap",
         stat_engine_lbl: "Windows Engine",
@@ -455,6 +581,14 @@
         card2_desc: "Automatic LAN/VPN server discovery on UDP 3241 and serialized per-busid LIST / BIND / UNBIND / STATUS control over TCP 3241 with immediate host release on client detach.",
         card3_title: "High-Throughput & SBC Ready",
         card3_desc: "Includes Linux usbip-host and RPi/OrangePi dwc2 kernel patches for composite endpoints, isochronous audio/video, CNC/laser controllers, and DualSense HID polling.",
+        hw1_title: "Joysticks & Gamepads",
+        hw1_desc: "Low-latency HID passthrough for DualSense, Xbox, flight sticks, racing wheels, and VR trackers.",
+        hw2_title: "3D Printers",
+        hw2_desc: "Direct USB/Serial access for Prusa, Creality, Marlin/Klipper boards, and slicer/firmware flashing.",
+        hw3_title: "Laser Cutters & Engravers",
+        hw3_desc: "Stable streaming for LightBurn, GRBL, Ruida/CH340 controllers, and CNC workshops from another room.",
+        hw4_title: "Any USB Peripheral",
+        hw4_desc: "Webcams, DACs/audio interfaces, scanners, license dongles, smartcards, and USB storage drives.",
         sec_spec_tag: "02 // TECHNICAL SPECIFICATIONS",
         sec_spec_title: "Runtime & Protocol Matrix",
         sec_dep_tag: "03 // LINUX & SBC DEPLOYMENT",
@@ -477,8 +611,8 @@
         nav_downloads: "Binarios",
         btn_download_nav: "Descargar v3.4.0",
         hero_status: "BUILD PRODUCCIÓN v3.4.0 • TRANSPORTE NATIVO IOCTL KERNEL",
-        hero_title: "Transporte USB/IP Determinista para Ingeniería, Laboratorio e Industria.",
-        hero_desc: "USBAnywhere expone hardware USB remoto sobre TCP/IP y VPN como dispositivos de bus local nativos. Construido con motor IOCTL VHCI directo en C#/.NET 9 (cero subprocesos), drivers firmados WHQL y plano de control bajo demanda TCP/3241.",
+        hero_title: "Comparte Joysticks, Mandos USB, Impresoras 3D, Grabadores Láser y Cualquier Dispositivo USB.",
+        hero_desc: "USBAnywhere expone hardware USB remoto —mandos DualSense/Xbox, joysticks, impresoras 3D, cortadores y grabadores láser (LightBurn/GRBL), audio o almacenamiento— sobre TCP/IP y VPN como dispositivos locales nativos. Motor IOCTL VHCI directo en C#/.NET 9, drivers WHQL y control bajo demanda TCP/3241.",
         hero_cta_primary: "Descargar Binarios Windows, Linux y Android",
         hero_cta_secondary: "Despliegue Servidor Linux",
         stat_engine_lbl: "Motor Windows",
@@ -494,6 +628,14 @@
         card2_desc: "Descubrimiento LAN/VPN en UDP 3241 y control serializado LIST / BIND / UNBIND / STATUS sobre TCP 3241 con liberación inmediata al desconectar.",
         card3_title: "Alto Rendimiento y SBCs",
         card3_desc: "Incluye parches de kernel Linux usbip-host y dwc2 (RPi/OrangePi) para interfaces compuestas, audio/vídeo isócrono, CNC/láser y DualSense.",
+        hw1_title: "Joysticks y Mandos USB",
+        hw1_desc: "Passthrough HID de baja latencia para DualSense, Xbox, hotas, volantes y trackers VR.",
+        hw2_title: "Impresoras 3D",
+        hw2_desc: "Acceso USB/Serie directo para Prusa, Creality, placas Marlin/Klipper y flasheo de firmware.",
+        hw3_title: "Cortadores y Grabadores Láser",
+        hw3_desc: "Flujo estable para LightBurn, GRBL, controladoras Ruida/CH340 y CNC desde otra habitación.",
+        hw4_title: "Cualquier Periférico USB",
+        hw4_desc: "Webcams, DACs/interfaces de audio, escáneres, dongles de licencia, tarjetas y discos USB.",
         sec_spec_tag: "02 // ESPECIFICACIONES TÉCNICAS",
         sec_spec_title: "Matriz de Runtimes y Protocolo",
         sec_dep_tag: "03 // DESPLIEGUE LINUX Y SBC",
@@ -513,6 +655,7 @@
     let currentLang = navigator.language && navigator.language.startsWith('es') ? 'es' : 'en';
     function applyLang(lang) {
       currentLang = lang;
+      document.documentElement.lang = lang;
       const dict = i18n[lang] || i18n.en;
       document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
