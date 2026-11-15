@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>USBAnywhere — High-Performance, Unlimited & Free USB over Network</title>
-  <meta name="description" content="The modern, 100% free and open-source USB over IP solution for Windows and Linux. WHQL certified drivers, Low-Latency WSK engine, unlimited devices, and native VPN support.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%22100%22%20height=%22100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
+  <title>USBAnywhere v3.4.0 — Industrial USB/IP Transport &amp; Native VHCI Engine</title>
+  <meta name="description" content="Industrial-grade, open-source USB/IP suite for Windows, Linux, macOS, and Android. Native Windows VHCI IOCTL engine, WHQL drivers, TCP/3240 + Control API 3241, and zero licensing limits.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%224%22 fill=%22%2310141a%22 stroke=%22%23f59e0b%22 stroke-width=%222%22/><text x=%2216%22 y=%2221%22 text-anchor=%22middle%22 font-family=%22monospace%22 font-size=%2214%22 font-weight=%22bold%22 fill=%22%23f59e0b%22>USB</text></svg>">
 
-  <!-- Tailwind CSS CDN with Typography & Glassmorphism -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -15,1023 +14,515 @@
       theme: {
         extend: {
           colors: {
-            brand: {
-              50: '#ecfeff',
-              100: '#cffafe',
-              200: '#a5f3fc',
-              300: '#67e8f9',
-              400: '#22d3ee',
-              500: '#06b6d4',
-              600: '#0891b2',
-              700: '#0e7490',
-              800: '#155e75',
-              900: '#164e63',
-              950: '#083344',
+            chassis: {
+              950: '#090b0e',
+              900: '#10141a',
+              850: '#151a22',
+              800: '#1b222c',
+              700: '#26303d',
+              600: '#354254'
             },
-            accent: {
+            signal: {
+              amber: '#f59e0b',
+              amberDim: '#b45309',
               emerald: '#10b981',
-              orange: '#f97316',
-              violet: '#8b5cf6'
+              red: '#ef4444',
+              steel: '#94a3b8'
             }
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
-            mono: ['Consolas', 'Courier New', 'monospace']
+            mono: ['JetBrains Mono', 'Consolas', 'Courier New', 'monospace']
           }
         }
       }
     }
   </script>
-
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-
   <style>
-    .glow-cyan {
-      box-shadow: 0 0 50px -10px rgba(6, 182, 212, 0.35);
+    .tech-grid {
+      background-image:
+        linear-gradient(to right, rgba(38, 48, 61, 0.25) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(38, 48, 61, 0.25) 1px, transparent 1px);
+      background-size: 32px 32px;
     }
-    .glow-emerald {
-      box-shadow: 0 0 50px -10px rgba(16, 185, 129, 0.35);
+    .panel-surface {
+      background: #10141a;
+      border: 1px solid #26303d;
     }
-    .glass-panel {
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .glass-panel-light {
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(0, 0, 0, 0.08);
+    .panel-elevated {
+      background: #151a22;
+      border: 1px solid #26303d;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-300">
+<body class="bg-chassis-950 text-slate-200 font-sans antialiased selection:bg-signal-amber selection:text-chassis-950">
 
-  <!-- ================= NAVBAR ================= -->
-  <header class="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-slate-800/80 transition-all duration-300">
+  <!-- TOP STATUS BAR / NAVBAR -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-chassis-950/95 backdrop-blur border-b border-chassis-700">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      
-      <!-- Brand Logo -->
-      <a href="#" class="flex items-center gap-3 group">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-emerald flex items-center justify-center text-white shadow-lg shadow-brand-500/20 group-hover:scale-105 transition-transform">
-          <i data-lucide="network" class="w-5 h-5"></i>
+      <a href="#" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded bg-chassis-850 border border-signal-amber/60 flex items-center justify-center text-signal-amber">
+          <i data-lucide="usb" class="w-5 h-5"></i>
         </div>
-        <div class="flex flex-col">
-          <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-brand-300 bg-clip-text text-transparent">
-            USBAnywhere
-          </span>
-          <span class="text-[10px] uppercase font-mono tracking-widest text-brand-400 font-semibold">v3.4.0 WHQL</span>
+        <div class="flex flex-col leading-tight">
+          <div class="flex items-center gap-2">
+            <span class="text-base font-bold tracking-tight text-white uppercase">USBAnywhere</span>
+            <span class="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-chassis-800 border border-chassis-700 text-signal-amber rounded">v3.4.0</span>
+          </div>
+          <span class="text-[10px] font-mono uppercase tracking-widest text-slate-400">WHQL • IOCTL VHCI • GPL-3.0</span>
         </div>
       </a>
 
-      <!-- Desktop Nav Links -->
-      <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
-        <a href="#features" class="hover:text-brand-400 transition-colors" data-i18n="nav_features">Features</a>
-        <a href="#architecture" class="hover:text-brand-400 transition-colors" data-i18n="nav_architecture">Architecture</a>
-        <a href="#use-cases" class="hover:text-brand-400 transition-colors" data-i18n="nav_use_cases">Use Cases</a>
-        <a href="#linux-server" class="hover:text-brand-400 transition-colors" data-i18n="nav_server">Server Setup</a>
-        <a href="#comparison" class="hover:text-brand-400 transition-colors" data-i18n="nav_compare">Comparison</a>
-        <a href="#videos" class="hover:text-brand-400 transition-colors" data-i18n="nav_videos">Masterclasses</a>
-        <a href="#download" class="hover:text-brand-400 transition-colors" data-i18n="nav_downloads">Downloads</a>
+      <nav class="hidden md:flex items-center gap-7 text-xs font-mono uppercase tracking-wider text-slate-400">
+        <a href="#architecture" class="hover:text-signal-amber transition-colors" data-i18n="nav_arch">Architecture</a>
+        <a href="#specifications" class="hover:text-signal-amber transition-colors" data-i18n="nav_specs">Specifications</a>
+        <a href="#deployment" class="hover:text-signal-amber transition-colors" data-i18n="nav_deploy">Deployment</a>
+        <a href="#matrix" class="hover:text-signal-amber transition-colors" data-i18n="nav_matrix">Comparison</a>
+        <a href="#downloads" class="hover:text-signal-amber transition-colors" data-i18n="nav_downloads">Binaries</a>
       </nav>
 
-      <!-- Right Actions: Language, Reddit, GitHub, Download -->
-      <div class="flex items-center gap-3">
-        
-        <!-- Language Switcher -->
-        <button id="lang-toggle" class="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900/80 text-xs font-semibold text-slate-300 hover:border-brand-500 hover:text-white transition-all flex items-center gap-1.5" title="Switch Language / Cambiar Idioma">
-          <i data-lucide="languages" class="w-3.5 h-3.5 text-brand-400"></i>
-          <span id="lang-label">ES</span>
+      <div class="flex items-center gap-2.5">
+        <button id="lang-toggle" class="px-2.5 py-1.5 rounded bg-chassis-900 border border-chassis-700 text-xs font-mono text-slate-300 hover:border-signal-amber transition-colors">
+          EN / ES
         </button>
-
-        <!-- Reddit Community -->
-        <a href="https://www.reddit.com/r/UsbAnywhere/" target="_blank" rel="noopener" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-500/30 bg-orange-950/20 text-xs font-semibold text-orange-400 hover:bg-orange-900/30 transition-all">
-          <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
-          <span>r/UsbAnywhere</span>
-        </a>
-
-        <!-- Ko-fi Support -->
-        <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-500/30 bg-rose-950/20 text-xs font-semibold text-rose-400 hover:bg-rose-900/30 hover:border-rose-400 transition-all" title="Support on Ko-fi">
-          <i data-lucide="coffee" class="w-3.5 h-3.5 text-rose-400"></i>
+        <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-chassis-900 border border-rose-500/40 text-xs font-mono text-rose-400 hover:bg-rose-950/30 transition-colors">
+          <i data-lucide="coffee" class="w-3.5 h-3.5"></i>
           <span>Ko-fi</span>
         </a>
-
-        <!-- GitHub Star Badge -->
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere" target="_blank" rel="noopener" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-200 hover:border-brand-500 transition-all">
-          <i data-lucide="star" class="w-3.5 h-3.5 text-yellow-400 fill-yellow-400"></i>
-          <span>GitHub</span>
+        <a href="https://github.com/oscarlosu-lab/USBAnywhere" target="_blank" rel="noopener" class="p-2 rounded bg-chassis-900 border border-chassis-700 text-slate-300 hover:border-slate-500 transition-colors" aria-label="GitHub Repository">
+          <i data-lucide="github" class="w-4 h-4"></i>
         </a>
-
-        <!-- Primary CTA -->
-        <a href="#download" class="px-4 py-2 rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 text-slate-950 font-bold text-xs uppercase tracking-wider hover:opacity-90 shadow-md shadow-brand-500/25 transition-all flex items-center gap-2">
-          <i data-lucide="download" class="w-4 h-4"></i>
-          <span data-i18n="btn_get_usbanywhere">Get v3.4.0</span>
+        <a href="#downloads" class="px-3.5 py-1.5 rounded bg-signal-amber hover:bg-amber-400 text-chassis-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors" data-i18n="btn_download_nav">
+          Download v3.4.0
         </a>
       </div>
     </div>
   </header>
 
-  <!-- ================= HERO SECTION ================= -->
-  <section class="relative pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden">
-    <!-- Background Gradients -->
-    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-tr from-brand-600/20 to-accent-emerald/20 blur-[130px] rounded-full pointer-events-none -z-10"></div>
-    <div class="absolute top-20 right-10 w-72 h-72 bg-blue-600/10 blur-[90px] rounded-full pointer-events-none -z-10"></div>
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      
-      <!-- Pill Badge -->
-      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-brand-500/30 bg-brand-950/40 text-brand-300 text-xs font-medium mb-8 backdrop-blur-md animate-fade-in">
-        <span class="flex h-2 w-2 rounded-full bg-accent-emerald animate-pulse"></span>
-        <span data-i18n="hero_pill">v3.4.0 WHQL Certified • Windows & Linux Client • 100% Free</span>
-      </div>
-
-      <!-- Main Headline -->
-      <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight max-w-5xl mx-auto leading-tight sm:leading-none">
-        <span data-i18n="hero_title_1">Next-Generation</span><br>
-        <span class="bg-gradient-to-r from-brand-400 via-teal-300 to-accent-emerald bg-clip-text text-transparent" data-i18n="hero_title_2">USB over Network</span>
-      </h1>
-
-      <!-- Subheadline -->
-      <p class="mt-6 text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto font-normal leading-relaxed" data-i18n="hero_subtitle">
-        Stream game controllers, SimRacing wheels, diode lasers, and 3D printer webcams over Wi-Fi, Ethernet, or VPN. Zero licensing fees, zero artificial device limits, and Microsoft WHQL certified drivers.
-      </p>
-
-      <!-- CTA Buttons -->
-      <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
-        <a href="#download" class="px-8 py-4 rounded-xl bg-gradient-to-r from-brand-500 via-cyan-400 to-accent-emerald text-slate-950 font-extrabold text-sm uppercase tracking-wider hover:scale-[1.02] shadow-xl shadow-brand-500/25 transition-all flex items-center gap-3">
-          <i data-lucide="download" class="w-5 h-5"></i>
-          <span data-i18n="hero_btn_win">Download Windows Client</span>
-        </a>
-        <a href="#linux-server" class="px-7 py-4 rounded-xl glass-panel hover:bg-slate-800/80 text-slate-200 font-semibold text-sm border border-slate-700/80 transition-all flex items-center gap-2.5">
-          <i data-lucide="terminal" class="w-5 h-5 text-brand-400"></i>
-          <span data-i18n="hero_btn_linux">1-Click Linux Server</span>
-        </a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere" target="_blank" rel="noopener" class="px-5 py-4 rounded-xl glass-panel hover:bg-slate-800/80 text-slate-300 font-medium text-sm border border-slate-800 transition-all flex items-center gap-2">
-          <i data-lucide="github" class="w-5 h-5 text-slate-400"></i>
-          <span>View Source</span>
-        </a>
-      </div>
-
-      <!-- Trust Badges -->
-      <div class="mt-12 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400">
-        <div class="flex items-center gap-2">
-          <i data-lucide="shield-check" class="w-4 h-4 text-accent-emerald"></i>
-          <span data-i18n="trust_whql">Microsoft WHQL Certified</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <i data-lucide="cpu" class="w-4 h-4 text-brand-400"></i>
-          <span data-i18n="trust_arch">x64 & ARM64 Native</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <i data-lucide="tv" class="w-4 h-4 text-emerald-400"></i>
-          <span>Android TV & Shield</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i>
-          <span data-i18n="trust_wsk">Low-Latency WSK Engine</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <i data-lucide="shield" class="w-4 h-4 text-purple-400"></i>
-          <span data-i18n="trust_vpn">Tailscale & WireGuard Ready</span>
-        </div>
-      </div>
-
-      <!-- App Mockup Preview -->
-      <div class="mt-14 relative max-w-5xl mx-auto rounded-2xl p-2 bg-gradient-to-b from-slate-700/60 to-slate-900/60 shadow-2xl glow-cyan">
-        <div class="rounded-xl overflow-hidden border border-slate-700 bg-slate-900 shadow-inner">
-          <img src="assets/captures/capture_01_mainwindow_dark.png" alt="USBAnywhere WPF Client Main Window" class="w-full h-auto block" loading="lazy">
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ================= 1-CLICK LINUX SERVER ================= -->
-  <section id="linux-server" class="py-20 border-t border-slate-900 bg-slate-950/60 relative">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div class="text-center mb-10">
-        <span class="text-brand-400 font-mono text-xs uppercase tracking-widest font-semibold" data-i18n="server_badge">Zero-Config Server</span>
-        <h2 class="text-3xl sm:text-4xl font-extrabold mt-2 text-white" data-i18n="server_title">Turn any Raspberry Pi or Linux box into a USB Hub</h2>
-        <p class="text-slate-400 mt-3 max-w-2xl mx-auto text-sm sm:text-base" data-i18n="server_desc">
-          Run our automated script on your Raspberry Pi (3B/4/5), Orange Pi, Debian, or Ubuntu server. Installs kernel modules, systemd daemon, and smart udev hotplug auto-exporting.
-        </p>
-      </div>
-
-      <!-- Terminal Box -->
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/90 shadow-2xl overflow-hidden">
-        <!-- Terminal Header -->
-        <div class="px-4 py-3 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-            <span class="w-3 h-3 rounded-full bg-yellow-500/80 inline-block"></span>
-            <span class="w-3 h-3 rounded-full bg-green-500/80 inline-block"></span>
-            <span class="text-xs font-mono text-slate-500 ml-2">bash — ssh pi@raspberrypi:~</span>
-          </div>
-          <button id="copy-curl-btn" class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-300 transition-colors">
-            <i data-lucide="copy" class="w-3.5 h-3.5 text-brand-400"></i>
-            <span id="copy-curl-label" data-i18n="copy_cmd">Copy Command</span>
-          </button>
-        </div>
-
-        <!-- Terminal Body -->
-        <div class="p-6 font-mono text-sm leading-relaxed overflow-x-auto text-slate-200">
-          <div class="flex items-center gap-2 text-brand-400">
-            <span class="text-slate-500 select-none">$</span>
-            <span class="select-all font-semibold">curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | sudo bash</span>
-          </div>
-          <div class="mt-4 text-xs text-slate-400 space-y-1">
-            <p class="text-slate-500">[*] Step 1/4: Installing USB/IP kernel packages (usbip, vhci-hcd, hwdata, usbutils)...</p>
-            <p class="text-slate-500">[*] Step 2/4: Loading Server (usbip_host) &amp; Client (vhci_hcd) kernel drivers...</p>
-            <p class="text-slate-500">[*] Step 3/4: Installing On-Demand Control Daemon (TCP 3241) &amp; DualSense udev rules...</p>
-            <p class="text-slate-500">[*] Step 4/4: Enabling systemd background daemons &amp; bidirectional CLI (usbanywhere-ctl)...</p>
-            <p class="text-accent-emerald font-semibold pt-1">[+] SUCCESS: USBAnywhere v3.4.0 Server (TCP 3240/3241) &amp; Linux Client (vhci_hcd) active!</p>
-            <p class="text-brand-300">[+] LINUX CLIENT CLI: Run 'usbanywhere-ctl scan' or 'sudo usbanywhere-ctl connect &lt;ip&gt; &lt;busid&gt;' to attach remote USB devices on Linux!</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Feature Badges below Terminal -->
-      <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-        <div class="p-4 rounded-xl border border-slate-800/80 glass-panel">
-          <i data-lucide="repeat" class="w-5 h-5 text-brand-400 mx-auto mb-2"></i>
-          <h4 class="font-bold text-sm text-white" data-i18n="feat_hotplug_title">udev Hotplug Auto-Export</h4>
-          <p class="text-xs text-slate-400 mt-1" data-i18n="feat_hotplug_desc">Plug or unplug any device anytime. Exported automatically with zero manual binding commands.</p>
-        </div>
-        <div class="p-4 rounded-xl border border-slate-800/80 glass-panel">
-          <i data-lucide="cpu" class="w-5 h-5 text-accent-emerald mx-auto mb-2"></i>
-          <h4 class="font-bold text-sm text-white" data-i18n="feat_sbc_title">Raspberry Pi & SBCs</h4>
-          <p class="text-xs text-slate-400 mt-1" data-i18n="feat_sbc_desc">Runs 24/7 on Raspberry Pi 3B/4/5, Orange Pi, Armbian, Mini-PCs, consuming under 5W.</p>
-        </div>
-        <div class="p-4 rounded-xl border border-slate-800/80 glass-panel">
-          <i data-lucide="monitor" class="w-5 h-5 text-purple-400 mx-auto mb-2"></i>
-          <h4 class="font-bold text-sm text-white" data-i18n="feat_win_server_title">Windows Server GUI</h4>
-          <p class="text-xs text-slate-400 mt-1" data-i18n="feat_win_server_desc">Prefer sharing from Windows? Download the standalone .NET 9.0 USBAnywhere Server GUI.</p>
-        </div>
-        <div class="p-4 rounded-xl border border-slate-800/80 glass-panel">
-          <i data-lucide="apple" class="w-5 h-5 text-cyan-400 mx-auto mb-2"></i>
-          <h4 class="font-bold text-sm text-white" data-i18n="feat_mac_server_title">macOS Server (Native Swift)</h4>
-          <p class="text-xs text-slate-400 mt-1" data-i18n="feat_mac_server_desc">Universal binary for Apple Silicon (M1/M2/M3/M4) & Intel. Perfect for flight sticks & wheels.</p>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ================= CORE ARCHITECTURE & ENGINES ================= -->
-  <section id="architecture" class="py-24 border-t border-slate-900 relative">
+  <!-- HERO: INDUSTRIAL CONSOLE -->
+  <section class="pt-28 pb-16 border-b border-chassis-700 tech-grid">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div class="text-center mb-16">
-        <span class="text-accent-emerald font-mono text-xs uppercase tracking-widest font-semibold" data-i18n="arch_badge">Engine Technology</span>
-        <h2 class="text-3xl sm:text-5xl font-extrabold mt-2 text-white" data-i18n="arch_title">Dual-Engine Network Architecture</h2>
-        <p class="text-slate-400 mt-4 max-w-2xl mx-auto" data-i18n="arch_desc">
-          One size does not fit all. USBAnywhere allows configuring independent network engines per device for maximum responsiveness or peak bandwidth.
-        </p>
-      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        <!-- Engine 1: Low-Latency WSK -->
-        <div class="p-8 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/20 relative overflow-hidden group hover:border-amber-500/60 transition-all">
-          <div class="absolute -top-10 -right-10 w-40 h-40 bg-amber-500/10 blur-[50px] rounded-full pointer-events-none"></div>
-          
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-              <i data-lucide="gauge" class="w-6 h-6"></i>
-            </div>
-            <div>
-              <span class="text-xs uppercase font-mono tracking-wider text-amber-400 font-bold">Latency Priority</span>
-              <h3 class="text-2xl font-bold text-white">Low-Latency WSK Engine</h3>
-            </div>
+        <div class="lg:col-span-7 space-y-6">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-chassis-900 border border-chassis-700 text-[11px] font-mono text-signal-emerald">
+            <span class="w-2 h-2 rounded-full bg-signal-emerald"></span>
+            <span data-i18n="hero_status">PRODUCTION BUILD v3.4.0 • DIRECT KERNEL IOCTL TRANSPORT</span>
           </div>
 
-          <p class="text-slate-300 text-sm leading-relaxed mb-6" data-i18n="wsk_desc">
-            Utilizes direct Windows Sockets Kernel (WSK) completion callbacks to bypass user-mode buffering. Virtually eliminates packet jitter for critical real-time devices.
+          <h1 class="text-3xl sm:text-5xl font-bold tracking-tight text-white leading-tight" data-i18n="hero_title">
+            Deterministic USB/IP Transport for Engineering, Lab &amp; Industrial Hosts.
+          </h1>
+
+          <p class="text-base text-slate-400 leading-relaxed max-w-2xl" data-i18n="hero_desc">
+            USBAnywhere exposes remote USB hardware over standard TCP/IP and VPN links as native local bus devices. Built around a direct C#/.NET 9 Windows VHCI IOCTL engine (zero child-process spawning overhead), WHQL-signed drivers, and an on-demand TCP/3241 control plane.
           </p>
 
-          <ul class="space-y-3 text-xs text-slate-300 border-t border-slate-800 pt-5">
-            <li class="flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
-              <span><strong>Cloud Gaming & Moonlight:</strong> Sub-millisecond controller rumble & trigger feedback.</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
-              <span><strong>SimRacing & HOTAS:</strong> Real-time force feedback without delayed steering inputs.</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
-              <span><strong>Laser Cutters & CNC:</strong> Smooth, jitter-free G-code streaming (GRBL 1.1h).</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Engine 2: Zero-Copy -->
-        <div class="p-8 rounded-2xl border border-brand-500/30 bg-gradient-to-br from-slate-900 via-slate-900/90 to-brand-950/20 relative overflow-hidden group hover:border-brand-500/60 transition-all">
-          <div class="absolute -top-10 -right-10 w-40 h-40 bg-brand-500/10 blur-[50px] rounded-full pointer-events-none"></div>
-
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-12 h-12 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center border border-brand-500/30">
-              <i data-lucide="zap" class="w-6 h-6"></i>
-            </div>
-            <div>
-              <span class="text-xs uppercase font-mono tracking-wider text-brand-400 font-bold">Throughput Priority</span>
-              <h3 class="text-2xl font-bold text-white">Zero-Copy Engine</h3>
-            </div>
+          <div class="flex flex-wrap gap-3 pt-2">
+            <a href="#downloads" class="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-signal-amber hover:bg-amber-400 text-chassis-950 font-mono font-bold text-xs uppercase tracking-wider transition-colors">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span data-i18n="hero_cta_primary">Get Windows, Linux &amp; Android Binaries</span>
+            </a>
+            <a href="#deployment" class="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-chassis-900 hover:bg-chassis-800 border border-chassis-700 text-slate-200 font-mono font-semibold text-xs uppercase tracking-wider transition-colors">
+              <i data-lucide="terminal" class="w-4 h-4 text-signal-amber"></i>
+              <span data-i18n="hero_cta_secondary">Linux Server Bootstrap</span>
+            </a>
           </div>
 
-          <p class="text-slate-300 text-sm leading-relaxed mb-6" data-i18n="zerocopy_desc">
-            Direct buffer mapping eliminates CPU memory copying between network packets and USB endpoints, unlocking the maximum network pipeline bandwidth for heavy streams.
+          <!-- TELEMETRY STRIP -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
+            <div class="p-3 rounded panel-surface">
+              <div class="text-[10px] font-mono uppercase text-slate-500" data-i18n="stat_engine_lbl">Windows Engine</div>
+              <div class="text-sm font-mono font-bold text-white mt-0.5">Native IOCTL</div>
+            </div>
+            <div class="p-3 rounded panel-surface">
+              <div class="text-[10px] font-mono uppercase text-slate-500" data-i18n="stat_ports_lbl">Control / Data</div>
+              <div class="text-sm font-mono font-bold text-signal-amber mt-0.5">TCP 3240 / 3241</div>
+            </div>
+            <div class="p-3 rounded panel-surface">
+              <div class="text-[10px] font-mono uppercase text-slate-500" data-i18n="stat_devices_lbl">Device Cap</div>
+              <div class="text-sm font-mono font-bold text-signal-emerald mt-0.5" data-i18n="stat_devices_val">Unlimited</div>
+            </div>
+            <div class="p-3 rounded panel-surface">
+              <div class="text-[10px] font-mono uppercase text-slate-500" data-i18n="stat_license_lbl">Licensing</div>
+              <div class="text-sm font-mono font-bold text-white mt-0.5">100% GPL-3.0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: LIVE DIAGNOSTIC TERMINAL MOCK -->
+        <div class="lg:col-span-5">
+          <div class="rounded border border-chassis-700 bg-chassis-900 overflow-hidden shadow-2xl">
+            <div class="px-4 py-2.5 bg-chassis-850 border-b border-chassis-700 flex items-center justify-between">
+              <div class="flex items-center gap-2 text-xs font-mono text-slate-300">
+                <i data-lucide="activity" class="w-3.5 h-3.5 text-signal-amber"></i>
+                <span>usbanywhere-ctl — telemetry</span>
+              </div>
+              <span class="text-[10px] font-mono text-signal-emerald uppercase">ONLINE</span>
+            </div>
+            <div class="p-4 font-mono text-xs space-y-2 text-slate-300 leading-relaxed">
+              <div class="text-slate-500"># 1. Probe LAN/VPN hosts on UDP/TCP 3241</div>
+              <div><span class="text-signal-amber">$</span> usbanywhere-ctl status --host 192.168.1.41</div>
+              <div class="text-slate-400">{"status":"OK","platform":"linux","port":3240,"exported":2}</div>
+              <div class="text-slate-500 pt-1"># 2. On-demand bind + native VHCI IOCTL attach</div>
+              <div><span class="text-signal-amber">$</span> USBAnywhere.exe --attach 192.168.1.41 2-1</div>
+              <div class="text-signal-emerald">[VHCI] Opened \\.\usbip2_ude (push events active)</div>
+              <div class="text-signal-emerald">[TCP ] Connected 192.168.1.41:3240 (WSK low-latency)</div>
+              <div class="text-white">[OK  ] BusID 2-1 mounted on Port 1 (0 subprocesses)</div>
+              <div class="text-slate-500 pt-1"># 3. Clean release on detach / shutdown</div>
+              <div><span class="text-signal-amber">$</span> USBAnywhere.exe --disconnect-all</div>
+              <div class="text-slate-400">[CTRL] TCP 3241 UNBIND 2-1 -&gt; released to host</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE & CAPABILITIES -->
+  <section id="architecture" class="py-16 border-b border-chassis-700 bg-chassis-950">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="mb-10">
+        <span class="text-xs font-mono uppercase tracking-widest text-signal-amber" data-i18n="sec_arch_tag">01 // SYSTEM ARCHITECTURE</span>
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1" data-i18n="sec_arch_title">Engineered for Reliability Under Load</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="p-6 rounded panel-surface hover:border-chassis-600 transition-colors">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs font-mono text-signal-amber">01 / IOCTL_ENGINE</span>
+            <i data-lucide="zap" class="w-4 h-4 text-signal-amber"></i>
+          </div>
+          <h3 class="text-base font-bold text-white" data-i18n="card1_title">Direct Windows VHCI IOCTL</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card1_desc">
+            Communicates directly with the WHQL-signed <code class="font-mono text-slate-200">usbip2_ude</code> kernel device handle via Win32 <code class="font-mono text-slate-200">DeviceIoControl</code>, eliminating process-spawn overhead and stdout regex parsing.
           </p>
-
-          <ul class="space-y-3 text-xs text-slate-300 border-t border-slate-800 pt-5">
-            <li class="flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-brand-400 flex-shrink-0"></i>
-              <span><strong>LightBurn Overhead Cameras:</strong> 4K and 1080p UVC video streaming with 0 stutter.</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-brand-400 flex-shrink-0"></i>
-              <span><strong>3D Printing Webcams:</strong> Fluid monitoring for Klipper, Mainsail, and OctoPrint.</span>
-            </li>
-            <li class="flex items-center gap-2">
-              <i data-lucide="check-circle-2" class="w-4 h-4 text-brand-400 flex-shrink-0"></i>
-              <span><strong>External Storage & Backup:</strong> High throughput for mass storage devices over LAN.</span>
-            </li>
-          </ul>
         </div>
 
+        <div class="p-6 rounded panel-surface hover:border-chassis-600 transition-colors">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs font-mono text-signal-emerald">02 / CONTROL_PLANE</span>
+            <i data-lucide="radio" class="w-4 h-4 text-signal-emerald"></i>
+          </div>
+          <h3 class="text-base font-bold text-white" data-i18n="card2_title">On-Demand TCP/UDP 3241</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card2_desc">
+            Automatic LAN/VPN server discovery on UDP 3241 and serialized per-busid <code class="font-mono text-slate-200">LIST / BIND / UNBIND / STATUS</code> control over TCP 3241 with immediate host release on client detach.
+          </p>
+        </div>
+
+        <div class="p-6 rounded panel-surface hover:border-chassis-600 transition-colors">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-xs font-mono text-slate-400">03 / KERNEL_HARDENING</span>
+            <i data-lucide="shield-check" class="w-4 h-4 text-slate-300"></i>
+          </div>
+          <h3 class="text-base font-bold text-white" data-i18n="card3_title">High-Throughput &amp; SBC Ready</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card3_desc">
+            Includes Linux <code class="font-mono text-slate-200">usbip-host</code> and RPi/OrangePi <code class="font-mono text-slate-200">dwc2</code> kernel patches for composite endpoints, isochronous audio/video, CNC/laser controllers, and DualSense HID polling.
+          </p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ================= USE CASES ================= -->
-  <section id="use-cases" class="py-24 border-t border-slate-900 bg-slate-950/70">
+  <!-- TECHNICAL SPECIFICATIONS -->
+  <section id="specifications" class="py-16 border-b border-chassis-700 bg-chassis-900/40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div class="text-center mb-16">
-        <span class="text-brand-400 font-mono text-xs uppercase tracking-widest font-semibold" data-i18n="cases_badge">Real-World Applications</span>
-        <h2 class="text-3xl sm:text-5xl font-extrabold mt-2 text-white" data-i18n="cases_title">Built for the Makers & Gamers</h2>
-        <p class="text-slate-400 mt-4 max-w-2xl mx-auto" data-i18n="cases_desc">
-          See how enthusiasts and professionals use USBAnywhere every day without cable drops or device paywalls.
-        </p>
+      <div class="mb-10">
+        <span class="text-xs font-mono uppercase tracking-widest text-signal-amber" data-i18n="sec_spec_tag">02 // TECHNICAL SPECIFICATIONS</span>
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1" data-i18n="sec_spec_title">Runtime &amp; Protocol Matrix</h2>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <!-- Case 1: Cloud Gaming & Moonlight -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div>
-            <div class="w-10 h-10 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center mb-4">
-              <i data-lucide="gamepad-2" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2" data-i18n="case_gaming_title">Cloud Gaming & Moonlight</h3>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed" data-i18n="case_gaming_desc">
-              Pass DualSense / Xbox controllers, custom steering wheels, and wireless headset dongles from your living room Raspberry Pi directly to your gaming PC with full haptic rumble and adaptive triggers.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-brand-300 font-mono">
-            <span>Engine: Low-Latency WSK</span>
-            <span>Jitter: &lt; 0.5ms</span>
-          </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
+        <div class="p-4 rounded panel-surface">
+          <div class="text-slate-500 uppercase">Windows Client</div>
+          <div class="text-white font-bold mt-1">.NET 9 WPF (x64 / ARM64)</div>
+          <div class="text-slate-400 mt-1">WSK Kernel Socket + Native IOCTL</div>
         </div>
-
-        <!-- Case 2: Diode Laser & LightBurn -->
-        <div class="p-6 rounded-2xl glass-panel border border-brand-500/30 hover:border-brand-500/60 transition-all flex flex-col justify-between relative glow-cyan">
-          <div class="absolute top-4 right-4 px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 text-[10px] font-bold font-mono">HOT</div>
-          <div>
-            <div class="w-10 h-10 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center mb-4">
-              <i data-lucide="flame" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2" data-i18n="case_laser_title">Diode Laser & LightBurn</h3>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed" data-i18n="case_laser_desc">
-              Connect your laser engraver (Sculpfun, xTool, Atomstack, Ortur) and overhead USB camera simultaneously over Wi-Fi or VPN. Zero mid-burn disconnects from long cables.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-brand-300 font-mono">
-            <span>Laser: COM3 (WSK)</span>
-            <span>Camera: UVC (Zero-Copy)</span>
-          </div>
+        <div class="p-4 rounded panel-surface">
+          <div class="text-slate-500 uppercase">Windows Server</div>
+          <div class="text-white font-bold mt-1">.NET 9 Single-File + usbipd-win</div>
+          <div class="text-slate-400 mt-1">VBoxUSB Stub + Registry Guard</div>
         </div>
-
-        <!-- Case 3: SimRacing & HOTAS -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div>
-            <div class="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
-              <i data-lucide="compass" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2" data-i18n="case_sim_title">SimRacing & Flight Simulators</h3>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed" data-i18n="case_sim_desc">
-              Direct-drive steering wheel bases, load-cell pedals, H-pattern shifters, and button boxes attached simultaneously over network without hitting single-device limits.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-brand-300 font-mono">
-            <span>Devices: Unlimited</span>
-            <span>Force Feedback: Native</span>
-          </div>
+        <div class="p-4 rounded panel-surface">
+          <div class="text-slate-500 uppercase">Linux Server / Client</div>
+          <div class="text-white font-bold mt-1">systemd + usbip-host / vhci_hcd</div>
+          <div class="text-slate-400 mt-1">Debian, Ubuntu, Arch, SteamOS, SBCs</div>
         </div>
-
-        <!-- Case 4: 3D Printing (Klipper) -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div>
-            <div class="w-10 h-10 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4">
-              <i data-lucide="layers" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2" data-i18n="case_3d_title">3D Printing & OctoPrint</h3>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed" data-i18n="case_3d_desc">
-              Manage ADXL345 input shaping accelerometers, multi-angle monitoring webcams, and printer serial mainboards from your main design workstation.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-brand-300 font-mono">
-            <span>Klipper / Mainsail</span>
-            <span>USB Audio / Video</span>
-          </div>
+        <div class="p-4 rounded panel-surface">
+          <div class="text-slate-500 uppercase">Android / Android TV</div>
+          <div class="text-white font-bold mt-1">Rootless Kotlin + UsbManager</div>
+          <div class="text-slate-400 mt-1">URB Engine + D-Pad TV Navigation</div>
         </div>
-
-        <!-- Case 5: HomeLab & License Keys -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div>
-            <div class="w-10 h-10 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center mb-4">
-              <i data-lucide="key" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2" data-i18n="case_homelab_title">HomeLab & Security Dongles</h3>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed" data-i18n="case_homelab_desc">
-              Pass hardware security tokens (YubiKey), license dongles (AutoCAD, iLok, eToken), and Zigbee/Z-Wave coordinators into Proxmox VMs or remote workstations securely.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-brand-300 font-mono">
-            <span>Mesh VPN Routing</span>
-            <span>Encrypted Tunnel</span>
-          </div>
-        </div>
-
-        <!-- Case 6: Remote Workshop & VPN -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between">
-          <div>
-            <div class="w-10 h-10 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center mb-4">
-              <i data-lucide="shield-alert" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-xl font-bold text-white mb-2" data-i18n="case_vpn_title">Detached Garage & VPN</h3>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed" data-i18n="case_vpn_desc">
-              Machine in an outdoor shed or separate garage? Connect with Tailscale or WireGuard natively. Zero router port forwarding, 100% encrypted peer-to-peer connection.
-            </p>
-          </div>
-          <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-brand-300 font-mono">
-            <span>Tailscale / WireGuard</span>
-            <span>Zero Port-Forwarding</span>
-          </div>
-        </div>
-
       </div>
     </div>
   </section>
 
-  <!-- ================= COMPARISON TABLE ================= -->
-  <section id="comparison" class="py-24 border-t border-slate-900">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div class="text-center mb-16">
-        <span class="text-accent-emerald font-mono text-xs uppercase tracking-widest font-semibold" data-i18n="compare_badge">Honest Comparison</span>
-        <h2 class="text-3xl sm:text-5xl font-extrabold mt-2 text-white" data-i18n="compare_title">Why Switch to USBAnywhere?</h2>
-        <p class="text-slate-400 mt-4 max-w-2xl mx-auto" data-i18n="compare_desc">
-          See how USBAnywhere compares to legacy proprietary solutions in performance, licensing, and architecture.
-        </p>
-      </div>
-
-      <div class="rounded-2xl border border-slate-800 bg-slate-900/60 overflow-hidden shadow-2xl">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="border-b border-slate-800 bg-slate-950/80 text-xs font-mono uppercase tracking-wider text-slate-400">
-                <th class="py-4 px-6">Feature</th>
-                <th class="py-4 px-6 text-brand-400 font-bold bg-brand-950/30">USBAnywhere v3.4.0</th>
-                <th class="py-4 px-6">VirtualHere</th>
-                <th class="py-4 px-6">FlexiHub</th>
-                <th class="py-4 px-6">USB Network Gate</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800/60 text-slate-300">
-              <tr>
-                <td class="py-4 px-6 font-semibold">Pricing &amp; Licensing</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">100% Free (GPL-3.0 Open Source)</td>
-                <td class="py-4 px-6 text-slate-400">$49.00 USD / Server</td>
-                <td class="py-4 px-6 text-slate-400">~$15–$30+ / mo SaaS</td>
-                <td class="py-4 px-6 text-slate-400">$159.00+ USD</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Simultaneous Devices</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">♾️ Unlimited Concurrent</td>
-                <td class="py-4 px-6 text-amber-400">⚠️ 1 Device Only</td>
-                <td class="py-4 px-6 text-red-400">❌ 20-min Trial</td>
-                <td class="py-4 px-6 text-red-400">❌ Expired Trial</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Account &amp; Cloud Privacy</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ 100% Offline / Zero Account</td>
-                <td class="py-4 px-6 text-slate-300">✅ Local License</td>
-                <td class="py-4 px-6 text-red-400">❌ Cloud Account Required</td>
-                <td class="py-4 px-6 text-slate-300">✅ Offline License</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Windows 10/11 Drivers</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Microsoft WHQL Certified</td>
-                <td class="py-4 px-6 text-slate-300">✅ Signed Driver</td>
-                <td class="py-4 px-6 text-slate-300">✅ Signed Driver</td>
-                <td class="py-4 px-6 text-slate-300">✅ Signed Driver</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Windows Kernel Communication</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Direct Kernel IOCTL + Push Events</td>
-                <td class="py-4 px-6 text-slate-300">✅ Native Driver</td>
-                <td class="py-4 px-6 text-slate-400">⚙️ Proprietary Daemon</td>
-                <td class="py-4 px-6 text-slate-400">⚙️ Proprietary Daemon</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Linux Client (`vhci_hcd`)</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Native CLI + TCP 3241 On-Demand Bind</td>
-                <td class="py-4 px-6 text-slate-300">✅ Proprietary Binary</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ Closed SaaS Binary</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ Paid Add-on</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Android / Android TV Server</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Rootless APK (Gamepad, KB &amp; String Fallback)</td>
-                <td class="py-4 px-6 text-slate-300">⚠️ Paid Server</td>
-                <td class="py-4 px-6 text-amber-400">⚠️ SaaS Android App</td>
-                <td class="py-4 px-6 text-red-400">❌ None</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Core Isolation / HVCI</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ 100% Compatible (Memory Integrity)</td>
-                <td class="py-4 px-6 text-slate-300">✅ Supported</td>
-                <td class="py-4 px-6 text-slate-300">✅ Supported</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ Varies</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Network Engines</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">⚡ Dual: Low-Latency WSK & Zero-Copy</td>
-                <td class="py-4 px-6 text-slate-400">⚙️ Generic</td>
-                <td class="py-4 px-6 text-slate-400">⚙️ Cloud Relay</td>
-                <td class="py-4 px-6 text-slate-400">⚙️ Generic</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Global Hotkey &amp; Headless CLI</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Ctrl+Alt+D &amp; --disconnect-all / --quit</td>
-                <td class="py-4 px-6 text-slate-400">❌ GUI / Basic CLI</td>
-                <td class="py-4 px-6 text-slate-400">❌ Closed GUI</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ Paid SDK</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Latency Monitoring</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Live Real-Time [ms] Ping</td>
-                <td class="py-4 px-6 text-slate-400">❌ None</td>
-                <td class="py-4 px-6 text-slate-400">❌ None</td>
-                <td class="py-4 px-6 text-slate-400">❌ None</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Linux Server Setup</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ 1-Line Curl + udev Auto-Bind</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ Manual Config</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ SaaS Daemon</td>
-                <td class="py-4 px-6 text-slate-400">❌ Proprietary Package</td>
-              </tr>
-              <tr>
-                <td class="py-4 px-6 font-semibold">Mesh VPN Integration</td>
-                <td class="py-4 px-6 text-accent-emerald font-bold bg-brand-950/20">✅ Built-in Tailscale / WireGuard</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ Manual Setup</td>
-                <td class="py-4 px-6 text-slate-400">⚠️ Cloud Relay</td>
-                <td class="py-4 px-6 text-slate-400">❌ Manual Setup</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ================= VIDEO MASTERCLASSES ================= -->
-  <section id="videos" class="py-24 border-t border-slate-900 bg-slate-950/80">
+  <!-- DEPLOYMENT COMMANDS -->
+  <section id="deployment" class="py-16 border-b border-chassis-700 bg-chassis-950">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div class="text-center mb-16">
-        <span class="text-brand-400 font-mono text-xs uppercase tracking-widest font-semibold" data-i18n="video_badge">Step-by-Step Guides</span>
-        <h2 class="text-3xl sm:text-5xl font-extrabold mt-2 text-white" data-i18n="video_title">Official Video Masterclasses</h2>
-        <p class="text-slate-400 mt-4 max-w-2xl mx-auto" data-i18n="video_desc">
-          Watch our in-depth video tutorials covering full setup, gaming streaming, and remote workshop workflows.
-        </p>
+      <div class="mb-8">
+        <span class="text-xs font-mono uppercase tracking-widest text-signal-amber" data-i18n="sec_dep_tag">03 // LINUX &amp; SBC DEPLOYMENT</span>
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1" data-i18n="sec_dep_title">Headless Server Installation (Raspberry Pi / Orange Pi / Ubuntu)</h2>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        <!-- Video 1: Masterclass Tutorial -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex flex-col justify-between">
-          <div class="relative aspect-video bg-black">
-            <iframe class="w-full h-full" src="https://www.youtube-nocookie.com/embed/gKoUBd5_lj8" title="USBAnywhere: Full Masterclass Tutorial" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-          </div>
-          <div class="p-6">
-            <span class="text-xs uppercase font-mono tracking-wider text-brand-400 font-bold">General Masterclass</span>
-            <h3 class="text-xl font-bold text-white mt-1">USBAnywhere: The FREE VirtualHere Alternative (Full Masterclass Tutorial)</h3>
-            <p class="text-xs text-slate-400 mt-2">
-              Complete walkthrough covering 1-click Linux server install, Microsoft WHQL driver verification, autodiscovery, latency tuning, and Moonlight gaming setup.
-            </p>
-            <div class="mt-4 flex items-center justify-between text-xs">
-              <span class="text-slate-500">Audio: English & Spanish</span>
-              <a href="https://www.youtube.com/watch?v=gKoUBd5_lj8" target="_blank" rel="noopener" class="text-brand-400 hover:underline flex items-center gap-1 font-semibold">
-                <span>Watch on YouTube</span>
-                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <!-- Video 2: Diode Laser & LightBurn -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-2xl flex flex-col justify-between">
-          <div class="relative aspect-video bg-black">
-            <iframe class="w-full h-full" src="https://www.youtube-nocookie.com/embed/lyqBBE8xdFQ" title="Connect Diode Laser & Camera to LightBurn Wirelessly" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-          </div>
-          <div class="p-6">
-            <span class="text-xs uppercase font-mono tracking-wider text-orange-400 font-bold">Specialized Tutorial</span>
-            <h3 class="text-xl font-bold text-white mt-1">Diode Laser & Overhead Camera Setup in LightBurn (Wi-Fi & VPN)</h3>
-            <p class="text-xs text-slate-400 mt-2">
-              How to operate diode lasers (Sculpfun, xTool, Atomstack, Ortur) and USB alignment cameras concurrently without 10m USB cables across your floor.
-            </p>
-            <div class="mt-4 flex items-center justify-between text-xs">
-              <span class="text-slate-500">Also in Spanish: <a href="https://www.youtube.com/watch?v=xz9jhgLx3pc" target="_blank" rel="noopener" class="text-brand-300 underline">xz9jhgLx3pc</a></span>
-              <a href="https://www.youtube.com/watch?v=lyqBBE8xdFQ" target="_blank" rel="noopener" class="text-brand-400 hover:underline flex items-center gap-1 font-semibold">
-                <span>Watch on YouTube</span>
-                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-              </a>
-            </div>
-          </div>
-        </div>
-
+      <div class="rounded border border-chassis-700 bg-chassis-900 p-5 font-mono text-xs text-slate-300 overflow-x-auto space-y-2">
+        <div class="text-slate-500"># One-line bootstrap: installs usbip, vhci-hcd, udev hotplug &amp; systemd Control API (TCP 3240/3241)</div>
+        <div><span class="text-signal-amber">curl -fsSL</span> https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | <span class="text-signal-amber">sudo bash</span></div>
+        <div class="text-slate-500 pt-2"># Or check remote hosts / connect directly from Linux CLI:</div>
+        <div><span class="text-signal-amber">usbanywhere-ctl</span> scan &amp;&amp; <span class="text-signal-amber">sudo usbanywhere-ctl</span> connect &lt;ip&gt; &lt;busid&gt;</div>
       </div>
-
     </div>
   </section>
 
-  <!-- ================= DOWNLOAD HUB ================= -->
-  <section id="download" class="py-24 border-t border-slate-900 relative">
+  <!-- COMPARISON MATRIX -->
+  <section id="matrix" class="py-16 border-b border-chassis-700 bg-chassis-900/40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <div class="text-center mb-16">
-        <span class="text-accent-emerald font-mono text-xs uppercase tracking-widest font-semibold" data-i18n="dl_badge">Official Releases</span>
-        <h2 class="text-3xl sm:text-5xl font-extrabold mt-2 text-white" data-i18n="dl_title">Download USBAnywhere v3.4.0</h2>
-        <p class="text-slate-400 mt-4 max-w-2xl mx-auto" data-i18n="dl_desc">
-          Official packages include SHA-256 checksums and Sigstore provenance attestations. Compatible with Windows 10 & 11, Linux (Client & Server), macOS, and Android / Android TV.
-        </p>
+      <div class="mb-8">
+        <span class="text-xs font-mono uppercase tracking-widest text-signal-amber" data-i18n="sec_cmp_tag">04 // BENCHMARK COMPARISON</span>
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1" data-i18n="sec_cmp_title">USBAnywhere vs Commercial Alternatives</h2>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-        
-        <!-- Package 1: Windows Installer -->
-        <div class="p-6 rounded-2xl glass-panel border border-brand-500/40 relative glow-cyan flex flex-col justify-between">
-          <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px] tracking-wider uppercase font-mono">
-            Recommended
-          </div>
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center mb-4">
-              <i data-lucide="shield-check" class="w-6 h-6"></i>
-            </div>
-            <h3 class="text-base font-bold text-white">Windows Client Setup</h3>
-            <p class="text-xs text-slate-400 mt-1">Windows 10 & 11 x64 installer with Microsoft WHQL-certified UDE drivers.</p>
-            <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere_Setup_v3.4.0.exe</div>
-          </div>
-          <div class="mt-6">
-            <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.4.0/USBAnywhere_Setup_v3.4.0.exe" class="w-full py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
-              <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Download (.exe)</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Package 2: Portable x64 -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 flex flex-col justify-between">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center mb-4">
-              <i data-lucide="archive" class="w-6 h-6"></i>
-            </div>
-            <h3 class="text-base font-bold text-white">Portable Suite (x64)</h3>
-            <p class="text-xs text-slate-400 mt-1">Zero-install standalone Client + Server package. Extract and run directly.</p>
-            <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-v3.4.0-x64.zip</div>
-          </div>
-          <div class="mt-6">
-            <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.4.0/USBAnywhere-v3.4.0-x64.zip" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
-              <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Download (.zip)</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Package 3: Linux Client & Server -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 flex flex-col justify-between">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center mb-4">
-              <i data-lucide="terminal" class="w-6 h-6"></i>
-            </div>
-            <h3 class="text-base font-bold text-white">Linux Client & Server</h3>
-            <p class="text-xs text-slate-400 mt-1">Universal Linux Client (vhci_hcd + TCP 3241) & Server suite for SteamOS, Ubuntu, Debian, Arch.</p>
-            <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Linux-v3.3.0.tar.gz</div>
-          </div>
-          <div class="mt-6">
-            <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/USBAnywhere-Linux-v3.3.0.tar.gz" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
-              <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Download (.tar.gz)</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Package 4: Windows Server -->
-        <div class="p-6 rounded-2xl glass-panel border border-slate-800 hover:border-slate-700 flex flex-col justify-between">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
-              <i data-lucide="server" class="w-6 h-6"></i>
-            </div>
-            <h3 class="text-base font-bold text-white">Windows & macOS Server</h3>
-            <p class="text-xs text-slate-400 mt-1">Share USB devices from any Windows PC (.NET 9 GUI) or Apple Silicon / Intel Mac.</p>
-            <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Server_Setup_v3.3.2.exe</div>
-          </div>
-          <div class="mt-6">
-            <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.2/USBAnywhere-Server_Setup_v3.3.2.exe" target="_blank" rel="noopener" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
-              <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Download Server</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Package 5: Android & Android TV -->
-        <div class="p-6 rounded-2xl glass-panel border border-teal-500/30 hover:border-teal-500/60 flex flex-col justify-between">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center mb-4">
-              <i data-lucide="tv" class="w-6 h-6"></i>
-            </div>
-            <h3 class="text-base font-bold text-white">Android & TV</h3>
-            <p class="text-xs text-slate-400 mt-1">Rootless USB/IP engine for Android TV, Nvidia Shield & phones with full D-Pad & keyboard support.</p>
-            <div class="mt-4 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Android-v3.3.1.apk</div>
-          </div>
-          <div class="mt-6">
-            <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android/releases/download/v3.3.1/USBAnywhere-Android-v3.3.1.apk" target="_blank" rel="noopener" class="w-full py-2.5 rounded-xl glass-panel hover:bg-slate-800 text-teal-300 border border-teal-600/50 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
-              <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Download APK</span>
-            </a>
-          </div>
-        </div>
-
+      <div class="overflow-x-auto rounded border border-chassis-700 bg-chassis-900">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-chassis-700 bg-chassis-850 font-mono uppercase text-slate-400">
+              <th class="py-3.5 px-4" data-i18n="tbl_feature">Capability</th>
+              <th class="py-3.5 px-4 text-signal-amber bg-chassis-800">USBAnywhere v3.4.0</th>
+              <th class="py-3.5 px-4">VirtualHere</th>
+              <th class="py-3.5 px-4">FlexiHub</th>
+              <th class="py-3.5 px-4">USB Network Gate</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-chassis-700/70">
+            <tr>
+              <td class="py-3 px-4 font-medium text-white" data-i18n="row_price">License &amp; Device Limit</td>
+              <td class="py-3 px-4 font-mono text-signal-emerald bg-chassis-800/40">100% Free (GPL-3.0) • Unlimited</td>
+              <td class="py-3 px-4 text-slate-400">$49+ / server</td>
+              <td class="py-3 px-4 text-slate-400">$168+/yr subscription</td>
+              <td class="py-3 px-4 text-slate-400">$159+ / license</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-medium text-white" data-i18n="row_vhci">Windows Driver Transport</td>
+              <td class="py-3 px-4 font-mono text-white bg-chassis-800/40">Direct IOCTL + WSK (WHQL)</td>
+              <td class="py-3 px-4 text-slate-400">Proprietary kernel driver</td>
+              <td class="py-3 px-4 text-slate-400">Proprietary + Cloud relay</td>
+              <td class="py-3 px-4 text-slate-400">Proprietary kernel driver</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-medium text-white" data-i18n="row_ctrl">On-Demand Bind / Unbind API</td>
+              <td class="py-3 px-4 font-mono text-signal-emerald bg-chassis-800/40">UDP/TCP 3241 Included</td>
+              <td class="py-3 px-4 text-slate-400">Built-in</td>
+              <td class="py-3 px-4 text-slate-400">Account-gated</td>
+              <td class="py-3 px-4 text-slate-400">Built-in</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-medium text-white" data-i18n="row_platforms">Platforms</td>
+              <td class="py-3 px-4 font-mono text-white bg-chassis-800/40">Win (x64/ARM64), Linux, macOS, Android</td>
+              <td class="py-3 px-4 text-slate-400">Win, Linux, macOS, Android</td>
+              <td class="py-3 px-4 text-slate-400">Win, Linux, macOS, Android</td>
+              <td class="py-3 px-4 text-slate-400">Win, Linux, macOS, Android</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      <!-- Release Checksums Box -->
-      <div class="mt-12 p-6 rounded-xl border border-slate-800/80 bg-slate-900/50 text-center">
-        <span class="text-xs text-slate-400" data-i18n="sha_notice">SHA-256 checksums for each package are available with its release.</span>
-        <div class="mt-2 flex items-center justify-center gap-4 text-xs font-mono">
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0" target="_blank" rel="noopener" class="text-brand-400 hover:underline">All v3.4.0 Downloads</a>
-          <span class="text-slate-600">•</span>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.4.0/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-slate-400 hover:underline">SHA256SUMS.txt</a>
-          <span class="text-slate-600">•</span>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.0/USBAnywhere-Server-macOS-v3.3.0.tar.gz" target="_blank" rel="noopener" class="text-slate-400 hover:underline">macOS Server (.tar.gz)</a>
-        </div>
-      </div>
-
     </div>
   </section>
 
-  <!-- ================= COMMUNITY CALLOUT ================= -->
-  <section class="py-16 border-t border-slate-900 bg-gradient-to-b from-slate-950 to-slate-900">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <div class="w-14 h-14 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center mx-auto mb-4 border border-orange-500/30">
-        <i data-lucide="message-square" class="w-7 h-7"></i>
+  <!-- DOWNLOADS -->
+  <section id="downloads" class="py-16 border-b border-chassis-700 bg-chassis-950">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="mb-10">
+        <span class="text-xs font-mono uppercase tracking-widest text-signal-amber" data-i18n="sec_dl_tag">05 // OFFICIAL RELEASE BINARIES</span>
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1" data-i18n="sec_dl_title">USBAnywhere v3.4.0 Artifacts</h2>
       </div>
-      <h2 class="text-2xl sm:text-4xl font-extrabold text-white" data-i18n="community_title">Join the Official r/UsbAnywhere Community</h2>
-      <p class="text-slate-400 mt-3 text-sm sm:text-base max-w-xl mx-auto" data-i18n="community_desc">
-        Share your setups, ask troubleshooting questions, post benchmark latencies, and request new features with makers and gamers worldwide.
-      </p>
-      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <a href="https://www.reddit.com/r/UsbAnywhere/" target="_blank" rel="noopener" class="px-7 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-orange-600/25">
-          <i data-lucide="message-square" class="w-4 h-4"></i>
-          <span>r/UsbAnywhere</span>
-        </a>
-        <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="px-7 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-rose-600/25">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+        <div class="p-5 rounded panel-surface flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-mono text-signal-amber uppercase">Windows Client</div>
+            <h3 class="text-base font-bold text-white mt-1">Setup Installer (x64)</h3>
+            <p class="text-xs text-slate-400 mt-1">Includes WHQL usbip2_ude / usbip2_filter drivers and native IOCTL client.</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere_Setup_v3.4.0.exe</div>
+          </div>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.4.0/USBAnywhere_Setup_v3.4.0.exe" class="mt-5 py-2 px-3 rounded bg-signal-amber hover:bg-amber-400 text-chassis-950 font-mono font-bold text-xs uppercase text-center transition-colors">
+            Download .exe
+          </a>
+        </div>
+
+        <div class="p-5 rounded panel-surface flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-mono text-slate-400 uppercase">Windows Client</div>
+            <h3 class="text-base font-bold text-white mt-1">Portable Package (x64)</h3>
+            <p class="text-xs text-slate-400 mt-1">Zero-install portable archive for field technicians and USB maintenance drives.</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-v3.4.0-x64.zip</div>
+          </div>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.4.0/USBAnywhere-v3.4.0-x64.zip" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
+            Download .zip
+          </a>
+        </div>
+
+        <div class="p-5 rounded panel-surface flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-mono text-signal-emerald uppercase">Windows Server</div>
+            <h3 class="text-base font-bold text-white mt-1">Server Setup v3.3.2</h3>
+            <p class="text-xs text-slate-400 mt-1">Single-file WPF host GUI, bundled usbipd-win, and TCP/UDP 3241 responder.</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Server_Setup_v3.3.2.exe</div>
+          </div>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.2/USBAnywhere-Server_Setup_v3.3.2.exe" target="_blank" rel="noopener" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-signal-emerald/50 text-signal-emerald font-mono font-bold text-xs uppercase text-center transition-colors">
+            Download Server
+          </a>
+        </div>
+
+        <div class="p-5 rounded panel-surface flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-mono text-slate-400 uppercase">Linux Client</div>
+            <h3 class="text-base font-bold text-white mt-1">Linux Bundle v3.3.0</h3>
+            <p class="text-xs text-slate-400 mt-1">Linux Client &amp; CLI bundle (<code class="font-mono text-slate-300">vhci_hcd</code> + <code class="font-mono text-slate-300">usbanywhere-ctl</code>).</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Linux-v3.3.0.tar.gz</div>
+          </div>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/USBAnywhere-Linux-v3.3.0.tar.gz" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
+            Download .tar.gz
+          </a>
+        </div>
+
+        <div class="p-5 rounded panel-surface flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-mono text-slate-400 uppercase">Android &amp; TV</div>
+            <h3 class="text-base font-bold text-white mt-1">Android APK v3.3.1</h3>
+            <p class="text-xs text-slate-400 mt-1">Rootless USB host/client app with full Android TV D-Pad navigation.</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Android-v3.3.1.apk</div>
+          </div>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android/releases/download/v3.3.1/USBAnywhere-Android-v3.3.1.apk" target="_blank" rel="noopener" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
+            Download .apk
+          </a>
+        </div>
+      </div>
+
+      <div class="mt-8 p-4 rounded panel-surface flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
+        <div class="flex flex-wrap items-center gap-4 text-slate-400">
+          <span>SHA-256: <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.4.0/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-signal-amber hover:underline">SHA256SUMS.txt</a></span>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.0/USBAnywhere-Server-macOS-v3.3.0.tar.gz" target="_blank" rel="noopener" class="text-slate-300 hover:underline">macOS Server (.tar.gz)</a>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0" target="_blank" rel="noopener" class="text-slate-300 hover:underline">All v3.4.0 Assets</a>
+        </div>
+        <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase tracking-wider transition-colors">
           <i data-lucide="coffee" class="w-4 h-4"></i>
-          <span data-i18n="btn_kofi">Support on Ko-fi</span>
-        </a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere/issues" target="_blank" rel="noopener" class="px-6 py-3 rounded-xl glass-panel hover:bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-700 transition-all flex items-center gap-2">
-          <i data-lucide="bug" class="w-4 h-4 text-slate-400"></i>
-          <span>Report an Issue</span>
+          <span>Support Project on Ko-fi</span>
         </a>
       </div>
     </div>
   </section>
 
-  <!-- ================= FOOTER ================= -->
-  <footer class="border-t border-slate-900 bg-slate-950 py-12 text-slate-500 text-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
-      
-      <div class="flex items-center gap-3">
-        <div class="w-6 h-6 rounded-lg bg-brand-500 flex items-center justify-center text-slate-950 font-bold text-xs">
-          🌐
-        </div>
-        <span class="text-slate-400 font-semibold">USBAnywhere v3.4.0</span>
-        <span>•</span>
-        <span data-i18n="footer_license">GPLv3 Open Source</span>
+  <!-- FOOTER -->
+  <footer class="py-8 bg-chassis-950 text-xs font-mono text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>USBAnywhere v3.4.0 — GPL-3.0 Open Source Hardware Transport</div>
+      <div class="flex items-center gap-5">
+        <a href="https://github.com/oscarlosu-lab/USBAnywhere" target="_blank" rel="noopener" class="hover:text-white">GitHub</a>
+        <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases" target="_blank" rel="noopener" class="hover:text-white">Releases</a>
+        <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="text-rose-400 hover:text-rose-300">Ko-fi</a>
       </div>
-
-      <div class="flex flex-wrap items-center gap-6">
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere/blob/main/docs/USAGE_EN.md" class="hover:text-slate-300 transition-colors">Documentation</a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere/blob/main/docs/VPN_INTERNET_EN.md" class="hover:text-slate-300 transition-colors">VPN Guide</a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere" class="hover:text-slate-300 transition-colors">Client Repo</a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server" class="hover:text-slate-300 transition-colors">Server Suite</a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android" class="hover:text-slate-300 transition-colors">Android Suite</a>
-        <a href="https://www.reddit.com/r/UsbAnywhere/" class="hover:text-slate-300 transition-colors">Reddit</a>
-        <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="hover:text-rose-400 text-rose-400/90 font-semibold transition-colors flex items-center gap-1.5"><i data-lucide="coffee" class="w-3.5 h-3.5 text-rose-400"></i> Ko-fi</a>
-        <a href="https://github.com/oscarlosu-lab/USBAnywhere/blob/main/LICENSE" class="hover:text-slate-300 transition-colors">License</a>
-      </div>
-
-      <div class="text-slate-600">
-        &copy; 2026 USBAnywhere Open Source Ecosystem.
-      </div>
-
     </div>
   </footer>
 
-  <!-- ================= CLIENT REACTIVE JS (I18N & CLIPBOARD) ================= -->
   <script>
-    // Initialize Lucide Icons
     lucide.createIcons();
 
-    // 1-Click Copy Terminal Button
-    const copyCurlBtn = document.getElementById('copy-curl-btn');
-    const copyCurlLabel = document.getElementById('copy-curl-label');
-    const curlCommand = "curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | sudo bash";
-
-    copyCurlBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(curlCommand);
-        copyCurlLabel.textContent = currentLang === 'es' ? '¡Copiado!' : 'Copied!';
-        copyCurlBtn.classList.add('bg-accent-emerald/20', 'text-accent-emerald');
-        setTimeout(() => {
-          copyCurlLabel.textContent = currentLang === 'es' ? 'Copiar Comando' : 'Copy Command';
-          copyCurlBtn.classList.remove('bg-accent-emerald/20', 'text-accent-emerald');
-        }, 2500);
-      } catch (err) {
-        console.error('Copy failed', err);
-      }
-    });
-
-    // Bilingual I18n Engine
-    let currentLang = 'en';
-    const translations = {
+    const i18n = {
       en: {
-        nav_features: "Features",
-        nav_architecture: "Architecture",
-        nav_use_cases: "Use Cases",
-        nav_server: "Server Setup",
-        nav_compare: "Comparison",
-        nav_videos: "Masterclasses",
-        nav_downloads: "Downloads",
-        btn_get_usbanywhere: "Get v3.4.0",
-        hero_pill: "v3.4.0 WHQL Certified • Windows & Linux Client • 100% Free",
-        hero_title_1: "Next-Generation",
-        hero_title_2: "USB over Network",
-        hero_subtitle: "Stream game controllers, SimRacing wheels, diode lasers, and 3D printer webcams over Wi-Fi, Ethernet, or VPN. Zero licensing fees, zero artificial device limits, and Microsoft WHQL certified drivers.",
-        hero_btn_win: "Download Windows Client",
-        hero_btn_linux: "1-Click Linux Server",
-        trust_whql: "Microsoft WHQL Certified",
-        trust_arch: "x64 & ARM64 Native",
-        trust_wsk: "Low-Latency WSK Engine",
-        trust_vpn: "Tailscale & WireGuard Ready",
-        server_badge: "Zero-Config Server",
-        server_title: "Turn any Raspberry Pi or Linux box into a USB Hub",
-        server_desc: "Run our automated script on your Raspberry Pi (3B/4/5), Orange Pi, Debian, or Ubuntu server. Installs kernel modules, systemd daemon, and smart udev hotplug auto-exporting.",
-        copy_cmd: "Copy Command",
-        feat_hotplug_title: "udev Hotplug Auto-Export",
-        feat_hotplug_desc: "Plug or unplug any device anytime. Exported automatically with zero manual binding commands.",
-        feat_sbc_title: "Raspberry Pi & SBC Optimized",
-        feat_sbc_desc: "Runs 24/7 on Raspberry Pi 3B/4/5, Orange Pi, Armbian, Mini-PCs, consuming under 5W.",
-        feat_win_server_title: "Windows Server Available",
-        feat_win_server_desc: "Prefer sharing from a Windows PC? Download the standalone .NET 9.0 USBAnywhere Server GUI.",
-        arch_badge: "Engine Technology",
-        arch_title: "Dual-Engine Network Architecture",
-        arch_desc: "One size does not fit all. USBAnywhere allows configuring independent network engines per device for maximum responsiveness or peak bandwidth.",
-        wsk_desc: "Utilizes direct Windows Sockets Kernel (WSK) completion callbacks to bypass user-mode buffering. Virtually eliminates packet jitter for critical real-time devices.",
-        zerocopy_desc: "Direct buffer mapping eliminates CPU memory copying between network packets and USB endpoints, unlocking the maximum network pipeline bandwidth for heavy streams.",
-        cases_badge: "Real-World Applications",
-        cases_title: "Built for the Makers & Gamers",
-        cases_desc: "See how enthusiasts and professionals use USBAnywhere every day without cable drops or device paywalls.",
-        case_gaming_title: "Cloud Gaming & Moonlight",
-        case_gaming_desc: "Pass DualSense / Xbox controllers, custom steering wheels, and wireless headset dongles from your living room Raspberry Pi directly to your gaming PC with full haptic rumble and adaptive triggers.",
-        case_laser_title: "Diode Laser & LightBurn",
-        case_laser_desc: "Connect your laser engraver (Sculpfun, xTool, Atomstack, Ortur) and overhead USB camera simultaneously over Wi-Fi or VPN. Zero mid-burn disconnects from long cables.",
-        case_sim_title: "SimRacing & Flight Simulators",
-        case_sim_desc: "Direct-drive steering wheel bases, load-cell pedals, H-pattern shifters, and button boxes attached simultaneously over network without hitting single-device limits.",
-        case_3d_title: "3D Printing & OctoPrint",
-        case_3d_desc: "Manage ADXL345 input shaping accelerometers, multi-angle monitoring webcams, and printer serial mainboards from your main design workstation.",
-        case_homelab_title: "HomeLab & Security Dongles",
-        case_homelab_desc: "Pass hardware security tokens (YubiKey), license dongles (AutoCAD, iLok, eToken), and Zigbee/Z-Wave coordinators into Proxmox VMs or remote workstations securely.",
-        case_vpn_title: "Detached Garage & VPN",
-        case_vpn_desc: "Machine in an outdoor shed or separate garage? Connect with Tailscale or WireGuard natively. Zero router port forwarding, 100% encrypted peer-to-peer connection.",
-        compare_badge: "Honest Comparison",
-        compare_title: "Why Switch to USBAnywhere?",
-        compare_desc: "See how USBAnywhere compares to legacy proprietary solutions in performance, licensing, and architecture.",
-        video_badge: "Step-by-Step Guides",
-        video_title: "Official Video Masterclasses",
-        video_desc: "Watch our in-depth video tutorials covering full setup, gaming streaming, and remote workshop workflows.",
-        dl_badge: "Official Releases",
-        dl_title: "Download USBAnywhere v3.4.0",
-        dl_desc: "Official packages include SHA-256 checksums and Sigstore provenance attestations. Compatible with Windows 10 & 11, Linux (Client & Server), macOS, and Android / Android TV.",
-        sha_notice: "SHA-256 checksums for each package are available with its release.",
-        community_title: "Join the Official r/UsbAnywhere Community",
-        community_desc: "Share your setups, ask troubleshooting questions, post benchmark latencies, and request new features with makers and gamers worldwide.",
-        btn_kofi: "Support on Ko-fi",
-        footer_license: "GPL-3.0 Open Source"
+        nav_arch: "Architecture",
+        nav_specs: "Specifications",
+        nav_deploy: "Deployment",
+        nav_matrix: "Comparison",
+        nav_downloads: "Binaries",
+        btn_download_nav: "Download v3.4.0",
+        hero_status: "PRODUCTION BUILD v3.4.0 • DIRECT KERNEL IOCTL TRANSPORT",
+        hero_title: "Deterministic USB/IP Transport for Engineering, Lab & Industrial Hosts.",
+        hero_desc: "USBAnywhere exposes remote USB hardware over standard TCP/IP and VPN links as native local bus devices. Built around a direct C#/.NET 9 Windows VHCI IOCTL engine (zero child-process spawning overhead), WHQL-signed drivers, and an on-demand TCP/3241 control plane.",
+        hero_cta_primary: "Get Windows, Linux & Android Binaries",
+        hero_cta_secondary: "Linux Server Bootstrap",
+        stat_engine_lbl: "Windows Engine",
+        stat_ports_lbl: "Control / Data",
+        stat_devices_lbl: "Device Cap",
+        stat_devices_val: "Unlimited",
+        stat_license_lbl: "Licensing",
+        sec_arch_tag: "01 // SYSTEM ARCHITECTURE",
+        sec_arch_title: "Engineered for Reliability Under Load",
+        card1_title: "Direct Windows VHCI IOCTL",
+        card1_desc: "Communicates directly with the WHQL-signed usbip2_ude kernel device handle via Win32 DeviceIoControl, eliminating process-spawn overhead and stdout regex parsing.",
+        card2_title: "On-Demand TCP/UDP 3241",
+        card2_desc: "Automatic LAN/VPN server discovery on UDP 3241 and serialized per-busid LIST / BIND / UNBIND / STATUS control over TCP 3241 with immediate host release on client detach.",
+        card3_title: "High-Throughput & SBC Ready",
+        card3_desc: "Includes Linux usbip-host and RPi/OrangePi dwc2 kernel patches for composite endpoints, isochronous audio/video, CNC/laser controllers, and DualSense HID polling.",
+        sec_spec_tag: "02 // TECHNICAL SPECIFICATIONS",
+        sec_spec_title: "Runtime & Protocol Matrix",
+        sec_dep_tag: "03 // LINUX & SBC DEPLOYMENT",
+        sec_dep_title: "Headless Server Installation (Raspberry Pi / Orange Pi / Ubuntu)",
+        sec_cmp_tag: "04 // BENCHMARK COMPARISON",
+        sec_cmp_title: "USBAnywhere vs Commercial Alternatives",
+        tbl_feature: "Capability",
+        row_price: "License & Device Limit",
+        row_vhci: "Windows Driver Transport",
+        row_ctrl: "On-Demand Bind / Unbind API",
+        row_platforms: "Platforms",
+        sec_dl_tag: "05 // OFFICIAL RELEASE BINARIES",
+        sec_dl_title: "USBAnywhere v3.4.0 Artifacts"
       },
       es: {
-        nav_features: "Características",
-        nav_architecture: "Arquitectura",
-        nav_use_cases: "Casos de Uso",
-        nav_server: "Servidor",
-        nav_compare: "Comparativa",
-        nav_videos: "Masterclasses",
-        nav_downloads: "Descargas",
-        btn_get_usbanywhere: "Descargar v3.4.0",
-        hero_pill: "v3.4.0 Certificado WHQL • Cliente Windows y Linux • 100% Gratuito",
-        hero_title_1: "USB por Red de",
-        hero_title_2: "Nueva Generación",
-        hero_subtitle: "Conecta mandos, volantes SimRacing, láseres diodo y cámaras de impresión 3D por Wi-Fi, Ethernet o VPN. Cero costes de licencia, sin límites de dispositivos y drivers oficiales certificados por Microsoft WHQL.",
-        hero_btn_win: "Descargar Cliente Windows",
-        hero_btn_linux: "Servidor Linux en 1-Click",
-        trust_whql: "Certificado Microsoft WHQL",
-        trust_arch: "Nativo x64 y ARM64",
-        trust_wsk: "Motor Low-Latency WSK",
-        trust_vpn: "Compatible Tailscale y WireGuard",
-        server_badge: "Servidor Cero-Configuración",
-        server_title: "Convierte cualquier Raspberry Pi o Linux en Hub USB",
-        server_desc: "Ejecuta nuestro instalador en tu Raspberry Pi (3B/4/5), Orange Pi, Debian o Ubuntu. Configura módulos del kernel, demonio systemd y reglas udev de exportación automática.",
-        copy_cmd: "Copiar Comando",
-        feat_hotplug_title: "Auto-Exportación udev Hotplug",
-        feat_hotplug_desc: "Conecta o desconecta cualquier periférico cuando quieras: se comparte solo al instante sin comandos manuales.",
-        feat_sbc_title: "Optimizado para SBCs",
-        feat_sbc_desc: "Funciona 24/7 en Raspberry Pi 3B/4/5, Orange Pi o Mini-PCs con un consumo inferior a 5W.",
-        feat_win_server_title: "Servidor Windows Disponible",
-        feat_win_server_desc: "¿Prefieres compartir desde un PC con Windows? Descarga el servidor gráfico USBAnywhere Server en .NET 9.0.",
-        arch_badge: "Tecnología de Red",
-        arch_title: "Arquitectura de Doble Motor",
-        arch_desc: "Cada dispositivo tiene necesidades distintas. USBAnywhere permite asignar motores de red independientes para mínima latencia o máximo ancho de banda.",
-        wsk_desc: "Utiliza callbacks directos en el kernel (WSK) para saltarse el búfer de usuario. Elimina por completo el jitter en periféricos críticos en tiempo real.",
-        zerocopy_desc: "Mapeo directo de memoria sin copias intermedias en CPU. Libera todo el ancho de banda del enlace para flujos pesados de alta velocidad.",
-        cases_badge: "Aplicaciones Reales",
-        cases_title: "Diseñado para Makers y Gamers",
-        cases_desc: "Descubre cómo entusiastas y profesionales usan USBAnywhere a diario sin tirones de cable ni barreras de pago.",
-        case_gaming_title: "Cloud Gaming y Moonlight",
-        case_gaming_desc: "Pasa mandos DualSense / Xbox, volantes y receptores inalámbricos desde tu Raspberry Pi en el salón directamente a tu PC de juegos con vibración háptica completa.",
-        case_laser_title: "Láser Diodo y LightBurn",
-        case_laser_desc: "Conecta tu cortadora láser (Sculpfun, xTool, Atomstack, Ortur) y tu cámara cenital al mismo tiempo por Wi-Fi o VPN sin desconexiones a mitad de corte.",
-        case_sim_title: "SimRacing y Simuladores de Vuelo",
-        case_sim_desc: "Bases Direct Drive, pedaleras de célula de carga, palancas y botoneras conectadas simultáneamente sin toparse con límites de un único dispositivo.",
-        case_3d_title: "Impresión 3D y OctoPrint",
-        case_3d_desc: "Gestiona acelerómetros ADXL345, cámaras de monitorización multi-ángulo y placas serie de impresoras 3D desde tu equipo de diseño.",
-        case_homelab_title: "HomeLab y Llaves de Seguridad",
-        case_homelab_desc: "Pasa llaves criptográficas (YubiKey), dongles de licencias (AutoCAD, iLok, eToken) y coordinadores Zigbee a máquinas virtuales Proxmox con total seguridad.",
-        case_vpn_title: "Taller Remoto y VPN",
-        case_vpn_desc: "¿Máquina en un garaje o caseta en el jardín? Conéctate de forma nativa con Tailscale o WireGuard sin abrir puertos en el router.",
-        compare_badge: "Comparativa Honesta",
-        compare_title: "¿Por qué elegir USBAnywhere?",
-        compare_desc: "Comprueba cómo se compara USBAnywhere frente a alternativas comerciales cerradas en prestaciones, licencias y arquitectura.",
-        video_badge: "Tutoriales Paso a Paso",
-        video_title: "Masterclasses Oficiales en Vídeo",
-        video_desc: "Visualiza nuestros tutoriales detallados que cubren la instalación completa, el streaming de juegos y el taller láser remoto.",
-        dl_badge: "Lanzamientos Oficiales",
-        dl_title: "Descargar USBAnywhere v3.4.0",
-        dl_desc: "Los paquetes oficiales incluyen sumas SHA-256 y atestación Sigstore. Compatibles con Windows 10 y 11, Linux (Cliente y Servidor), macOS y Android / Android TV.",
-        sha_notice: "Las sumas SHA-256 de cada paquete están disponibles junto con su lanzamiento.",
-        community_title: "Únete a la Comunidad Oficial r/UsbAnywhere",
-        community_desc: "Comparte tus montajes, resuelve dudas técnicas, publica tus pruebas de latencia y propone mejoras con usuarios de todo el mundo.",
-        btn_kofi: "Invítanos a un café en Ko-fi",
-        footer_license: "Código Abierto GPL-3.0"
+        nav_arch: "Arquitectura",
+        nav_specs: "Especificaciones",
+        nav_deploy: "Despliegue",
+        nav_matrix: "Comparativa",
+        nav_downloads: "Binarios",
+        btn_download_nav: "Descargar v3.4.0",
+        hero_status: "BUILD PRODUCCIÓN v3.4.0 • TRANSPORTE NATIVO IOCTL KERNEL",
+        hero_title: "Transporte USB/IP Determinista para Ingeniería, Laboratorio e Industria.",
+        hero_desc: "USBAnywhere expone hardware USB remoto sobre TCP/IP y VPN como dispositivos de bus local nativos. Construido con motor IOCTL VHCI directo en C#/.NET 9 (cero subprocesos), drivers firmados WHQL y plano de control bajo demanda TCP/3241.",
+        hero_cta_primary: "Descargar Binarios Windows, Linux y Android",
+        hero_cta_secondary: "Despliegue Servidor Linux",
+        stat_engine_lbl: "Motor Windows",
+        stat_ports_lbl: "Control / Datos",
+        stat_devices_lbl: "Límite USB",
+        stat_devices_val: "Ilimitado",
+        stat_license_lbl: "Licencia",
+        sec_arch_tag: "01 // ARQUITECTURA DEL SISTEMA",
+        sec_arch_title: "Diseñado para Fiabilidad bajo Carga",
+        card1_title: "IOCTL Directo VHCI en Windows",
+        card1_desc: "Comunica directamente con el handle del driver WHQL usbip2_ude vía Win32 DeviceIoControl, eliminando subprocesos y parsing regex.",
+        card2_title: "Control Bajo Demanda TCP/UDP 3241",
+        card2_desc: "Descubrimiento LAN/VPN en UDP 3241 y control serializado LIST / BIND / UNBIND / STATUS sobre TCP 3241 con liberación inmediata al desconectar.",
+        card3_title: "Alto Rendimiento y SBCs",
+        card3_desc: "Incluye parches de kernel Linux usbip-host y dwc2 (RPi/OrangePi) para interfaces compuestas, audio/vídeo isócrono, CNC/láser y DualSense.",
+        sec_spec_tag: "02 // ESPECIFICACIONES TÉCNICAS",
+        sec_spec_title: "Matriz de Runtimes y Protocolo",
+        sec_dep_tag: "03 // DESPLIEGUE LINUX Y SBC",
+        sec_dep_title: "Instalación Headless (Raspberry Pi / Orange Pi / Ubuntu)",
+        sec_cmp_tag: "04 // COMPARATIVA TÉCNICA",
+        sec_cmp_title: "USBAnywhere frente a Alternativas Comerciales",
+        tbl_feature: "Capacidad",
+        row_price: "Licencia y Límite de Dispositivos",
+        row_vhci: "Transporte Driver Windows",
+        row_ctrl: "API Bind / Unbind Bajo Demanda",
+        row_platforms: "Plataformas",
+        sec_dl_tag: "05 // BINARIOS OFICIALES",
+        sec_dl_title: "Artefactos USBAnywhere v3.4.0"
       }
     };
 
-    const langToggleBtn = document.getElementById('lang-toggle');
-    const langLabel = document.getElementById('lang-label');
-
-    function applyTranslations(lang) {
+    let currentLang = navigator.language && navigator.language.startsWith('es') ? 'es' : 'en';
+    function applyLang(lang) {
       currentLang = lang;
-      document.documentElement.lang = lang;
-      langLabel.textContent = lang === 'en' ? 'ES' : 'EN';
-      
-      const elements = document.querySelectorAll('[data-i18n]');
-      elements.forEach(el => {
+      const dict = i18n[lang] || i18n.en;
+      document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
-        if (translations[lang] && translations[lang][key]) {
-          el.textContent = translations[lang][key];
-        }
+        if (dict[key]) el.textContent = dict[key];
       });
     }
-
-    langToggleBtn.addEventListener('click', () => {
-      const nextLang = currentLang === 'en' ? 'es' : 'en';
-      applyTranslations(nextLang);
+    document.getElementById('lang-toggle').addEventListener('click', () => {
+      applyLang(currentLang === 'en' ? 'es' : 'en');
     });
+    applyLang(currentLang);
   </script>
 </body>
 </html>
