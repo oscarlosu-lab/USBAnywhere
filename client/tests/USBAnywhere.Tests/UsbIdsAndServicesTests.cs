@@ -118,7 +118,7 @@ public class UsbIdsAndServicesTests
             var logFiles = Directory.GetFiles(tempLogs, "usbanywhere_*.log");
             Assert.Single(logFiles);
             var content = File.ReadAllText(logFiles[0]);
-            var expectedVer = typeof(LoggerService).Assembly.GetName().Version?.ToString(3) ?? "3.3.1";
+            var expectedVer = typeof(LoggerService).Assembly.GetName().Version?.ToString(3) ?? "3.4.0";
             Assert.Contains($"v{expectedVer} Logger Initialized", content);
         }
         finally
@@ -163,15 +163,15 @@ public class UsbIdsAndServicesTests
     {
         var assets = new List<UpdateService.GitHubAsset>
         {
-            new() { Name = "USBAnywhere-Server_Setup_v3.3.1.exe", BrowserDownloadUrl = "https://example.com/server.exe" },
-            new() { Name = "USBAnywhere_Setup_v3.3.1.exe", BrowserDownloadUrl = "https://example.com/client.exe" },
+            new() { Name = "USBAnywhere-Server_Setup_v3.4.0.exe", BrowserDownloadUrl = "https://example.com/server.exe" },
+            new() { Name = "USBAnywhere_Setup_v3.4.0.exe", BrowserDownloadUrl = "https://example.com/client.exe" },
             new() { Name = "USBAnywhere-Server-Portable-x64.zip", BrowserDownloadUrl = "https://example.com/server.zip" },
             new() { Name = "USBAnywhere-Portable-x64.zip", BrowserDownloadUrl = "https://example.com/client.zip" }
         };
 
         var installedAsset = UpdateService.SelectClientAsset(assets, isInstalled: true);
         Assert.NotNull(installedAsset);
-        Assert.Equal("USBAnywhere_Setup_v3.3.1.exe", installedAsset.Name);
+        Assert.Equal("USBAnywhere_Setup_v3.4.0.exe", installedAsset.Name);
 
         var portableAsset = UpdateService.SelectClientAsset(assets, isInstalled: false);
         Assert.NotNull(portableAsset);
@@ -204,6 +204,101 @@ public class UsbIdsAndServicesTests
         Assert.True(MainWindow.TryParseHotkey("Ctrl+Alt+D", out uint mods, out uint vk));
         Assert.Equal(0x0002u | 0x0001u, mods);
         Assert.Equal(0x44u, vk);
+    }
+
+    [Fact]
+    public void VhciNativeClient_BuildPayloads_MatchV0981AndV0982Abis()
+    {
+        var plugout = VhciNativeClient.BuildPlugoutPayload(3);
+        Assert.Equal(8, plugout.Length);
+        Assert.Equal(8u, System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(plugout.AsSpan(0, 4)));
+        Assert.Equal(3, System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(plugout.AsSpan(4, 4)));
+
+        var p981 = VhciNativeClient.BuildPluginPayload("192.168.1.50", "1-1.3", wskEvents: true, abi: VhciAbiVersion.V0981);
+        Assert.Equal(1124, p981.Length);
+        Assert.Equal(1124u, System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(p981.AsSpan(0, 4)));
+        Assert.Equal((byte)1, p981[0x460]);
+        Assert.StartsWith("1-1.3\0", System.Text.Encoding.ASCII.GetString(p981, 0x00C, 32));
+        Assert.StartsWith("3240\0", System.Text.Encoding.ASCII.GetString(p981, 0x02C, 32));
+        Assert.StartsWith("192.168.1.50\0", System.Text.Encoding.ASCII.GetString(p981, 0x04C, 32));
+
+        var p982 = VhciNativeClient.BuildPluginPayload("10.0.0.5", "2-1", wskEvents: false, serial: "ABC123", abi: VhciAbiVersion.V0982);
+        Assert.Equal(1120, p982.Length);
+        Assert.Equal(1120u, System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(p982.AsSpan(0, 4)));
+        Assert.StartsWith("ABC123\0", System.Text.Encoding.ASCII.GetString(p982, 0x44D, 16));
+        Assert.Equal((byte)0, p982[0x45D]);
+
+        Assert.Equal(1108, VhciNativeClient.BuildStopAttachPayload(abi: VhciAbiVersion.V0981).Length);
+        Assert.Equal(1100, VhciNativeClient.BuildStopAttachPayload(abi: VhciAbiVersion.V0982).Length);
+    }
+
+    [Theory]
+    [InlineData(VhciAbiVersion.V0981)]
+    [InlineData(VhciAbiVersion.V0982)]
+    public void VhciNativeClient_ParseImportedDevicesAndDeviceState_SupportsBothAbis(VhciAbiVersion abi)
+    {
+        var usbIds = new UsbIdsService();
+        int total = 4 + VhciNativeClient.ImportedDeviceRecordSize;
+        var buf = new byte[total];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(buf.AsSpan(0, 4), (uint)VhciNativeClient.GetImportedDevicesInitialSelfSize);
+
+        var rec = buf.AsSpan(4, VhciNativeClient.ImportedDeviceRecordSize);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(rec.Slice(0, 4), 2);
+        System.Text.Encoding.ASCII.GetBytes("1-1.3\0").CopyTo(rec.Slice(0x008));
+        System.Text.Encoding.ASCII.GetBytes("3240\0").CopyTo(rec.Slice(0x028));
+        System.Text.Encoding.ASCII.GetBytes("192.168.1.99\0").CopyTo(rec.Slice(0x048));
+
+        if (abi == VhciAbiVersion.V0981)
+        {
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(rec.Slice(0x44C, 4), 0x00010002u);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(rec.Slice(0x450, 4), 3);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(rec.Slice(0x454, 2), 0x046D);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(rec.Slice(0x456, 2), 0xC52B);
+            rec[0x469] = 1;
+        }
+        else
+        {
+            System.Text.Encoding.ASCII.GetBytes("SER01\0").CopyTo(rec.Slice(0x449));
+            rec[0x459] = 0;
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(rec.Slice(0x45C, 4), 0x00010002u);
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(rec.Slice(0x460, 4), 3);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(rec.Slice(0x464, 2), 0x046D);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(rec.Slice(0x466, 2), 0xC52B);
+        }
+
+        var devices = VhciNativeClient.ParseImportedDevicesBuffer(buf, total, usbIds);
+        Assert.NotNull(devices);
+        var dev = Assert.Single(devices);
+        Assert.Equal(2, dev.Port);
+        Assert.Equal("1-1.3", dev.BusId);
+        Assert.Equal("192.168.1.99", dev.ServerIP);
+        Assert.Equal("046d", dev.VendorId);
+        Assert.Equal("c52b", dev.ProductId);
+        Assert.Contains("Unifying Receiver", dev.Description);
+
+        // Also validate 1144-byte push device_state packet parsing
+        var pkt = new byte[VhciNativeClient.DeviceStatePacketSize];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(pkt.AsSpan(0, 4), VhciNativeClient.DeviceStatePacketSize);
+        if (abi == VhciAbiVersion.V0981)
+        {
+            rec.CopyTo(pkt.AsSpan(4));
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(pkt.AsSpan(0x470, 4), (int)VhciDeviceState.Plugged);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(pkt.AsSpan(0x474, 4), 42u);
+        }
+        else
+        {
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(pkt.AsSpan(4, 4), (int)VhciDeviceState.Plugged);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(pkt.AsSpan(8, 4), 42u);
+            rec.CopyTo(pkt.AsSpan(12));
+        }
+
+        var evt = VhciNativeClient.ParseDeviceStatePacket(pkt, usbIds);
+        Assert.NotNull(evt);
+        Assert.Equal(VhciDeviceState.Plugged, evt.State);
+        Assert.Equal(42u, evt.SourceId);
+        Assert.Equal(abi == VhciAbiVersion.V0981 ? "low-latency" : "zero-copy", evt.ReceiveMode);
+        Assert.Equal("192.168.1.99", evt.Device.ServerIP);
+        Assert.Equal("1-1.3", evt.Device.BusId);
     }
 
     private sealed class StubEnvironmentService : IEnvironmentService

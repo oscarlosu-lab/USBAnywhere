@@ -1,5 +1,18 @@
 # CHANGELOG - USBAnywhere
 
+## [3.4.0] - 2026-11-15
+
+### Added
+- **Direct Native Windows VHCI IOCTL Client & Push Events (`VhciNativeClient.cs`)**:
+  - Eliminated repeated `usbip.exe` subprocess spawning, stdout regex parsing, and per-call directory SHA-256 hashing on Windows by communicating directly with `usbip2_ude` (`GUID_DEVINTERFACE_USBIP_VHCI`) via P/Invoke `DeviceIoControl` (`GET_IMPORTED_DEVICES`, `PLUGIN_HARDWARE`, `PLUGIN_HARDWARE_ONCE`, `PLUGOUT_HARDWARE`, `STOP_ATTACH_ATTEMPTS`) with automatic multi-revision VHCI ABI compatibility and clean `usbip.exe` fallback when the kernel interface is absent.
+  - Added asynchronous overlapped `ReadFile` / `CancelIoEx` push event monitoring (`RunDeviceStateListenerAsync`) to update connected device trees immediately on plug/unplug transitions.
+- **Linux `usbip-host` Control IN `URB_SHORT_NOT_OK` Kernel Patch**:
+  - Added `patches/rpi-dwc-usbip-host/04-clear-short-not-ok.patch` restricting `URB_SHORT_NOT_OK` in `masking_bogus_flags()` to Bulk and Interrupt IN endpoints so Control IN variable-length transfers (HID feature reports, FIDO/security keys) do not fail with `-EREMOTEIO`.
+
+### Fixed
+- **Windows 11 Multi-Size Tray Icon Sizing**:
+  - Updated `MainWindow.InitializeTrayIcon()` to load tray icons using `Forms.SystemInformation.SmallIconSize` instead of a hardcoded `32x32` size, preventing blank or clipped notification area icons on high-DPI Windows 11 builds.
+
 ## [3.3.1] - 2026-11-11
 
 ### Fixed

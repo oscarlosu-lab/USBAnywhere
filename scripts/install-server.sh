@@ -159,7 +159,7 @@ if command -v avahi-daemon &> /dev/null; then
     <type>_usbanywhere._tcp</type>
     <port>3240</port>
     <txt-record>proto=usbip</txt-record>
-    <txt-record>version=3.3.1</txt-record>
+    <txt-record>version=3.4.0</txt-record>
   </service>
   <service>
     <type>_usbip._tcp</type>

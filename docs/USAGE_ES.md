@@ -1,4 +1,4 @@
-# 📖 Manual de Usuario de USBAnywhere v3.2.0
+# 📖 Manual de Usuario de USBAnywhere v3.4.0
 
 🌐 **Idioma / Language:** [English](USAGE_EN.md) | **Español**
 
@@ -148,6 +148,7 @@ El cliente USBAnywhere se conecta de forma transparente a cualquier servidor USB
 
 ## Atajos
 
+- **Atajo global (`Ctrl+Alt+D`, configurable en `config.json`)** → Desconectar inmediatamente todos los dispositivos USB/IP conectados (ideal para Moonlight / Sunshine / KVM)
 - **Doble-click** en dispositivo (en `USB Hubs` o `Favoritos`) → Conectar
 - **Doble-click** en dispositivo conectado → Desconectar
 - **Enter** en campo IP → Listar dispositivos
@@ -174,7 +175,9 @@ Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar 
 - **☑️ Iniciar minimizado en bandeja**: Casilla seleccionable en la barra inferior (y en el menú de bandeja) para que la aplicación arranque directamente oculta en segundo plano sin mostrar ventana al iniciar Windows, manteniendo los dispositivos USB conectados permanentemente.
 - Al **minimizar** (o iniciar con `--minimized` / `-m`), la aplicación se oculta en la bandeja del sistema.
 - **Doble-click** en el icono de la bandeja para restaurar la ventana en cualquier momento.
-- **Click derecho** para menú rápido: `📡 Escanear red`, `☑️ Iniciar minimizado en bandeja`, `🔼 Mostrar USBAnywhere`, `❌ Salir`.
+- **Click derecho** para menú rápido: `📡 Escanear red`, `🔌 Desconectar todo`, `☑️ Iniciar minimizado en bandeja`, `🔼 Mostrar USBAnywhere`, `❌ Salir`.
+- **Comandos CLI Headless (sobre instancia activa):** `--connect <ip> <busid>`, `--disconnect-all`, `--disconnect <puerto>` y `--quit`.
+- **Eventos Kernel en Tiempo Real:** El cliente escucha eventos de estado del driver `usbip2_ude` vía `DeviceIoControl` / `ReadFile` asíncrono para reflejar conexiones y desconexiones al instante sin lanzar subprocesos periódicos.
 
 ## 🔧 Barra de Estado y Ciclo de Vida de Drivers
 

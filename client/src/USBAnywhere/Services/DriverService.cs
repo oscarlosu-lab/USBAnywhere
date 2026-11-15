@@ -32,8 +32,7 @@ public class DriverService : IDriverService
     /// <summary>
     /// Pure helper to strip usbip2_filter from a Registry REG_MULTI_SZ UpperFilters array
     /// while preserving all other system filter drivers (e.g. TsUsbFlt, usbfilter).
-    /// Prevents loss of local USB input devices or INACCESSIBLE_BOOT_DEVICE on driver removal
-    /// (upstream vadimgrn/usbip-win2 issues #155 and #201).
+    /// Prevents loss of local USB input devices or INACCESSIBLE_BOOT_DEVICE on driver removal.
     /// </summary>
     public static string[] RemoveFilterFromMultiString(string[]? currentFilters, string filterToRemove = FilterDriverName)
     {
@@ -49,7 +48,7 @@ public class DriverService : IDriverService
     /// <summary>
     /// Detects if Windows is running as Windows To Go / Portable USB-booted OS.
     /// Installing usbip2_filter (StartType=3 DEMAND_START, ErrorControl=2 SEVERE on USB\ROOT_HUB30)
-    /// on a USB-booted Windows installation causes INACCESSIBLE_BOOT_DEVICE at next boot (issue #201).
+    /// on a USB-booted Windows installation causes INACCESSIBLE_BOOT_DEVICE at next boot.
     /// </summary>
     public static bool IsPortableOperatingSystem()
     {
@@ -260,13 +259,13 @@ public class DriverService : IDriverService
                 return new OperationResult { Success = false, Error = "Directorio de drivers no detectado." };
             }
 
-            // 1. Install filter driver first if present (unless running Windows To Go / Portable USB OS — upstream issue #201)
+            // 1. Install filter driver first if present (unless running Windows To Go / Portable USB OS)
             var filterInf = Path.Combine(driverDir, "usbip2_filter.inf");
             if (File.Exists(filterInf))
             {
                 if (IsPortableOperatingSystem())
                 {
-                    _logger.LogWarning("Detectado Windows To Go / PortableOperatingSystem=1. Se omite usbip2_filter.inf para prevenir BSOD INACCESSIBLE_BOOT_DEVICE (upstream issue #201).");
+                    _logger.LogWarning("Detectado Windows To Go / PortableOperatingSystem=1. Se omite usbip2_filter.inf para prevenir BSOD INACCESSIBLE_BOOT_DEVICE.");
                     progress?.Report("Omitiendo usbip2_filter en Windows To Go (protección de arranque USB)...");
                 }
                 else
@@ -346,7 +345,7 @@ public class DriverService : IDriverService
             }
 
             // 1.5. Sanitize USB Class UpperFilters and disarm ErrorControl on usbip2_filter BEFORE pnputil removal
-            // to prevent dead local USB ports (#155) or INACCESSIBLE_BOOT_DEVICE (#201)
+            // to prevent dead local USB ports (missing UDE class key) or INACCESSIBLE_BOOT_DEVICE
             SanitizeUsbFilterBeforeUninstall();
 
             // 2. Enumerate installed driver packages from DriverStore

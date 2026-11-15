@@ -2,7 +2,7 @@
 
 🌐 **Language / Idioma:** **English** | [Español](README_ES.md)
 
-**v3.3.1** | [🌍 Official Website](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases & Downloads](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Reddit Community](https://www.reddit.com/r/UsbAnywhere/) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
+**v3.4.0** | [🌍 Official Website](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases & Downloads](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Reddit Community](https://www.reddit.com/r/UsbAnywhere/) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
 
 > **Why pay $49.00 per server and be restricted to a single USB device?**
 > **USBAnywhere** connects **unlimited** remote USB peripherals over LAN, Wi-Fi, and Internet with **zero licensing fees**, **Microsoft WHQL-certified drivers**, and **tunable ultra-low latency**.
@@ -29,15 +29,18 @@ The project continues to evolve through a mix of usability, interoperability, an
 
 ## ⚔️ Why Switch from VirtualHere to USBAnywhere?
 
-| Feature | **USBAnywhere v3.3.1** | **VirtualHere** | **USB Network Gate** |
-| :--- | :---: | :---: | :---: |
-| **Price & License** | **100% Free & Open Source (GPLv3)** | $49.00 USD / Server | $159.00+ USD |
-| **Simultaneous Devices (Free)** | **♾️ Unlimited** | ⚠️ 1 Device Only | ❌ Trial Expired |
-| **1-Click Linux Server Setup** | ✅ **Built-in SSH & `udev` Hotplug Auto-Installer** | ❌ Manual CLI setup | ❌ Proprietary daemon |
-| **Latency & Network Modes** | ✅ **Dual: Low-Latency WSK & Zero-Copy** | ⚙️ Generic | ⚙️ Generic |
-| **User Interface** | ✅ **Modern WPF (Dark & Light Themes + `[ms]` Ping)** | 🕰️ Legacy Win98 TreeView | 💻 Heavy Commercial UI |
-| **Drivers (Windows 10/11)** | ✅ **Microsoft WHQL Certified (HVCI Ready)** | ✅ Signed | ✅ Signed |
-| **Native VPN Integration** | ✅ **Built-in Tailscale, ZeroTier & WireGuard** | 💰 Extra / Manual | ❌ Manual |
+| Feature | **USBAnywhere v3.4.0** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
+| :--- | :---: | :---: | :---: | :---: |
+| **Price & License** | **100% Free & Open Source (GPLv3)** | $49.00 USD / Server | ~$15–$30+ / mo SaaS | $159.00+ USD |
+| **Simultaneous Devices (Free)** | **♾️ Unlimited** | ⚠️ 1 Device Only | ❌ 20-min Trial / 1 Conn | ❌ Trial Expired |
+| **Account & Cloud Privacy** | **✅ 100% Offline / Zero Account** | ✅ Local License | ❌ Mandatory Cloud Login | ✅ Offline License |
+| **1-Click Linux Server Setup** | ✅ **Built-in SSH & `udev` Hotplug Auto-Installer** | ❌ Manual CLI setup | ⚠️ Closed Binary Daemon | ❌ Proprietary daemon |
+| **Windows Kernel Communication** | ✅ **Direct Native VHCI IOCTL + Push Events** | ✅ Native Client/Driver | ✅ Proprietary Service | ✅ Proprietary Service |
+| **Latency & Network Modes** | ✅ **Dual: Low-Latency WSK & Zero-Copy** | ⚙️ Generic | ⚙️ Proprietary Relay | ⚙️ Generic |
+| **Global Hotkey & Headless CLI** | ✅ **`Ctrl+Alt+D` + `--disconnect-all`/`--quit`** | ❌ GUI Only / Basic | ❌ Closed GUI | ⚠️ Paid SDK |
+| **User Interface** | ✅ **Modern WPF (Dark & Light Themes + `[ms]` Ping)** | 🕰️ Legacy Win98 TreeView | 💻 Account-Gated App | 💻 Heavy Commercial UI |
+| **Drivers (Windows 10/11)** | ✅ **Microsoft WHQL Certified (HVCI Ready)** | ✅ Signed | ✅ Signed | ✅ Signed |
+| **Native VPN Integration** | ✅ **Built-in Tailscale, ZeroTier & WireGuard** | 💰 Extra / Manual | ⚠️ Cloud Relay Server | ❌ Manual |
 
 ---
 
@@ -76,10 +79,12 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 
 ---
 
-## 🆕 What's New in v3.3.1 (USBAnywhere Multiplatform Suite)
+## 🆕 What's New in v3.4.0 (USBAnywhere Multiplatform Suite)
 
-- 🐧 **Universal Linux Client Mode (`usbanywhere-ctl` v3.3.1)** - Full client support on Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) via `vhci_hcd` with automatic **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** (`scan`, `remote`, `connect`, `disconnect`, `ports` + interactive Dashboard `[9]` / `[0]`).
-- ⌨️ **Android USB Keyboard & Pure HID Enumeration Fix (`UrbSession.kt`)** - Accurate Full/Low/High-Speed deduction (`deduceSpeed`), `URB_SHORT_NOT_OK` clearance, `rawDescriptors` fallback (`0x01`/`0x02`/`0x21`), synthesized `0x22` HID Report Descriptors (Boot Keyboard/Mouse/Gamepad), and benign `SET_IDLE`/`SET_PROTOCOL` completion for Windows UDE clients.
+- ⚡ **Direct Kernel VHCI IOCTL & Real-Time Push Events (`VhciNativeClient.cs`)** - Communicates directly with the `usbip2_ude` Windows kernel driver via Win32 `DeviceIoControl` and async overlapped `ReadFile` events (eliminating repeated `usbip.exe` process spawns, regex parsing, and per-call SHA-256 checks, with clean CLI fallback and Windows 11 tray icon sizing).
+- ⌨️ **Global Hotkey (`Ctrl+Alt+D`) & Headless CLI Controls** - Instantly release all remote USB peripherals via configurable hotkey, tray `Disconnect All`, or headless CLI flags (`--disconnect-all`, `--disconnect <port>`, `--quit`).
+- 🐧 **Universal Linux Client Mode (`usbanywhere-ctl` v3.4.0)** - Full client support on Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) via `vhci_hcd` with automatic **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** (`scan`, `remote`, `connect`, `disconnect`, `ports` + interactive Dashboard `[9]` / `[0]`).
+- ⌨️ **Android USB Keyboard, String Fallback & Pure HID Enumeration Fix (`UrbSession.kt`)** - Accurate Full/Low/High-Speed deduction (`deduceSpeed`), `URB_SHORT_NOT_OK` clearance, `rawDescriptors` fallback (`0x01`/`0x02`/`0x03`/`0x21`), `bInterval == 0` sanitizer, synthesized `0x22` HID Report Descriptors (Boot Keyboard/Mouse/Gamepad), and benign `SET_IDLE`/`SET_PROTOCOL` completion for Windows UDE clients.
 - 📺 **Android TV / Nvidia Shield D-Pad & Gamepad Navigation (`TvFocus.kt`)** - Full remote-control and gamepad focus navigation across all tabs, switches, and device cards.
 - 🎮 **DualSense Audio Interface De-Authorization & Raspberry Pi `dwc_otg` Diagnostics** - Class-based `udev` rule (`ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"`) preventing `usbip_host` isochronous audio panics across all DualSense (`0ce6`/`0df2`) firmware revisions.
 - ⚡ **1-Click SSH & Plug & Play Server Auto-Setup** - Turn any Raspberry Pi, Debian, or Ubuntu machine into a ready-to-use USB over IP server with automatic On-Demand dynamic export.
@@ -107,16 +112,16 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 ## 📦 Installation
 
 ### Option 1: Portable (No installation required)
-1. Download from [USBAnywhere Releases (v3.3.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.1):
-   - **Windows x64**: `USBAnywhere-v3.3.1-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.3.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
-   - **Linux Client & Server Suite**: `USBAnywhere-Linux-v3.3.1.tar.gz`
+1. Download from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0):
+   - **Windows x64**: `USBAnywhere-v3.4.0-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.4.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+   - **Linux Client & Server Suite**: `USBAnywhere-Linux-v3.4.0.tar.gz`
 2. Extract the ZIP to any folder
 3. Run `USBAnywhere.exe` as Administrator
 4. Done!
 
 ### Option 2: Installer (x64 Recommended)
-1. Download `USBAnywhere_Setup_v3.3.1.exe` from [USBAnywhere Releases (v3.3.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.1)
+1. Download `USBAnywhere_Setup_v3.4.0.exe` from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0)
 2. Run the installer as Administrator
 3. Follow the installation wizard
 

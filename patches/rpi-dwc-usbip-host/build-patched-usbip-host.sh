@@ -29,7 +29,8 @@ cp -r "${KERNEL_SRC}/drivers/usb/usbip/"* "${WORK_DIR}/"
 for p in \
     "${SCRIPT_DIR}/01-packet-count.patch" \
     "${SCRIPT_DIR}/02-iso-interval.patch" \
-    "${SCRIPT_DIR}/03-iso-in-length.patch"; do
+    "${SCRIPT_DIR}/03-iso-in-length.patch" \
+    "${SCRIPT_DIR}/04-clear-short-not-ok.patch"; do
     echo "[*] Applying $(basename "$p")..."
     patch --directory="${WORK_DIR}" --strip=4 --forward < "$p"
 done

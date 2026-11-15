@@ -62,6 +62,8 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _trayExitItem;
     private bool _autoScanStarted;
     private bool _isFirstStartup = true;
+    private CancellationTokenSource? _vhciListenerCts;
+    private long _vhciRefreshVersion;
     private readonly List<string> _availableSubnets = new();
     private readonly SemaphoreSlim _disconnectAllLock = new(1, 1);
 
@@ -187,7 +189,7 @@ public partial class MainWindow : Window
                 if (resInfo?.Stream != null)
                 {
                     using var s = resInfo.Stream;
-                    loadedIcon = new Icon(s, new System.Drawing.Size(32, 32));
+                    loadedIcon = new Icon(s, Forms.SystemInformation.SmallIconSize);
                 }
             }
             catch { }
@@ -199,7 +201,7 @@ public partial class MainWindow : Window
                 if (System.IO.File.Exists(iconPath))
                 {
                     using var iconStream = new System.IO.FileStream(iconPath, System.IO.FileMode.Open, System.IO.FileAccess.Read);
-                    loadedIcon = new Icon(iconStream, new System.Drawing.Size(32, 32));
+                    loadedIcon = new Icon(iconStream, Forms.SystemInformation.SmallIconSize);
                 }
             }
 
@@ -383,6 +385,7 @@ public partial class MainWindow : Window
     {
         if (_autoScanStarted) return;
         _autoScanStarted = true;
+        StartVhciDeviceStateListener();
         var config = _config.Load();
         if (config.AutoScanOnStart)
         {
@@ -907,8 +910,12 @@ public partial class MainWindow : Window
 
         if (_trayIcon != null)
         {
-            _trayIcon.Visible = false;
-            _trayIcon.Dispose();
+            try
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+            }
+            catch { }
             _trayIcon = null;
         }
 
@@ -1647,6 +1654,14 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        try
+        {
+            _vhciListenerCts?.Cancel();
+            _vhciListenerCts?.Dispose();
+            _vhciListenerCts = null;
+        }
+        catch { }
+
         CleanupIpcAndHotkey();
         Microsoft.Win32.SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
         _connectionMonitor.Stop();
@@ -1654,8 +1669,12 @@ public partial class MainWindow : Window
 
         if (_trayIcon != null)
         {
-            _trayIcon.Visible = false;
-            _trayIcon.Dispose();
+            try
+            {
+                _trayIcon.Visible = false;
+                _trayIcon.Dispose();
+            }
+            catch { }
             _trayIcon = null;
         }
 
@@ -2062,6 +2081,45 @@ public partial class MainWindow : Window
         {
             _disconnectAllLock.Release();
         }
+    }
+
+    private void StartVhciDeviceStateListener()
+    {
+        if (_vhciListenerCts != null)
+            return;
+
+        var cts = new CancellationTokenSource();
+        _vhciListenerCts = cts;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await VhciNativeClient.RunDeviceStateListenerAsync(evt =>
+                {
+                    long seq = Interlocked.Increment(ref _vhciRefreshVersion);
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(120, cts.Token).ConfigureAwait(false);
+                        if (cts.IsCancellationRequested || Interlocked.Read(ref _vhciRefreshVersion) != seq)
+                            return;
+
+                        await Dispatcher.InvokeAsync(async () =>
+                        {
+                            await RefreshConnectedDevicesAsync();
+                            await RefreshServerDevicesAsync();
+                        });
+                    }, cts.Token);
+                }, cts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[VhciListener] {ex.Message}");
+            }
+        });
     }
 
     #endregion

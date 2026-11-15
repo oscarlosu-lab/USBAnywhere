@@ -61,7 +61,7 @@ if ($driverList.Count -eq 0) {
     exit
 }
 
-# Detener servicios relacionados y limpiar UpperFilters antes de borrar paquetes INF (previene fallos #155 y #201)
+# Detener servicios relacionados y limpiar UpperFilters antes de borrar paquetes INF
 Write-Host "`n[2] Deteniendo servicios USB/IP y sanitizando filtros USB..." -ForegroundColor Yellow
 $filterSvcKey = "HKLM:\SYSTEM\CurrentControlSet\Services\usbip2_filter"
 if (Test-Path $filterSvcKey) {

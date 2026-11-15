@@ -10,6 +10,8 @@
    - Converts high-speed isochronous endpoint `bInterval` (1..16) to `1U << (bInterval - 1)` microframes before submitting to `dwc_otg` / `dwc2`, preventing 2x accelerated/choppy DualSense speaker playback on Pi Zero 2 W.
 3. **`03-iso-in-length.patch`** (`drivers/usb/usbip/stub_tx.c`)
    - Validates each ISO IN frame descriptor against buffer bounds and sums `actual_length` into `urb->actual_length` before building the response PDU, preventing `dwc2` DualSense microphone reconnect loops (`actual length of urb 0 does not match iso packet sizes`).
+4. **`04-clear-short-not-ok.patch`** (`drivers/usb/usbip/stub_rx.c`)
+   - Restricts `URB_SHORT_NOT_OK` in `masking_bogus_flags()` to Bulk and Interrupt IN endpoints so Control IN transfers with variable-length short data stages (e.g., HID feature reports and FIDO/security tokens) do not fail with `-EREMOTEIO` (`-121`).
 
 ## Manual / Helper Usage (Raspberry Pi)
 

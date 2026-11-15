@@ -2,7 +2,7 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.3.1** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.4.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
@@ -21,15 +21,18 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
 
 ## ⚔️ ¿Por qué cambiar de VirtualHere a USBAnywhere?
 
-| Característica | **USBAnywhere v3.3.1** | **VirtualHere** | **USB Network Gate** |
-| :--- | :---: | :---: | :---: |
-| **Precio y Licencia** | **100% Gratis y Código Abierto (GPLv3)** | 49,00 USD / Servidor | +159,00 USD |
-| **Dispositivos Simultáneos (Free)** | **♾️ Ilimitados** | ⚠️ Solo 1 dispositivo | ❌ Trial limitado |
-| **Instalación Servidor en 1-Click** | ✅ **Auto-Instalador SSH y `udev` Hotplug** | ❌ Manual por consola | ❌ Demonio privativo |
-| **Modos de Latencia de Red** | ✅ **Dual: Low-Latency WSK y Zero-Copy** | ⚙️ Genérico | ⚙️ Genérico |
-| **Interfaz de Usuario** | ✅ **WPF Moderna (Temas Oscuro/Claro + Ping `[ms]`)** | 🕰️ Árbol clásico Win98 | 💻 Pesada |
-| **Drivers (Windows 10/11)** | ✅ **Certificados WHQL (Soporte HVCI)** | ✅ Firmados | ✅ Firmados |
-| **Integración VPN Nativa** | ✅ **Detección Tailscale, ZeroTier y WireGuard** | 💰 Extra / Manual | ❌ Manual |
+| Característica | **USBAnywhere v3.4.0** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
+| :--- | :---: | :---: | :---: | :---: |
+| **Precio y Licencia** | **100% Gratis y Código Abierto (GPLv3)** | 49,00 USD / Servidor | ~15–30+ USD / mes SaaS | +159,00 USD |
+| **Dispositivos Simultáneos (Free)** | **♾️ Ilimitados** | ⚠️ Solo 1 dispositivo | ❌ Trial 20 min / 1 Conex. | ❌ Trial limitado |
+| **Privacidad y Cero Cuentas** | **✅ 100% Local / Sin Cuentas Cloud** | ✅ Licencia Local | ❌ Cuenta Cloud Obligatoria | ✅ Licencia Offline |
+| **Instalación Servidor en 1-Click** | ✅ **Auto-Instalador SSH y `udev` Hotplug** | ❌ Manual por consola | ⚠️ Demonio Cerrado | ❌ Demonio privativo |
+| **Comunicación Kernel Windows** | ✅ **IOCTL Nativo VHCI + Eventos Push** | ✅ Driver Nativo | ✅ Servicio Privativo | ✅ Servicio Privativo |
+| **Modos de Latencia de Red** | ✅ **Dual: Low-Latency WSK y Zero-Copy** | ⚙️ Genérico | ⚙️ Relay Privativo | ⚙️ Genérico |
+| **Atajo Global y CLI Headless** | ✅ **`Ctrl+Alt+D` + `--disconnect-all`/`--quit`** | ❌ Solo GUI / Básico | ❌ GUI Cerrada | ⚠️ SDK de Pago |
+| **Interfaz de Usuario** | ✅ **WPF Moderna (Temas Oscuro/Claro + Ping `[ms]`)** | 🕰️ Árbol clásico Win98 | 💻 App con Login | 💻 Pesada |
+| **Drivers (Windows 10/11)** | ✅ **Certificados WHQL (Soporte HVCI)** | ✅ Firmados | ✅ Firmados | ✅ Firmados |
+| **Integración VPN Nativa** | ✅ **Detección Tailscale, ZeroTier y WireGuard** | 💰 Extra / Manual | ⚠️ Servidores Relay Cloud | ❌ Manual |
 
 ---
 
@@ -68,10 +71,12 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 
 ---
 
-## 🆕 Novedades en v3.3.1 (Suite Multiplataforma USBAnywhere)
+## 🆕 Novedades en v3.4.0 (Suite Multiplataforma USBAnywhere)
 
-- 🐧 **Modo Cliente Universal para Linux (`usbanywhere-ctl` v3.3.1)** - Soporte completo como cliente en Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) mediante `vhci_hcd` con **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** automático (`scan`, `remote`, `connect`, `disconnect`, `ports` + opciones `[9]` / `[0]` en el Dashboard interactivo).
-- ⌨️ **Fix de Enumeración de Teclados USB y Periféricos HID en Android (`UrbSession.kt`)** - Deducción exacta de velocidad (`USB_SPEED_LOW`/`FULL`/`HIGH`), limpieza de `URB_SHORT_NOT_OK`, respaldo `rawDescriptors` (`0x01`/`0x02`/`0x21`), síntesis de descriptores de informe HID `0x22` y tolerancia ante stalls de `SET_IDLE`/`SET_PROTOCOL` para clientes Windows UDE.
+- ⚡ **IOCTL Directo al Kernel VHCI y Eventos Push en Tiempo Real (`VhciNativeClient.cs`)** - Comunicación nativa por `DeviceIoControl` y lectura asíncrona `ReadFile` contra `usbip2_ude` (eliminando subprocesos `usbip.exe`, regex y hashes SHA-256 repetidos, con fallback automático a CLI y ajuste de icono en bandeja Windows 11).
+- ⌨️ **Atajo Global (`Ctrl+Alt+D`) y Control CLI Headless** - Libera al instante todos los USB remotos desde el atajo configurable, el menú de bandeja `Desconectar todo` o la línea de comandos (`--disconnect-all`, `--disconnect <puerto>`, `--quit`).
+- 🐧 **Modo Cliente Universal para Linux (`usbanywhere-ctl` v3.4.0)** - Soporte completo como cliente en Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) mediante `vhci_hcd` con **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** automático (`scan`, `remote`, `connect`, `disconnect`, `ports` + opciones `[9]` / `[0]` en el Dashboard interactivo).
+- ⌨️ **Fix de Enumeración HID, Cadenas String e Intervalo en Android (`UrbSession.kt`)** - Deducción exacta de velocidad (`USB_SPEED_LOW`/`FULL`/`HIGH`), limpieza de `URB_SHORT_NOT_OK`, respaldo `rawDescriptors` (`0x01`/`0x02`/`0x03`/`0x21`), saneado de `bInterval == 0`, síntesis `0x22` HID y tolerancia ante stalls de `SET_IDLE`/`SET_PROTOCOL` para clientes Windows UDE.
 - 📺 **Navegación D-Pad y Gamepad en Android TV / Nvidia Shield (`TvFocus.kt`)** - Control completo con mando a distancia o gamepad en todas las pestañas, interruptores y tarjetas de dispositivos.
 - 🎮 **Desautorización de Interfaces de Audio DualSense y Diagnóstico `dwc_otg`** - Regla `udev` por clase (`ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"`) compatible con todas las revisiones de firmware de DualSense (`0ce6`/`0df2`).
 - ⚡ **Auto-Instalador SSH y Plug & Play en 1-Click** - Convierte cualquier Raspberry Pi, Debian o Ubuntu en un servidor USB/IP con exportación dinámica bajo demanda.
@@ -99,16 +104,16 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Releases (v3.3.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.1):
-   - **Windows x64**: `USBAnywhere-v3.3.1-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.3.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
-   - **Cliente y Servidor Linux**: `USBAnywhere-Linux-v3.3.1.tar.gz`
+1. Descarga desde [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0):
+   - **Windows x64**: `USBAnywhere-v3.4.0-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.4.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+   - **Cliente y Servidor Linux**: `USBAnywhere-Linux-v3.4.0.tar.gz`
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.3.1.exe` desde [USBAnywhere Releases (v3.3.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.3.1)
+1. Descarga `USBAnywhere_Setup_v3.4.0.exe` desde [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 

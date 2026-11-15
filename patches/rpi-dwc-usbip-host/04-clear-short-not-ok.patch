@@ -1,0 +1,16 @@
+--- a/drivers/usb/usbip/stub_rx.c
++++ b/drivers/usb/usbip/stub_rx.c
+@@ -436,9 +436,12 @@
+ 		if (is_out)
+ 			allowed |= URB_ZERO_PACKET;
+ 		fallthrough;
+-	default:			/* all non-iso endpoints */
++	case USB_ENDPOINT_XFER_INT:
+ 		if (!is_out)
+ 			allowed |= URB_SHORT_NOT_OK;
++		break;
++	case USB_ENDPOINT_XFER_CONTROL:
++		/* USB 2.0 8.5.3.2: short data stage is legal on control pipes */
+ 		break;
+ 	case USB_ENDPOINT_XFER_ISOC:
+ 		allowed |= URB_ISO_ASAP;

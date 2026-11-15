@@ -25,7 +25,9 @@ namespace USBAnywhere.Services
         private readonly ILogger<UsbipService> _logger;
         private readonly IEnvironmentService _envService;
         private readonly IDriverService _driverService;
+        private readonly IUsbIdsService? _usbIds;
         private readonly ConcurrentDictionary<int, (string ServerIP, string BusId)> _portBindings = new();
+        public bool AllowNativeVhci { get; set; } = true;
 
         // Integrity check: SHA-256 of the bundled usbip-win client binaries, Portable/usbipw.exe == usbip.exe)
         // Any binary not listed here is NOT executed (fail-closed). Update when shipping a new usbip build.
@@ -56,7 +58,7 @@ namespace USBAnywhere.Services
         /// <summary>
         /// Resolves the optimal usbip2_ude receive mode. Interactive Interrupt IN and Isochronous
         /// peripherals (controllers, mice, keyboards, HID dongles, audio headsets) require 'low-latency'
-        /// to avoid Linux/UDE EOVERFLOW (-75) stalls (upstream issue #187).
+        /// to avoid Linux/UDE EOVERFLOW (-75) stalls.
         /// </summary>
         public static string ResolveEffectiveReceiveMode(string? requestedMode, string? description = null, string? hardwareId = null)
         {
@@ -115,11 +117,13 @@ namespace USBAnywhere.Services
         public UsbipService(
             ILogger<UsbipService> logger,
             IEnvironmentService envService,
-            IDriverService driverService)
+            IDriverService driverService,
+            IUsbIdsService? usbIds = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _envService = envService ?? throw new ArgumentNullException(nameof(envService));
             _driverService = driverService ?? throw new ArgumentNullException(nameof(driverService));
+            _usbIds = usbIds;
         }
 
         public async Task<List<UsbDevice>> ListRemoteDevicesAsync(string ip, CancellationToken ct = default)
@@ -286,6 +290,36 @@ namespace USBAnywhere.Services
                     cmdArgs.Add($"--receive-mode={effectiveMode}");
                 }
 
+                bool wskEvents = effectiveMode != "zero-copy";
+                if (AllowNativeVhci && GetUsbipExecutable() != null)
+                {
+                    var nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: true);
+                    if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
+                    {
+                        if (nativeRes.Port <= 0 && bindStatus.BoundOnDemand)
+                        {
+                            await Task.Delay(350, ct);
+                            nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: true);
+                        }
+
+                        if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
+                        {
+                            if (nativeRes.Port > 0)
+                            {
+                                _portBindings[nativeRes.Port] = (ip, busId);
+                                _logger.LogInformation(
+                                    "Dispositivo {BusId} conectado por IOCTL nativo (puerto {Port}, modo: {Mode}).",
+                                    busId, nativeRes.Port, effectiveMode);
+                                return OperationResult.Ok();
+                            }
+
+                            var nativeError = nativeRes.ErrorMessage ?? $"VHCI attach failed with Win32 error {nativeRes.Win32Error}.";
+                            _logger.LogError("Fallo IOCTL nativo al conectar {BusId}: {Error}", busId, nativeError);
+                            return OperationResult.Fail(nativeError);
+                        }
+                    }
+                }
+
                 var result = await RunCommandAsync(cmdArgs, 10000, ct);
 
                 // FIX: usbip attach returns exit code 0 on success (output may be empty)
@@ -364,13 +398,36 @@ namespace USBAnywhere.Services
                     }
                 }
 
-                var result = await RunCommandAsync(new[] { "detach", "-p", port }, 5000, ct);
+                bool handledNatively = false;
+                bool success = false;
+                int exitCode = 0;
+                string errorText = string.Empty;
 
-                // FIX: usbip detach produces empty output on success — use exit code
-                bool hasError = result.Output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
-                                result.Error.Contains("error", StringComparison.OrdinalIgnoreCase);
+                if (AllowNativeVhci && int.TryParse(port.Trim(), out var nativePort) && nativePort > 0 && GetUsbipExecutable() != null)
+                {
+                    var nativeDetach = VhciNativeClient.TryDetachPort(nativePort);
+                    if (nativeDetach.InterfaceAvailable)
+                    {
+                        handledNatively = true;
+                        success = nativeDetach.Success;
+                        exitCode = nativeDetach.Win32Error;
+                        if (!success)
+                            errorText = $"Win32 IOCTL error {nativeDetach.Win32Error}";
+                    }
+                }
 
-                bool success = result.ExitCode == 0 && !hasError;
+                if (!handledNatively)
+                {
+                    var result = await RunCommandAsync(new[] { "detach", "-p", port }, 5000, ct);
+
+                    // FIX: usbip detach produces empty output on success — use exit code
+                    bool hasError = result.Output.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                                    result.Error.Contains("error", StringComparison.OrdinalIgnoreCase);
+
+                    success = result.ExitCode == 0 && !hasError;
+                    exitCode = result.ExitCode;
+                    errorText = result.Error;
+                }
 
                 if (success)
                 {
@@ -386,7 +443,7 @@ namespace USBAnywhere.Services
                 else
                 {
                     _logger.LogError("Fallo al desconectar puerto {Port}. ExitCode: {ExitCode}, Error: {Error}",
-                        port, result.ExitCode, result.Error);
+                        port, exitCode, errorText);
                 }
 
                 return success;
@@ -667,7 +724,11 @@ namespace USBAnywhere.Services
             {
                 _logger.LogInformation("Iniciando desconexión limpia de todos los dispositivos...");
                 // Stop any active background kernel attach loops in usbip2_ude.sys first
-                try { await RunCommandAsync(new[] { "attach", "-X" }, 3000, ct); } catch { }
+                bool stoppedNatively = AllowNativeVhci && GetUsbipExecutable() != null && VhciNativeClient.TryStopAttachAttempts().InterfaceAvailable;
+                if (!stoppedNatively)
+                {
+                    try { await RunCommandAsync(new[] { "attach", "-X" }, 3000, ct); } catch { }
+                }
 
                 var connected = await GetConnectedDevicesAsync();
                 foreach (var dev in connected)
@@ -696,6 +757,21 @@ namespace USBAnywhere.Services
 
             try
             {
+                if (AllowNativeVhci && GetUsbipExecutable() != null)
+                {
+                    var nativeDevices = VhciNativeClient.TryGetImportedDevices(_usbIds);
+                    if (nativeDevices != null)
+                    {
+                        foreach (var d in nativeDevices)
+                        {
+                            if (d.Port >= 0 && !string.IsNullOrWhiteSpace(d.ServerIP) && !string.IsNullOrWhiteSpace(d.BusId))
+                                _portBindings[d.Port] = (d.ServerIP, d.BusId);
+                        }
+                        _logger.LogDebug("GetConnectedDevicesAsync (IOCTL nativo) found {Count} connected device(s)", nativeDevices.Count);
+                        return nativeDevices;
+                    }
+                }
+
                 var result = await RunCommandAsync(new[] { "port" }, 10000, CancellationToken.None);
                 if (string.IsNullOrEmpty(result.Output)) return devices;
 
