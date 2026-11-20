@@ -2,7 +2,7 @@
 
 🌐 **Language / Idioma:** **English** | [Español](README_ES.md)
 
-**v3.4.0** | [🌍 Official Website](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases & Downloads](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Reddit Community](https://www.reddit.com/r/UsbAnywhere/) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
+**v3.4.1** | [🌍 Official Website](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases & Downloads](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Reddit Community](https://www.reddit.com/r/UsbAnywhere/) | [📖 User Manual](docs/USAGE_EN.md) | [🌐 VPN Connection](docs/VPN_INTERNET_EN.md)
 
 > **Why pay $49.00 per server and be restricted to a single USB device?**
 > **USBAnywhere** connects **unlimited** remote USB peripherals over LAN, Wi-Fi, and Internet with **zero licensing fees**, **Microsoft WHQL-certified drivers**, and **tunable ultra-low latency**.
@@ -16,6 +16,17 @@ Transform any Linux device (or Windows PC) into a high-performance Virtual USB H
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20(x64%20%26%20ARM64)-lightgrey?style=flat-square&logo=windows)](https://github.com/oscarlosu-lab/USBAnywhere)
 [![Reddit Community](https://img.shields.io/badge/Reddit-r%2FUsbAnywhere-FF4500?style=flat-square&logo=reddit&logoColor=white)](https://www.reddit.com/r/UsbAnywhere/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Project-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/oscarlosu)
+
+---
+
+## 📦 Which Repository Do I Need?
+
+| Repository | Role | Where to Install |
+| :--- | :--- | :--- |
+| **[USBAnywhere](https://github.com/oscarlosu-lab/USBAnywhere)** *(this repo)* | **Client** (Windows WPF + WHQL drivers & Linux CLI) + Linux/Raspberry Pi headless server bootstrap (`scripts/install-server.sh`) | On the **PC using the remote USB device** (and Linux/Pi hosts) |
+| **[USBAnywhere-Server](https://github.com/oscarlosu-lab/USBAnywhere-Server)** | **Windows & macOS Host Server** (GUI/tray app to export local USB devices) | Only on the **Windows/Mac PC where the USB device is physically plugged in** |
+| **[USBAnywhere-Android](https://github.com/oscarlosu-lab/USBAnywhere-Android)** | **Android & Android TV** client & rootless OTG host | On Android phones, tablets, Nvidia Shield, or Meta Quest |
+| **[SnakeUSBIP](https://github.com/oscarlosu-lab/SnakeUSBIP)** | **Sibling Engineering/Industrial Edition** sharing the core USB/IP transport engine with its own independent release & update channel | Alternative distribution for CNC/laser/lab workflows |
 
 ---
 

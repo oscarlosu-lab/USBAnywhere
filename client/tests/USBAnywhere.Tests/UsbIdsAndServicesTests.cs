@@ -118,7 +118,7 @@ public class UsbIdsAndServicesTests
             var logFiles = Directory.GetFiles(tempLogs, "usbanywhere_*.log");
             Assert.Single(logFiles);
             var content = File.ReadAllText(logFiles[0]);
-            var expectedVer = typeof(LoggerService).Assembly.GetName().Version?.ToString(3) ?? "3.4.0";
+            var expectedVer = typeof(LoggerService).Assembly.GetName().Version?.ToString(3) ?? "3.4.1";
             Assert.Contains($"v{expectedVer} Logger Initialized", content);
         }
         finally
@@ -163,15 +163,15 @@ public class UsbIdsAndServicesTests
     {
         var assets = new List<UpdateService.GitHubAsset>
         {
-            new() { Name = "USBAnywhere-Server_Setup_v3.4.0.exe", BrowserDownloadUrl = "https://example.com/server.exe" },
-            new() { Name = "USBAnywhere_Setup_v3.4.0.exe", BrowserDownloadUrl = "https://example.com/client.exe" },
+            new() { Name = "USBAnywhere-Server_Setup_v3.4.1.exe", BrowserDownloadUrl = "https://example.com/server.exe" },
+            new() { Name = "USBAnywhere_Setup_v3.4.1.exe", BrowserDownloadUrl = "https://example.com/client.exe" },
             new() { Name = "USBAnywhere-Server-Portable-x64.zip", BrowserDownloadUrl = "https://example.com/server.zip" },
             new() { Name = "USBAnywhere-Portable-x64.zip", BrowserDownloadUrl = "https://example.com/client.zip" }
         };
 
         var installedAsset = UpdateService.SelectClientAsset(assets, isInstalled: true);
         Assert.NotNull(installedAsset);
-        Assert.Equal("USBAnywhere_Setup_v3.4.0.exe", installedAsset.Name);
+        Assert.Equal("USBAnywhere_Setup_v3.4.1.exe", installedAsset.Name);
 
         var portableAsset = UpdateService.SelectClientAsset(assets, isInstalled: false);
         Assert.NotNull(portableAsset);
