@@ -72,6 +72,7 @@ public partial class MainWindow : Window
     private EventWaitHandle? _gracefulExitEvent;
     private RegisteredWaitHandle? _disconnectAllWaitHandle;
     private RegisteredWaitHandle? _gracefulExitWaitHandle;
+    private CancellationTokenSource? _ipcPipeCts;
     private HwndSource? _hwndSource;
     private bool _hotkeyRegistered;
     private const int HOTKEY_ID_DISCONNECT_ALL = 0x534B;
@@ -472,32 +473,26 @@ public partial class MainWindow : Window
     {
         try
         {
-            // Support CLI --connect <IP> <BUSID> for Moonlight / Sunshine / Playnite automation
-            var cliArgs = Environment.GetCommandLineArgs();
-            for (int i = 0; i < cliArgs.Length - 2; i++)
+            if (App.TryParseConnectArgs(Environment.GetCommandLineArgs(), out string cliIp, out string cliBusId))
             {
-                if (cliArgs[i].Equals("--connect", StringComparison.OrdinalIgnoreCase))
-                {
-                    var cliIp = cliArgs[i + 1];
-                    var cliBusId = cliArgs[i + 2];
-                    if (USBAnywhere.Utils.InputValidator.IsValidHost(cliIp) && USBAnywhere.Utils.InputValidator.IsValidBusId(cliBusId))
-                    {
-                        var fav = _favorites.GetFavorites().FirstOrDefault(f =>
-                            string.Equals(f.ServerIP, cliIp, StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(f.BusId, cliBusId, StringComparison.OrdinalIgnoreCase));
-                        var requestedMode = _config.Load().DefaultReceiveMode;
-                        var mode = UsbipService.ResolveEffectiveReceiveMode(requestedMode, fav?.Description, null);
-                        await _usbip.AttachDeviceAsync(cliIp, cliBusId, mode);
-                        await LoadConnectedDevicesAsync();
-                    }
-                    break;
-                }
+                await ConnectCliDeviceAsync(cliIp, cliBusId);
             }
         }
         catch (Exception ex)
         {
             AddLog("Error", ex.Message);
         }
+    }
+
+    private async Task ConnectCliDeviceAsync(string cliIp, string cliBusId)
+    {
+        var fav = _favorites.GetFavorites().FirstOrDefault(f =>
+            string.Equals(f.ServerIP, cliIp, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(f.BusId, cliBusId, StringComparison.OrdinalIgnoreCase));
+        var requestedMode = _config.Load().DefaultReceiveMode;
+        var mode = UsbipService.ResolveEffectiveReceiveMode(requestedMode, fav?.Description, null);
+        await _usbip.AttachDeviceAsync(cliIp, cliBusId, mode);
+        await LoadConnectedDevicesAsync();
     }
 
     /// <summary>
@@ -1919,6 +1914,9 @@ public partial class MainWindow : Window
                 null,
                 Timeout.Infinite,
                 false);
+
+            _ipcPipeCts = new CancellationTokenSource();
+            _ = RunIpcPipeServerAsync(_ipcPipeCts.Token);
         }
         catch (Exception ex)
         {
@@ -1976,8 +1974,48 @@ public partial class MainWindow : Window
             _gracefulExitWaitHandle = null;
             _gracefulExitEvent?.Dispose();
             _gracefulExitEvent = null;
+
+            _ipcPipeCts?.Cancel();
+            _ipcPipeCts?.Dispose();
+            _ipcPipeCts = null;
         }
         catch { }
+    }
+
+    private async Task RunIpcPipeServerAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                using var server = new System.IO.Pipes.NamedPipeServerStream(
+                    App.IpcPipeName,
+                    System.IO.Pipes.PipeDirection.In,
+                    1,
+                    System.IO.Pipes.PipeTransmissionMode.Byte,
+                    System.IO.Pipes.PipeOptions.Asynchronous);
+                await server.WaitForConnectionAsync(ct);
+                using var reader = new System.IO.StreamReader(server, System.Text.Encoding.UTF8);
+                string? line = await reader.ReadLineAsync(ct);
+                if (!string.IsNullOrWhiteSpace(line))
+                {
+                    var parts = line.Split('|', 3, StringSplitOptions.TrimEntries);
+                    if (parts.Length == 3 &&
+                        parts[0].Equals("CONNECT", StringComparison.OrdinalIgnoreCase) &&
+                        USBAnywhere.Utils.InputValidator.IsValidHost(parts[1]) &&
+                        USBAnywhere.Utils.InputValidator.IsValidBusId(parts[2]))
+                    {
+                        await Dispatcher.InvokeAsync(() => ConnectCliDeviceAsync(parts[1], parts[2]));
+                    }
+                }
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[IPC Pipe] {ex.Message}");
+                await Task.Delay(250, ct);
+            }
+        }
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

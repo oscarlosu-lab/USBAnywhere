@@ -21,6 +21,7 @@ public partial class App : System.Windows.Application
     private const string MutexName = "USBAnywhere_SingleInstance_Mutex";
     public const string DisconnectAllEventName = @"Local\USBAnywhere_DisconnectAll_Event";
     public const string GracefulExitEventName = @"Local\USBAnywhere_GracefulExit_Event";
+    public const string IpcPipeName = "USBAnywhere_IpcPipe";
     public IServiceProvider ServiceProvider { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -97,11 +98,18 @@ public partial class App : System.Windows.Application
                 }
             }
 
-            // ── STEP 2: Single instance guard ──────────────────────────────
+            // ── STEP 2: Single instance guard (forward --connect/--attach if already running) ──
             _mutex = new Mutex(true, MutexName, out bool createdNew);
             _ownsMutex = createdNew;
             if (!createdNew)
             {
+                if (TryParseConnectArgs(e.Args, out string ipcIp, out string ipcBusId) &&
+                    Task.Run(() => TrySendIpcConnectAsync(ipcIp, ipcBusId)).GetAwaiter().GetResult())
+                {
+                    Shutdown(0);
+                    return;
+                }
+
                 bool isEs = System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName.Equals("es", StringComparison.OrdinalIgnoreCase);
                 string runningMsg = isEs
                     ? "USBAnywhere ya está en ejecución.\nRevisa la bandeja del sistema."
@@ -149,6 +157,47 @@ public partial class App : System.Windows.Application
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown();
+        }
+    }
+
+    internal static bool TryParseConnectArgs(string[]? args, out string ip, out string busId)
+    {
+        ip = string.Empty;
+        busId = string.Empty;
+        if (args == null || args.Length < 3) return false;
+        for (int i = 0; i < args.Length - 2; i++)
+        {
+            if (args[i].Equals("--connect", StringComparison.OrdinalIgnoreCase) ||
+                args[i].Equals("--attach", StringComparison.OrdinalIgnoreCase))
+            {
+                string candIp = args[i + 1].Trim();
+                string candBusId = args[i + 2].Trim();
+                if (USBAnywhere.Utils.InputValidator.IsValidHost(candIp) &&
+                    USBAnywhere.Utils.InputValidator.IsValidBusId(candBusId))
+                {
+                    ip = candIp;
+                    busId = candBusId;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static async Task<bool> TrySendIpcConnectAsync(string ip, string busId)
+    {
+        try
+        {
+            using var pipe = new System.IO.Pipes.NamedPipeClientStream(".", IpcPipeName, System.IO.Pipes.PipeDirection.Out);
+            await pipe.ConnectAsync(1500);
+            using var writer = new System.IO.StreamWriter(pipe, System.Text.Encoding.UTF8) { AutoFlush = true };
+            await writer.WriteLineAsync($"CONNECT|{ip}|{busId}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[IPC Connect] {ex.Message}");
+            return false;
         }
     }
 

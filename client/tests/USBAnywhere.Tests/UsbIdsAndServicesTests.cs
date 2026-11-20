@@ -204,6 +204,14 @@ public class UsbIdsAndServicesTests
         Assert.True(MainWindow.TryParseHotkey("Ctrl+Alt+D", out uint mods, out uint vk));
         Assert.Equal(0x0002u | 0x0001u, mods);
         Assert.Equal(0x44u, vk);
+
+        Assert.True(App.TryParseConnectArgs(new[] { "--minimized", "--connect", "192.168.11.115", "7-1" }, out string ip, out string busId));
+        Assert.Equal("192.168.11.115", ip);
+        Assert.Equal("7-1", busId);
+        Assert.True(App.TryParseConnectArgs(new[] { "--attach", "10.0.0.5", "1-2.3" }, out ip, out busId));
+        Assert.Equal("10.0.0.5", ip);
+        Assert.Equal("1-2.3", busId);
+        Assert.False(App.TryParseConnectArgs(new[] { "--connect", "bad host!", "7-1" }, out _, out _));
     }
 
     [Fact]
