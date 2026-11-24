@@ -46,7 +46,6 @@ jobs:
           name: unsigned-installer
           path: client/release/USBAnywhere_Setup_v*.exe
           if-no-files-found: error
-          archive: false
 
       - name: Submit signing request
         uses: signpath/github-action-submit-signing-request@v3
