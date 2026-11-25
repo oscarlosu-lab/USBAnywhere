@@ -1,0 +1,40 @@
+name: Bug Report
+description: Report a reproducible bug or device compatibility issue in USBAnywhere
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: USBAnywhere Version
+      description: Release version or commit hash you are running
+      placeholder: "e.g. v3.4.1 / v3.3.2 / v1.2.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating System / Device
+      description: Windows 10/11, Linux distro/kernel, macOS, or Android/TV model
+      placeholder: "e.g. Windows 11 24H2 + Raspberry Pi 5"
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: USB Device / Bus ID
+      placeholder: "e.g. DualSense / 3D Printer / 2-1"
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear steps to reproduce and expected vs actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Diagnostics
+      description: Paste sanitized logs (no IPs/tokens/secrets).
+      render: text

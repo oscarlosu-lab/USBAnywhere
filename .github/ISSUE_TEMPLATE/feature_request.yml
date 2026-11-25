@@ -1,0 +1,18 @@
+name: Feature Request
+description: Suggest an improvement or new capability for USBAnywhere
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Use Case
+      description: What workflow or hardware setup would this improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe how you would like this to work.
+    validations:
+      required: true
