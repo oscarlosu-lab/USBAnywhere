@@ -245,12 +245,12 @@
             </div>
             <div class="p-4 font-mono text-xs space-y-2 text-slate-300 leading-relaxed">
               <div class="text-slate-500"># 1. Probe LAN/VPN hosts on UDP/TCP 3241</div>
-              <div><span class="text-signal-amber">$</span> usbanywhere-ctl status --host 192.168.1.41</div>
+              <div><span class="text-signal-amber">$</span> usbanywhere-ctl status --host 192.168.1.50</div>
               <div class="text-slate-400">{"status":"OK","platform":"linux","port":3240,"exported":2}</div>
               <div class="text-slate-500 pt-1"># 2. On-demand bind + native VHCI IOCTL attach</div>
-              <div><span class="text-signal-amber">$</span> USBAnywhere.exe --attach 192.168.1.41 2-1</div>
+              <div><span class="text-signal-amber">$</span> USBAnywhere.exe --attach 192.168.1.50 2-1</div>
               <div class="text-signal-emerald">[VHCI] Opened \\.\usbip2_ude (push events active)</div>
-              <div class="text-signal-emerald">[TCP ] Connected 192.168.1.41:3240 (WSK low-latency)</div>
+              <div class="text-signal-emerald">[TCP ] Connected 192.168.1.50:3240 (WSK low-latency)</div>
               <div class="text-white">[OK  ] BusID 2-1 mounted on Port 1 (0 subprocesses)</div>
               <div class="text-slate-500 pt-1"># 3. Clean release on detach / shutdown</div>
               <div><span class="text-signal-amber">$</span> USBAnywhere.exe --disconnect-all</div>
