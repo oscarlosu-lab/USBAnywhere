@@ -9,37 +9,39 @@ on:
     - cron: '0 6 * * 1'
 
 permissions:
-  actions: read
   contents: read
-  security-events: write
 
 jobs:
   analyze:
     name: CodeQL (csharp)
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@74c1aea9df7c0f02e9b7bfe4a8935abf2e5e3aa6 # v3
         with:
           languages: csharp
           queries: security-extended
 
       - name: Setup .NET 9 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '9.0.x'
 
       - name: Build C# (.NET 9)
         shell: pwsh
         run: |
-          dotnet restore USBAnywhere.sln
-          dotnet build USBAnywhere.sln -c Release --no-restore
+          dotnet restore client/src/USBAnywhere/USBAnywhere.csproj
+          dotnet build client/src/USBAnywhere/USBAnywhere.csproj -c Release --no-restore
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@74c1aea9df7c0f02e9b7bfe4a8935abf2e5e3aa6 # v3
         with:
           category: "/language:csharp"

@@ -9,12 +9,11 @@
 
 Transform any Linux device (or Windows PC) into a high-performance Virtual USB Hub accessible from Windows 10 and 11. Compatible with **Raspberry Pi, Orange Pi, Banana Pi, Proxmox/HomeLab, Steam Deck, OpenWRT routers, CrealityBox**, and any ARM/x86 Linux server.
 
-[![CI Build & Tests](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml)
-[![CodeQL SAST](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/codeql.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/codeql.yml)
-[![Gitleaks Secret Scan](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/security.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/security.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/oscarlosu-lab/USBAnywhere/badge)](https://scorecard.dev/viewer/?uri=github.com/oscarlosu-lab/USBAnywhere)
-[![SignPath Release Signing](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/sign-release.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/sign-release.yml)
-[![GitHub Pages](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/pages.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/pages.yml)
+[![CI Build & Tests](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml)
+[![CodeQL SAST](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/codeql.yml)
+[![Gitleaks Secret Scan](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/security.yml)
+[![SignPath Release Signing](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/sign-release.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/sign-release.yml)
+[![GitHub Pages](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/pages.yml)
 [![Latest Release](https://img.shields.io/github/v/release/oscarlosu-lab/USBAnywhere?style=flat-square&logo=github&color=0ea5e9)](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest)
 [![GitHub Downloads](https://img.shields.io/github/downloads/oscarlosu-lab/USBAnywhere-Downloads/total?style=flat-square&logo=github&color=blue)](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases)
 [![Last Commit](https://img.shields.io/github/last-commit/oscarlosu-lab/USBAnywhere?style=flat-square&color=10b981)](https://github.com/oscarlosu-lab/USBAnywhere/commits/main)
@@ -52,7 +51,7 @@ The project continues to evolve through a mix of usability, interoperability, an
 
 ## ⚔️ Why Switch from VirtualHere to USBAnywhere?
 
-| Feature | **USBAnywhere v3.4.0** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
+| Feature | **USBAnywhere v3.4.1** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: | :---: |
 | **Price & License** | **100% Free & Open Source (GPLv3)** | $49.00 USD / Server | ~$15–$30+ / mo SaaS | $159.00+ USD |
 | **Simultaneous Devices (Free)** | **♾️ Unlimited** | ⚠️ 1 Device Only | ❌ 20-min Trial / 1 Conn | ❌ Trial Expired |
@@ -102,11 +101,13 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 
 ---
 
-## 🆕 What's New in v3.4.0 (USBAnywhere Multiplatform Suite)
+## 🆕 What's New in v3.4.1 (USBAnywhere Multiplatform Suite)
+
+- 🔗 **Single-Instance IPC Forwarding (`--connect` / `--attach`)** - Launching `USBAnywhere.exe --connect` or `--attach` forwards the request directly to the already-running instance via named IPC pipe instead of spawning a duplicate window.
 
 - ⚡ **Direct Kernel VHCI IOCTL & Real-Time Push Events (`VhciNativeClient.cs`)** - Communicates directly with the `usbip2_ude` Windows kernel driver via Win32 `DeviceIoControl` and async overlapped `ReadFile` events (eliminating repeated `usbip.exe` process spawns, regex parsing, and per-call SHA-256 checks, with clean CLI fallback and Windows 11 tray icon sizing).
 - ⌨️ **Global Hotkey (`Ctrl+Alt+D`) & Headless CLI Controls** - Instantly release all remote USB peripherals via configurable hotkey, tray `Disconnect All`, or headless CLI flags (`--disconnect-all`, `--disconnect <port>`, `--quit`).
-- 🐧 **Universal Linux Client Mode (`usbanywhere-ctl` v3.4.0)** - Full client support on Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) via `vhci_hcd` with automatic **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** (`scan`, `remote`, `connect`, `disconnect`, `ports` + interactive Dashboard `[9]` / `[0]`).
+- 🐧 **Universal Linux Client Mode (`usbanywhere-ctl` v3.4.1)** - Full client support on Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) via `vhci_hcd` with automatic **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** (`scan`, `remote`, `connect`, `disconnect`, `ports` + interactive Dashboard `[9]` / `[0]`).
 - ⌨️ **Android USB Keyboard, String Fallback & Pure HID Enumeration Fix (`UrbSession.kt`)** - Accurate Full/Low/High-Speed deduction (`deduceSpeed`), `URB_SHORT_NOT_OK` clearance, `rawDescriptors` fallback (`0x01`/`0x02`/`0x03`/`0x21`), `bInterval == 0` sanitizer, synthesized `0x22` HID Report Descriptors (Boot Keyboard/Mouse/Gamepad), and benign `SET_IDLE`/`SET_PROTOCOL` completion for Windows UDE clients.
 - 📺 **Android TV / Nvidia Shield D-Pad & Gamepad Navigation (`TvFocus.kt`)** - Full remote-control and gamepad focus navigation across all tabs, switches, and device cards.
 - 🎮 **DualSense Audio Interface De-Authorization & Raspberry Pi `dwc_otg` Diagnostics** - Class-based `udev` rule (`ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"`) preventing `usbip_host` isochronous audio panics across all DualSense (`0ce6`/`0df2`) firmware revisions.
@@ -135,16 +136,16 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 ## 📦 Installation
 
 ### Option 1: Portable (No installation required)
-1. Download from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0):
-   - **Windows x64**: `USBAnywhere-v3.4.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.4.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
-   - **Linux Client & Server Suite**: `USBAnywhere-Linux-v3.4.0.tar.gz`
+1. Download from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1):
+   - **Windows x64**: `USBAnywhere-v3.4.1-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.4.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+   - **Linux Client & Server Suite**: Run [`scripts/install-server.sh`](scripts/install-server.sh) (see 1-line installer below)
 2. Extract the ZIP to any folder
 3. Run `USBAnywhere.exe` as Administrator
 4. Done!
 
 ### Option 2: Installer (x64 Recommended)
-1. Download `USBAnywhere_Setup_v3.4.0.exe` from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0)
+1. Download `USBAnywhere_Setup_v3.4.1.exe` from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1)
 2. Run the installer as Administrator
 3. Follow the installation wizard
 
