@@ -240,17 +240,22 @@ namespace USBAnywhere.Services
             return devices;
         }
 
-        public async Task<bool> AttachDeviceAsync(string ip, string busId, string? receiveMode = null, CancellationToken ct = default)
+        public async Task<bool> AttachDeviceAsync(string ip, string busId, string? receiveMode = null, CancellationToken ct = default, string? serial = null, bool attachOnce = true)
         {
-            var result = await AttachDeviceWithResultAsync(ip, busId, receiveMode, ct);
+            var result = await AttachDeviceWithResultAsync(ip, busId, receiveMode, ct, serial: serial, attachOnce: attachOnce);
             return result.Success;
         }
 
-        private async Task<OperationResult> AttachDeviceWithResultAsync(string ip, string busId, string? receiveMode, CancellationToken ct, string? description = null, string? hardwareId = null)
+        private async Task<OperationResult> AttachDeviceWithResultAsync(string ip, string busId, string? receiveMode, CancellationToken ct, string? description = null, string? hardwareId = null, string? serial = null, bool attachOnce = true)
         {
             if (string.IsNullOrWhiteSpace(ip) || string.IsNullOrWhiteSpace(busId))
             {
                 return OperationResult.Fail("Server IP and USB bus ID are required.");
+            }
+
+            if (!VhciNativeClient.IsValidUsbSerial(serial))
+            {
+                return OperationResult.Fail("Custom USB serial must be 1-15 ASCII alphanumeric characters.");
             }
 
             if (!InputValidator.IsValidHost(ip) || !InputValidator.IsValidBusId(busId))
@@ -283,7 +288,13 @@ namespace USBAnywhere.Services
                     await Task.Delay(150, ct);
                 }
 
-                var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId, "--once" };
+                var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId };
+                if (attachOnce) cmdArgs.Add("--once");
+                if (!string.IsNullOrWhiteSpace(serial)) { cmdArgs.Add("--serial"); cmdArgs.Add(serial.Trim()); }
+                if (!string.IsNullOrEmpty(description) && description.Contains("[Storage/UAS]", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("Dispositivo {BusId} usa protocolo UAS (USB 3.0 Mass Storage). Recomendado modo Zero-Copy o puerto USB 2.0 si Windows no monta la unidad.", busId);
+                }
                 var effectiveMode = ResolveEffectiveReceiveMode(receiveMode, description, hardwareId);
                 if (effectiveMode == "zero-copy" || effectiveMode == "low-latency")
                 {
@@ -293,13 +304,13 @@ namespace USBAnywhere.Services
                 bool wskEvents = effectiveMode != "zero-copy";
                 if (AllowNativeVhci && GetUsbipExecutable() != null)
                 {
-                    var nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: true);
+                    var nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: attachOnce, serial: serial);
                     if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
                     {
                         if (nativeRes.Port <= 0 && bindStatus.BoundOnDemand)
                         {
                             await Task.Delay(350, ct);
-                            nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: true);
+                            nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: attachOnce, serial: serial);
                         }
 
                         if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
@@ -706,9 +717,29 @@ namespace USBAnywhere.Services
         public Task<List<UsbDevice>> ListDevicesAsync(string serverIP)
             => ListRemoteDevicesAsync(serverIP);
 
-        public async Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null)
+        public async Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null, string? serial = null, bool attachOnce = true)
         {
-            return await AttachDeviceWithResultAsync(serverIP, busId, receiveMode, CancellationToken.None);
+            return await AttachDeviceWithResultAsync(serverIP, busId, receiveMode, CancellationToken.None, serial: serial, attachOnce: attachOnce);
+        }
+
+        public Task<List<VhciPersistentDevice>> GetKernelPersistentDevicesAsync()
+        {
+            var res = VhciNativeClient.TryGetPersistentDevices();
+            return Task.FromResult(res.Devices);
+        }
+
+        public Task<OperationResult> SetKernelPersistentDevicesAsync(IReadOnlyList<VhciPersistentDevice> devices)
+        {
+            var res = VhciNativeClient.TrySetPersistentDevices(devices);
+            if (!res.InterfaceAvailable)
+                return Task.FromResult(OperationResult.Fail("VHCI driver interface not available."));
+            return Task.FromResult(res.Success ? OperationResult.Ok() : OperationResult.Fail($"Kernel persistence update failed (Win32 error {res.Win32Error})."));
+        }
+
+        public Task<int> StopKernelAttachAttemptsAsync(string? host = null, string? busId = null)
+        {
+            var res = VhciNativeClient.TryStopAttachAttempts(host, busId);
+            return Task.FromResult(res.CanceledCount);
         }
 
         public async Task<OperationResult> DisconnectAsync(int port)
@@ -727,7 +758,7 @@ namespace USBAnywhere.Services
                 bool stoppedNatively = AllowNativeVhci && GetUsbipExecutable() != null && VhciNativeClient.TryStopAttachAttempts().InterfaceAvailable;
                 if (!stoppedNatively)
                 {
-                    try { await RunCommandAsync(new[] { "attach", "-X" }, 3000, ct); } catch { }
+                    try { await RunCommandAsync(new[] { "attach", "-X" }, 3000, ct); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[UsbipService.cs] {ex.Message}"); }
                 }
 
                 var connected = await GetConnectedDevicesAsync();

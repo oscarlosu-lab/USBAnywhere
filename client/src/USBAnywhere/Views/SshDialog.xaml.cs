@@ -9,19 +9,19 @@ public partial class SshDialog : Window
 {
     private readonly ILocalizationService _localization;
     private readonly string _language;
-    
+
     public SshDialog(ILocalizationService localization, string language, string serverIP)
     {
         InitializeComponent();
-        
+
         _localization = localization;
         _language = language;
-        
+
         txtIP.Text = serverIP;
-        
+
         UpdateTexts();
     }
-    
+
     private void UpdateTexts()
     {
         Title = _localization.GetText("ssh_title", _language);
@@ -30,7 +30,7 @@ public partial class SshDialog : Window
         btnCopy.Content = _localization.GetText("ssh_copy", _language);
         btnAutoSetup.Content = _localization.GetText("ssh_auto_setup", _language);
         btnClose.Content = _localization.GetText("ssh_close", _language);
-        
+
         // Build instructions
         txtInstructions.Text = $"{_localization.GetText("ssh_instructions", _language)}\n\n" +
             $"{_localization.GetText("ssh_step1", _language)}\n" +
@@ -47,15 +47,15 @@ public partial class SshDialog : Window
             $"{_localization.GetText("ssh_step6", _language)}\n" +
             "   modprobe usbip_host && usbipd -D";
     }
-    
+
     private void BtnConnect_Click(object sender, RoutedEventArgs e)
     {
         var user = txtUser.Text.Trim();
         var ip = txtIP.Text.Trim();
-        
+
         if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(ip))
             return;
-            
+
         // Input validation: Prevent Command/Option Injection (no leading '-', no shell metacharacters)
         if (!USBAnywhere.Utils.InputValidator.IsValidSshUser(user) ||
             !USBAnywhere.Utils.InputValidator.IsValidHost(ip))
@@ -67,46 +67,18 @@ public partial class SshDialog : Window
                 MessageBoxImage.Warning);
             return;
         }
-        
+
         Close();
-        
-        try
-        {
-            // Try Windows Terminal first, then cmd
-            var wtPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "wt.exe");
-            var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
-            if (File.Exists(wtPath))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = wtPath,
-                    Arguments = $"new-tab ssh {user}@{ip}",
-                    UseShellExecute = true
-                });
-            }
-            else
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = File.Exists(cmdPath) ? cmdPath : "cmd.exe",
-                    Arguments = $"/k ssh {user}@{ip}",
-                    UseShellExecute = true
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[SshDialog] Failed to launch ssh: {ex}");
-        }
+        LaunchTerminalSsh(user, ip);
     }
-    
+
     private void BtnCopy_Click(object sender, RoutedEventArgs e)
     {
         var commands = "TMPFILE=$(mktemp /tmp/usbanywhere-install.XXXXXX.sh) && trap 'rm -f \"$TMPFILE\"' EXIT && (curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh -o \"$TMPFILE\" || wget -qO \"$TMPFILE\" https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh) && chmod 700 \"$TMPFILE\" && sudo bash \"$TMPFILE\"";
         System.Windows.Clipboard.SetText(commands);
         btnCopy.Content = _localization.GetText("ssh_copied", _language);
     }
-    
+
     private void BtnAutoSetup_Click(object sender, RoutedEventArgs e)
     {
         var user = txtUser.Text.Trim();
@@ -130,33 +102,41 @@ public partial class SshDialog : Window
 
         // Avoid ';' because Windows Terminal (wt.exe) parses ';' as its own multi-tab command delimiter.
         const string remoteScript = "TMPFILE=$(mktemp /tmp/usbanywhere-install.XXXXXX.sh) && trap 'rm -f \"$TMPFILE\"' EXIT && (curl -fsSL https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh -o \"$TMPFILE\" || wget -qO \"$TMPFILE\" https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh) && chmod 700 \"$TMPFILE\" && sudo bash \"$TMPFILE\"";
+        LaunchTerminalSsh(user, ip, remoteScript);
+    }
 
+    private static void LaunchTerminalSsh(string user, string ip, string? remoteCommand = null)
+    {
         try
         {
             var wtPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "wt.exe");
             var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+            var psi = new ProcessStartInfo { UseShellExecute = false };
+
             if (File.Exists(wtPath))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = wtPath,
-                    Arguments = $"new-tab ssh -t {user}@{ip} \"{remoteScript}\"",
-                    UseShellExecute = true
-                });
+                psi.FileName = wtPath;
+                psi.ArgumentList.Add("new-tab");
+                psi.ArgumentList.Add("ssh");
             }
             else
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = File.Exists(cmdPath) ? cmdPath : "cmd.exe",
-                    Arguments = $"/k ssh -t {user}@{ip} \"{remoteScript}\"",
-                    UseShellExecute = true
-                });
+                psi.FileName = File.Exists(cmdPath) ? cmdPath : "cmd.exe";
+                psi.ArgumentList.Add("/k");
+                psi.ArgumentList.Add("ssh");
             }
+
+            if (!string.IsNullOrEmpty(remoteCommand))
+                psi.ArgumentList.Add("-t");
+            psi.ArgumentList.Add($"{user}@{ip}");
+            if (!string.IsNullOrEmpty(remoteCommand))
+                psi.ArgumentList.Add(remoteCommand);
+
+            Process.Start(psi);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[SshDialog] Failed to launch auto-setup ssh: {ex}");
+            System.Diagnostics.Debug.WriteLine($"[SshDialog] Failed to launch ssh: {ex}");
         }
     }
 

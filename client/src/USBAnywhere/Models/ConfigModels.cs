@@ -24,6 +24,7 @@ public class AppConfig
     public bool AutoDetachOnExit { get; set; } = true;
     public bool AutoDetachOnSleep { get; set; } = true;
     public string DisconnectAllHotkey { get; set; } = "Ctrl+Alt+D";
+    public Dictionary<string, string>? CustomDeviceSerials { get; set; }
 }
 
 /// <summary>
@@ -37,4 +38,6 @@ public class FavoriteDevice
     public bool AutoConnect { get; set; } = true;
     public string AddedDate { get; set; } = string.Empty;
     public string ReceiveMode { get; set; } = "low-latency";
+    public string? CustomSerial { get; set; }
+    public bool KernelPersistent { get; set; }
 }

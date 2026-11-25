@@ -309,7 +309,7 @@ public class ConnectionMonitorService : IConnectionMonitorService, IDisposable
             _disposed = true;
             _isRunning = false;
         }
-        try { _monitorTimer.Stop(); } catch { }
+        try { _monitorTimer.Stop(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[ConnectionMonitorService.cs] {ex.Message}"); }
         _monitorTimer.Dispose();
     }
 }

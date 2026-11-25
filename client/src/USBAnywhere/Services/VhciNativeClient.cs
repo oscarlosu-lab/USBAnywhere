@@ -7,6 +7,7 @@ using System.Buffers.Binary;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 using USBAnywhere.Models;
@@ -30,6 +31,14 @@ public enum VhciDeviceState
     Unplugging = 5
 }
 
+public sealed record VhciPersistentDevice(
+    string Host,
+    string Service,
+    string BusId,
+    string Serial,
+    string ReceiveMode,
+    bool AttachOnce);
+
 public sealed record VhciDeviceStateEvent(
     VhciDeviceState State,
     uint SourceId,
@@ -49,10 +58,13 @@ public static class VhciNativeClient
     public const uint IoctlPluginHardware = 0x0022E000u;
     public const uint IoctlPlugoutHardware = 0x0022E004u;
     public const uint IoctlGetImportedDevices = 0x0022E008u;
+    public const uint IoctlSetPersistent = 0x0022E00Cu;
+    public const uint IoctlGetPersistent = 0x0022E010u;
     public const uint IoctlStopAttachAttempts = 0x0022E014u;
     public const uint IoctlPluginHardwareOnce = 0x0022E018u;
 
     public const int PortAll = -1;
+    public const int PortAllCloseOnly = -2;
     public const string DefaultServicePort = "3240";
 
     public const int BusIdSize = 32;
@@ -92,6 +104,8 @@ public static class VhciNativeClient
     private const int ErrorOperationAborted = 995;
     private const int ErrorConnectionRefused = 1225;
     private const int ErrorInvalidUserBuffer = 1784;
+    private const int ErrorMoreData = 234;
+    private const int ErrorFileNotFound = 2;
     private const int UsbipErrorAbi = unchecked((int)0xE1000005);
 
     private static volatile int _detectedAbi;
@@ -189,6 +203,9 @@ public static class VhciNativeClient
         bool once = true,
         string? serial = null)
     {
+        if (!IsValidUsbSerial(serial))
+            return (true, false, 0, ErrorInvalidParameter, "Custom USB serial must be 1-15 ASCII alphanumeric characters.");
+
         using var handle = OpenVhciHandle(overlapped: false);
         if (handle == null)
             return (false, true, 0, Marshal.GetLastWin32Error(), null);
@@ -572,10 +589,12 @@ public static class VhciNativeClient
         ushort vendor;
         ushort product;
         bool wskEvents;
+        string serial;
 
         if (isV0982)
         {
             _detectedAbi = (int)VhciAbiVersion.V0982;
+            serial = ReadAsciiZ(rec.Slice(0x448, SerialBufSize));
             wskEvents = rec[0x459] != 0;
             vendor = BinaryPrimitives.ReadUInt16LittleEndian(rec.Slice(0x464, 2));
             product = BinaryPrimitives.ReadUInt16LittleEndian(rec.Slice(0x466, 2));
@@ -585,6 +604,7 @@ public static class VhciNativeClient
             _detectedAbi = (int)VhciAbiVersion.V0981;
             vendor = BinaryPrimitives.ReadUInt16LittleEndian(rec.Slice(0x454, 2));
             product = BinaryPrimitives.ReadUInt16LittleEndian(rec.Slice(0x456, 2));
+            serial = ReadAsciiZ(rec.Slice(0x458, SerialBufSize));
             wskEvents = rec[0x469] != 0;
         }
 
@@ -601,7 +621,8 @@ public static class VhciNativeClient
             ServerIP = host,
             VendorId = vid,
             ProductId = pid,
-            Description = desc
+            Description = desc,
+            Serial = serial
         };
 
         return (dev, wskEvents ? "low-latency" : "zero-copy");
@@ -772,4 +793,194 @@ public static class VhciNativeClient
     private static extern bool CancelIoEx(
         SafeFileHandle hFile,
         ref NativeOverlapped lpOverlapped);
+
+    public static bool IsValidUsbSerial(string? serial)
+    {
+        if (string.IsNullOrEmpty(serial))
+            return true;
+        if (serial.Length >= SerialBufSize)
+            return false;
+        foreach (char c in serial)
+        {
+            if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+                return false;
+        }
+        return true;
+    }
+
+    public static string GenerateUsbSerial()
+    {
+        const string alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        Span<byte> random = stackalloc byte[12];
+        RandomNumberGenerator.Fill(random);
+        Span<char> chars = stackalloc char[12];
+        for (int i = 0; i < chars.Length; i++)
+            chars[i] = alphabet[random[i] % alphabet.Length];
+        return new string(chars);
+    }
+
+    public static (bool InterfaceAvailable, bool Success, int Win32Error) TryDetachAllCloseOnly()
+        => TryDetachPort(PortAllCloseOnly);
+
+    public static byte[] BuildPersistentMultiSz(
+        IEnumerable<VhciPersistentDevice> devices,
+        VhciAbiVersion abi = VhciAbiVersion.V0981)
+    {
+        var sb = new StringBuilder();
+        int count = 0;
+        foreach (var d in devices)
+        {
+            if (string.IsNullOrWhiteSpace(d.Host) || string.IsNullOrWhiteSpace(d.BusId))
+                throw new ArgumentException("Persistent device Host and BusId must not be empty.");
+            if (!IsValidUsbSerial(d.Serial))
+                throw new ArgumentException($"Invalid custom USB serial '{d.Serial}'.");
+
+            string service = string.IsNullOrWhiteSpace(d.Service) ? DefaultServicePort : d.Service.Trim();
+            string mode = string.Equals(d.ReceiveMode, "zero-copy", StringComparison.OrdinalIgnoreCase)
+                ? "zero_copy"
+                : "low_latency";
+
+            if (abi == VhciAbiVersion.V0982)
+            {
+                sb.Append("host=").Append(d.Host.Trim())
+                  .Append(";port=").Append(service)
+                  .Append(";busid=").Append(d.BusId.Trim());
+                if (!string.IsNullOrEmpty(d.Serial))
+                    sb.Append(";serial=").Append(d.Serial);
+                sb.Append(";recv_mode=").Append(mode);
+            }
+            else
+            {
+                uint flags = (d.AttachOnce ? 2u : 0u) | (mode == "low_latency" ? 1u : 0u);
+                sb.Append(d.Host.Trim()).Append(',')
+                  .Append(service).Append(',')
+                  .Append(d.BusId.Trim()).Append(',')
+                  .Append(d.Serial ?? string.Empty).Append(',')
+                  .Append(flags);
+            }
+            sb.Append(' ');
+            count++;
+        }
+
+        if (count == 0)
+            sb.Append(' ');
+        sb.Append(' ');
+        return Encoding.Unicode.GetBytes(sb.ToString());
+    }
+
+    public static List<VhciPersistentDevice> ParsePersistentMultiSz(ReadOnlySpan<byte> data)
+    {
+        var list = new List<VhciPersistentDevice>();
+        if (data.Length < 2)
+            return list;
+
+        string text = Encoding.Unicode.GetString(data);
+        foreach (string entry in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (entry.Contains('='))
+            {
+                string host = "", service = DefaultServicePort, busId = "", serial = "", mode = "low-latency";
+                foreach (string token in entry.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    int eq = token.IndexOf('=');
+                    if (eq <= 0) continue;
+                    string k = token[..eq].Trim().ToLowerInvariant();
+                    string v = token[(eq + 1)..].Trim();
+                    switch (k)
+                    {
+                        case "host": host = v; break;
+                        case "port": service = string.IsNullOrEmpty(v) ? DefaultServicePort : v; break;
+                        case "busid": busId = v; break;
+                        case "serial": serial = v; break;
+                        case "recv_mode":
+                            mode = string.Equals(v, "zero_copy", StringComparison.OrdinalIgnoreCase) ? "zero-copy" : "low-latency";
+                            break;
+                    }
+                }
+                if (!string.IsNullOrEmpty(host) && !string.IsNullOrEmpty(busId))
+                    list.Add(new VhciPersistentDevice(host, service, busId, serial, mode, AttachOnce: false));
+            }
+            else
+            {
+                string[] parts = entry.Split(',');
+                if (parts.Length >= 3 && !string.IsNullOrWhiteSpace(parts[0]) && !string.IsNullOrWhiteSpace(parts[2]))
+                {
+                    string host = parts[0].Trim();
+                    string service = string.IsNullOrWhiteSpace(parts[1]) ? DefaultServicePort : parts[1].Trim();
+                    string busId = parts[2].Trim();
+                    string serial = parts.Length > 3 ? parts[3].Trim() : string.Empty;
+                    bool once = false;
+                    string mode = "low-latency";
+                    if (parts.Length > 4 && uint.TryParse(parts[4].Trim(), out uint flags))
+                    {
+                        once = (flags & 2u) != 0;
+                        mode = (flags & 1u) != 0 ? "low-latency" : "zero-copy";
+                    }
+                    list.Add(new VhciPersistentDevice(host, service, busId, serial, mode, once));
+                }
+            }
+        }
+        return list;
+    }
+
+    public static (bool InterfaceAvailable, List<VhciPersistentDevice> Devices, int Win32Error) TryGetPersistentDevices()
+    {
+        using var handle = OpenVhciHandle(overlapped: false);
+        if (handle == null)
+            return (false, new List<VhciPersistentDevice>(), Marshal.GetLastWin32Error());
+
+        int bufBytes = 1024;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            var buf = new byte[bufBytes];
+            if (DeviceIoControl(handle, IoctlGetPersistent, Array.Empty<byte>(), 0, buf, (uint)buf.Length, out uint bytesReturned, IntPtr.Zero))
+            {
+                int len = Math.Min((int)bytesReturned, buf.Length);
+                return (true, ParsePersistentMultiSz(buf.AsSpan(0, len)), 0);
+            }
+
+            int err = Marshal.GetLastWin32Error();
+            if (err == ErrorFileNotFound)
+                return (true, new List<VhciPersistentDevice>(), 0);
+            if ((err == ErrorMoreData || err == ErrorInsufficientBuffer) && bytesReturned > bufBytes)
+            {
+                bufBytes = (int)bytesReturned;
+                continue;
+            }
+            return (true, new List<VhciPersistentDevice>(), err);
+        }
+        return (true, new List<VhciPersistentDevice>(), ErrorMoreData);
+    }
+
+    public static (bool InterfaceAvailable, bool Success, int Win32Error) TrySetPersistentDevices(
+        IReadOnlyList<VhciPersistentDevice> devices)
+    {
+        using var handle = OpenVhciHandle(overlapped: false);
+        if (handle == null)
+            return (false, false, Marshal.GetLastWin32Error());
+
+        var primaryAbi = _detectedAbi == (int)VhciAbiVersion.V0982 ? VhciAbiVersion.V0982 : VhciAbiVersion.V0981;
+        var secondaryAbi = primaryAbi == VhciAbiVersion.V0981 ? VhciAbiVersion.V0982 : VhciAbiVersion.V0981;
+
+        byte[] p1 = BuildPersistentMultiSz(devices, primaryAbi);
+        if (DeviceIoControl(handle, IoctlSetPersistent, p1, (uint)p1.Length, null, 0, out _, IntPtr.Zero))
+        {
+            _detectedAbi = (int)primaryAbi;
+            return (true, true, 0);
+        }
+
+        int err = Marshal.GetLastWin32Error();
+        if (IsAbiMismatchError(err))
+        {
+            byte[] p2 = BuildPersistentMultiSz(devices, secondaryAbi);
+            if (DeviceIoControl(handle, IoctlSetPersistent, p2, (uint)p2.Length, null, 0, out _, IntPtr.Zero))
+            {
+                _detectedAbi = (int)secondaryAbi;
+                return (true, true, 0);
+            }
+            err = Marshal.GetLastWin32Error();
+        }
+        return (true, false, err);
+    }
+
 }

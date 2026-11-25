@@ -121,7 +121,7 @@ public class DriverService : IDriverService
                                 }
                             }
                         }
-                        catch { }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[DriverService.cs] {ex.Message}"); }
                     }
                 }
             }
@@ -202,7 +202,7 @@ public class DriverService : IDriverService
                 }
                 else
                 {
-                    try { devProc.Kill(true); } catch { }
+                    try { devProc.Kill(true); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[DriverService.cs] {ex.Message}"); }
                 }
             }
 
@@ -232,7 +232,7 @@ public class DriverService : IDriverService
                 }
                 else
                 {
-                    try { drvProc.Kill(true); } catch { }
+                    try { drvProc.Kill(true); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[DriverService.cs] {ex.Message}"); }
                 }
             }
 
@@ -417,7 +417,7 @@ public class DriverService : IDriverService
                 var full = Path.GetFullPath(c);
                 if (File.Exists(full)) return full;
             }
-            catch { }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[DriverService.cs] {ex.Message}"); }
         }
 
         return null;
@@ -493,7 +493,7 @@ public class DriverService : IDriverService
             }
             catch (OperationCanceledException)
             {
-                try { process.Kill(true); } catch { }
+                try { process.Kill(true); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[DriverService.cs] {ex.Message}"); }
                 return new OperationResult { Success = false, Error = $"Timeout ejecutando {fileName}" };
             }
 

@@ -14,6 +14,7 @@ import subprocess
 import socket
 import struct
 import time
+import hmac
 import json
 import shutil
 import re
@@ -49,7 +50,9 @@ DEFAULT_POLICY = {
     "allowlist": [],
     "denylist": [],
     "protect_local_hid": False,
-    "skip_classes": ["09"]
+    "skip_classes": ["09"],
+    "allowed_ips": [],
+    "control_token": ""
 }
 
 def load_policy(path=POLICY_FILE):
@@ -75,6 +78,48 @@ def save_policy(pol, path=POLICY_FILE):
     except Exception as e:
         print(f"{RED}Error saving policy: {e}{RESET}")
         return False
+
+
+def is_client_ip_allowed(client_ip, policy=None):
+    """Check optional host IP allowlist (empty list allows any LAN client)."""
+    if policy is None:
+        policy = load_policy()
+    allowed = [str(x).strip() for x in policy.get("allowed_ips", []) if str(x).strip()]
+    if not allowed:
+        return True
+    ip = str(client_ip or "").strip()
+    return ip in ("127.0.0.1", "::1") or ip in allowed
+
+def parse_authenticated_command(parts, policy=None):
+    """Verify optional control_token via constant-time HMAC comparison and return command tokens."""
+    if policy is None:
+        policy = load_policy()
+    expected = str(policy.get("control_token", "") or "").strip()
+    if not expected:
+        return True, parts
+    if len(parts) >= 3 and parts[0].upper() == "TOKEN":
+        provided = parts[1]
+        if hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
+            return True, parts[2:]
+    return False, []
+
+def is_uas_device(busid):
+    """Return True if any USB interface under sysfs busid is currently bound to the Linux uas driver."""
+    if not IS_LINUX or not is_valid_busid(busid):
+        return False
+    dev_path = os.path.join("/sys/bus/usb/devices", busid.strip())
+    if not os.path.isdir(dev_path):
+        return False
+    try:
+        for item in os.listdir(dev_path):
+            if item.startswith(f"{busid.strip()}:"):
+                drv_link = os.path.join(dev_path, item, "driver")
+                if os.path.islink(drv_link):
+                    if os.path.basename(os.readlink(drv_link)) == "uas":
+                        return True
+    except Exception:
+        pass
+    return False
 
 def is_valid_busid(busid):
     """Validate USB Bus ID format strictly to prevent path traversal and argument injection."""
@@ -375,7 +420,7 @@ def list_devices():
                         if "03" in if_classes or dev_class == "03":
                             tag = " [HID/Gamepad]" if (is_steam or "gamepad" in prod_name.lower()) else " [HID]"
                         elif "08" in if_classes or dev_class == "08":
-                            tag = " [Storage]"
+                            tag = " [Storage/UAS]" if is_uas_device(entry) else " [Storage]"
                         elif "0e" in if_classes or dev_class == "0e":
                             tag = " [Video]"
                         elif "01" in if_classes or dev_class == "01":
@@ -651,7 +696,18 @@ def handle_control_client(sock, addr):
             sock.close()
             return
         
-        parts = data.split()
+        client_ip = addr[0] if addr else ""
+        pol_auth = load_policy()
+        if not is_client_ip_allowed(client_ip, pol_auth):
+            resp = json.dumps({"status": "DENIED", "message": f"Client IP {client_ip} is not in host allowlist"}) + "\n"
+            sock.sendall(resp.encode("utf-8"))
+            return
+        raw_parts = data.split()
+        auth_ok, parts = parse_authenticated_command(raw_parts, pol_auth)
+        if not auth_ok or not parts:
+            resp = json.dumps({"status": "DENIED", "message": "Invalid or missing control token"}) + "\n"
+            sock.sendall(resp.encode("utf-8"))
+            return
         cmd = parts[0].upper()
         
         if cmd == "LIST":
@@ -676,7 +732,8 @@ def handle_control_client(sock, addr):
                 resp = json.dumps(payload) + "\n"
                 sock.sendall(resp.encode("utf-8"))
         elif cmd == "POLICY":
-            pol = load_policy()
+            pol = dict(load_policy())
+            pol["control_token"] = "***" if pol.get("control_token") else ""
             resp = json.dumps({"status": "OK", "policy": pol}) + "\n"
             sock.sendall(resp.encode("utf-8"))
         elif cmd == "UNBIND" and len(parts) > 1:
@@ -1348,6 +1405,26 @@ def main():
             save_policy(pol)
             state = f"{GREEN}ENABLED{RESET}" if flag else f"{YELLOW}DISABLED{RESET}"
             print(f"✓ Local HID Protection is now {state}.")
+        elif action == "allow-ip" and target:
+            ips = pol.setdefault("allowed_ips", [])
+            if target not in ips:
+                ips.append(target)
+                save_policy(pol)
+            print(f"{GREEN}✓ Added '{target}' to allowed_ips.{RESET}")
+        elif action == "deny-ip" and target:
+            ips = pol.get("allowed_ips", [])
+            if target in ips:
+                ips.remove(target)
+                save_policy(pol)
+                print(f"{GREEN}✓ Removed '{target}' from allowed_ips.{RESET}")
+        elif action == "set-token" and target:
+            pol["control_token"] = target.strip()
+            save_policy(pol)
+            print(f"{GREEN}✓ Control API token configured.{RESET}")
+        elif action == "clear-token":
+            pol["control_token"] = ""
+            save_policy(pol)
+            print(f"{GREEN}✓ Control API token cleared (open LAN mode).{RESET}")
         else:
             print(f"Usage:")
             print(f"  usbanywhere-ctl policy [show]")

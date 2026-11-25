@@ -140,6 +140,12 @@
                         <MenuItem x:Name="menuRemoveServer" Header="🗑️ Quitar servidor" Click="MenuRemoveServer_Click"/>
                         <MenuItem x:Name="menuProperties" Header="📋 Propiedades" Click="MenuProperties_Click"/>
                         <MenuItem x:Name="menuRename" Header="✏️ Renombrar" Click="MenuRename_Click"/>
+                        <MenuItem x:Name="menuSetSerial" Header="🏷️ Número de serie USB..." Click="MenuSetSerial_Click"/>
+                        <MenuItem x:Name="menuToggleKernelPersist" Header="📌 Persistencia Kernel (Boot)" Click="MenuToggleKernelPersist_Click"/>
+                        <MenuItem x:Name="menuStopAttachRetries" Header="🛑 Detener reintentos de kernel" Click="MenuStopAttachRetries_Click"/>
+                        <Separator/>
+                        <MenuItem x:Name="menuConfigureHubPorts" Header="⚙️ Puertos Hub Virtual..." Click="MenuConfigureHubPorts_Click"/>
+                        <MenuItem x:Name="menuExportDiagnostics" Header="🩺 Exportar diagnóstico..." Click="MenuExportDiagnostics_Click"/>
                     </ContextMenu>
                 </TreeView.ContextMenu>
                 <TreeViewItem x:Name="nodeHubs" Header="🖥️ USB Hubs (0)" IsExpanded="True"/>
