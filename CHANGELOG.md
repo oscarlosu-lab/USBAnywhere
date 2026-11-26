@@ -10,6 +10,14 @@
 - **Linux `usbanywhere-ctl` Control API Hardening & UAS Detection**:
   - Added optional IP allowlist (`allowed_ips`) and constant-time HMAC `control_token` authentication (`policy allow-ip|deny-ip|set-token|clear-token`) for TCP `3241`, plus UAS (`usb-storage` / `uas`) storage device detection warnings.
 
+## [3.4.1] - 2026-11-20
+
+### Added
+- **Single-Instance IPC Forwarding (`--connect` / `--attach`)**: Launching `USBAnywhere.exe --connect` or `--attach` forwards the attach request directly to the active instance via named IPC pipe instead of opening duplicate windows.
+
+### Fixed
+- **CI, CodeQL & OpenSSF Scorecard Hardening**: Fixed C# CodeQL analysis targeting, pinned GitHub Actions by full commit SHA, and scoped workflow token permissions.
+
 ## [3.4.0] - 2026-11-15
 
 ### Added

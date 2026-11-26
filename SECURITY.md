@@ -6,8 +6,9 @@
 
 | Version | Supported          | Status |
 | ------- | ------------------ | ------ |
-| 3.2.x   | :white_check_mark: | Active (Current: v3.2.0) |
-| < 3.2   | :x:                | Unsupported (Upgrade to USBAnywhere v3.2.0) |
+| 3.5.0-rc.1 | :white_check_mark: | Release Candidate (Pre-release) |
+| 3.4.x   | :white_check_mark: | Active Stable (Current: v3.4.1) |
+| < 3.4   | :x:                | Unsupported (Upgrade to USBAnywhere v3.4.1+) |
 
 ---
 
@@ -34,7 +35,11 @@
 ### 5. Multiplatform Server Security Models
 - **Windows Server**: The Windows Firewall rule for port 3240 is restricted exclusively to **Private** and **Domain** network profiles, preventing exposure on untrusted Public Wi-Fi networks.
 - **macOS Server**: Utilizes native Apple **Userspace IOKit** (`IOKit.framework`). Operates without third-party Kernel Extensions (`.kext`) and retains complete compatibility with Apple Silicon **System Integrity Protection (SIP)**. Privileges are managed securely via system `launchd` LaunchDaemons.
-- **Linux Server**: Runs via a dedicated systemd service and confines USB export operations via targeted udev rules.
+- **Linux Server**: Runs via a dedicated systemd service (`usbipd.service` + `usbanywhere-autounbind.service`) and confines USB export operations via targeted udev rules.
+
+### 6. Control Plane Hardening (`TCP 3241`) & CI Security Gates
+- **Optional IP Allowlist & HMAC Token Auth (`v3.5.0-rc.1`)**: `usbanywhere-ctl` supports `allowed_ips` filtering and constant-time HMAC `control_token` verification (`policy allow-ip|deny-ip|set-token|clear-token`) for `LIST`/`BIND`/`UNBIND`/`POLICY` commands over TCP `3241`.
+- **Automated Supply-Chain Gates**: Every commit is scanned by **CodeQL SAST**, **Gitleaks**, **OpenSSF Scorecard**, and **SignPath Foundation** Authenticode code signing.
 
 ---
 

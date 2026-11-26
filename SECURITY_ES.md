@@ -6,8 +6,9 @@
 
 | Versión | Estado              | Comentarios |
 | ------- | ------------------- | ----------- |
-| 3.2.x   | :white_check_mark:  | Activa (Versión actual: v3.2.0) |
-| < 3.2   | :x:                 | Sin soporte (Actualizar a USBAnywhere v3.2.0) |
+| 3.5.0-rc.1 | :white_check_mark: | Release Candidate (Pre-release) |
+| 3.4.x   | :white_check_mark:  | Estable Activa (Actual: v3.4.1) |
+| < 3.4   | :x:                 | Sin soporte (Actualizar a USBAnywhere v3.4.1+) |
 
 ---
 
@@ -34,7 +35,11 @@
 ### 5. Modelos de Seguridad en Servidores Multiplataforma
 - **Servidor Windows**: La regla automática del Firewall de Windows para el puerto 3240 se acota exclusivamente a redes **Privadas** y de **Dominio**, evitando la exposición del puerto en redes Wi-Fi públicas no confiables.
 - **Servidor macOS**: Diseñado mediante **Userspace IOKit** (`IOKit.framework`). Opera sin extensiones de kernel (`.kext`) y preserva la integridad total de **SIP (System Integrity Protection)** en Apple Silicon. El demonio se ejecuta con privilegios controlados mediante `launchd`.
-- **Servidor Linux**: Se ejecuta bajo una unidad de servicio systemd aislada y restringe la exportación de periféricos mediante reglas udev específicas.
+- **Servidor Linux**: Se ejecuta bajo servicios systemd dedicados (`usbipd.service` + `usbanywhere-autounbind.service`) y restringe la exportación de periféricos mediante reglas udev específicas.
+
+### 6. Endurecimiento del Plano de Control (`TCP 3241`) y Puertas CI
+- **Lista Blanca de IPs y Token HMAC Opcional (`v3.5.0-rc.1`)**: `usbanywhere-ctl` soporta filtrado `allowed_ips` y verificación `control_token` por HMAC en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) para comandos sobre TCP `3241`.
+- **Auditoría Automatizada en CI**: Cada commit pasa por **CodeQL SAST**, **Gitleaks**, **OpenSSF Scorecard** y firma Authenticode con **SignPath Foundation**.
 
 ---
 

@@ -18,6 +18,8 @@ Interactive Terminal User Interface (TUI) dashboard and CLI management tool with
 - **Protocol Loopback Test**: `usbanywhere-ctl test`
 - **Service Control**: `sudo usbanywhere-ctl start|stop|restart|status`
 - **Device Management**: `usbanywhere-ctl list`, `sudo usbanywhere-ctl share <busid>`
+- **Linux Client Mode (`vhci_hcd`)**: `usbanywhere-ctl scan|remote <ip>`, `sudo usbanywhere-ctl connect|disconnect|ports`
+- **Security Policy (`TCP 3241`)**: `sudo usbanywhere-ctl policy show|allow|deny|protect-hid|allow-ip|deny-ip|set-token|clear-token`
 - **DualSense SBC Fix**: `sudo usbanywhere-ctl fix-dualsense enable|disable|status`
 
 ### 2. `install-server-mac.sh` — 1-Click macOS Server Installer

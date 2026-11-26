@@ -101,6 +101,13 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 
 ---
 
+## 🧪 What's New in v3.5.0-rc.1 (Release Candidate)
+
+- 📌 **Kernel Boot Persistence & Retry Control (`VhciNativeClient.cs`)** - Save attached devices in the `usbip2_ude` kernel driver to re-attach automatically on Windows boot, or stop active kernel attach retries from the context menu.
+- 🏷️ **Custom USB Serial Numbers & Virtual Hub Ports (`KernelConfigService.cs`)** - Assign persistent custom `Serial` strings per remote device and configure Virtual Hub USB 2.0 / USB 3.0 port capacity (`30` / `30` default).
+- 🩺 **One-Click Diagnostics Bundle (`KernelDiagnosticsService.cs`)** - Export a `.zip` archive with driver status, imported VHCI ports, Virtual Hub configuration, and recent logs.
+- 🔒 **Linux Control API Hardening & UAS Detection (`usbanywhere-ctl` v3.5.0-rc.1)** - Optional IP allowlist (`allowed_ips`) and constant-time HMAC `control_token` authentication (`policy allow-ip|deny-ip|set-token|clear-token`) on TCP `3241`, plus `uas` external SSD compatibility notices.
+
 ## 🆕 What's New in v3.4.1 (USBAnywhere Multiplatform Suite)
 
 - 🔗 **Single-Instance IPC Forwarding (`--connect` / `--attach`)** - Launching `USBAnywhere.exe --connect` or `--attach` forwards the request directly to the already-running instance via named IPC pipe instead of spawning a duplicate window.
@@ -136,7 +143,7 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 ## 📦 Installation
 
 ### Option 1: Portable (No installation required)
-1. Download from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1):
+1. Download from [USBAnywhere Releases (v3.4.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1) (or [v3.5.0-rc.1 Release Candidate](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0-rc.1)):
    - **Windows x64**: `USBAnywhere-v3.4.1-x64.zip`
    - **Windows ARM64**: `USBAnywhere-v3.4.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
    - **Linux Client & Server Suite**: Run [`scripts/install-server.sh`](scripts/install-server.sh) (see 1-line installer below)
@@ -145,7 +152,7 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 4. Done!
 
 ### Option 2: Installer (x64 Recommended)
-1. Download `USBAnywhere_Setup_v3.4.1.exe` from [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1)
+1. Download `USBAnywhere_Setup_v3.4.1.exe` from [USBAnywhere Releases (v3.4.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1) (or `USBAnywhere_Setup_v3.5.0-rc.1.exe` from [v3.5.0-rc.1](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0-rc.1))
 2. Run the installer as Administrator
 3. Follow the installation wizard
 
@@ -186,6 +193,8 @@ sudo usbanywhere-ctl remote 192.168.1.50   # List exported + On-Demand USB devic
 sudo usbanywhere-ctl connect 192.168.1.50 1-1.4   # Dynamically bind & attach a remote USB device
 sudo usbanywhere-ctl ports                 # List currently attached virtual USB client ports
 sudo usbanywhere-ctl disconnect all        # Detach client port(s) & release back to remote host
+sudo usbanywhere-ctl policy allow-ip 192.168.1.50  # Restrict TCP 3241 control access by IP (optional)
+sudo usbanywhere-ctl policy set-token <secret>     # Require HMAC token for TCP 3241 commands (optional)
 ```
 
 ### 🎮 Moonlight / Sunshine / Playnite CLI Automation

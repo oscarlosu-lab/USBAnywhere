@@ -1,8 +1,8 @@
-﻿# 🌐 Conexión por Internet (VPN)
+# 🌐 Conexión por Internet (VPN)
 
 🌐 **Idioma / Language:** [English](VPN_INTERNET_EN.md) | **Español**
 
-> **Nuevo en v1.7.0** - Conecta dispositivos USB remotos a través de Internet usando Tailscale o ZeroTier.
+> **Guía Tailscale, ZeroTier y WireGuard** — Conecta dispositivos USB remotos por Internet mediante TCP `3241` bajo demanda y USB/IP `3240`. En VPNs compartidas, protege TCP `3241` con `sudo usbanywhere-ctl policy allow-ip <ip-vpn>` y `sudo usbanywhere-ctl policy set-token <secreto>`.
 
 ## 📋 Resumen
 
@@ -161,5 +161,5 @@ sudo zerotier-cli status
 
 - [Tailscale - Descargar](https://tailscale.com/download)
 - [ZeroTier - Descargar](https://www.zerotier.com/download/)
-- [Configurar Servidor Raspberry Pi](RASPBERRY_PI_SERVER.md)
-- [Manual de Usuario](USAGE.md)
+- [Configurar Servidor Raspberry Pi](RASPBERRY_PI_SERVER_ES.md)
+- [Manual de Usuario](USAGE_ES.md)

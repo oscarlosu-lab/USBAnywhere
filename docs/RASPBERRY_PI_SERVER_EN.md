@@ -64,7 +64,7 @@ Should show `(attached)` next to the device.
 ## 🔄 Make Persistent (Autostart)
 
 ### Option 1: 1-Click Auto-Installer (Recommended)
-If you used the 1-Click Installer (`install-server.sh`), `usbanywhere.service` and `usbanywhere-autobind.service` are **already installed and enabled automatically**.
+If you used the 1-Click Installer (`install-server.sh`), `usbipd.service` and `usbanywhere-autounbind.service` (On-Demand Dynamic Binding on TCP `3241`) are **already installed and enabled automatically**.
 
 ### Option 2: Create manual systemd service
 
@@ -201,10 +201,7 @@ Or manually install the persistent udev rule:
 ```bash
 sudo bash -c 'cat << "EOF" > /etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules
 # Disable DualSense audio interfaces to prevent usbip_host isochronous Oops
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0ce6", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="01", ATTR{authorized}="0"
-ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="0df2", ATTR{bInterfaceNumber}=="02", ATTR{authorized}="0"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"
 EOF'
 
 sudo udevadm control --reload-rules && sudo udevadm trigger

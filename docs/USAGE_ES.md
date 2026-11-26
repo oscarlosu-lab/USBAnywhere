@@ -1,4 +1,4 @@
-# 📖 Manual de Usuario de USBAnywhere v3.4.0
+# 📖 Manual de Usuario de USBAnywhere v3.4.1 / v3.5.0-rc.1
 
 🌐 **Idioma / Language:** [English](USAGE_EN.md) | **Español**
 
@@ -176,7 +176,8 @@ Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar 
 - Al **minimizar** (o iniciar con `--minimized` / `-m`), la aplicación se oculta en la bandeja del sistema.
 - **Doble-click** en el icono de la bandeja para restaurar la ventana en cualquier momento.
 - **Click derecho** para menú rápido: `📡 Escanear red`, `🔌 Desconectar todo`, `☑️ Iniciar minimizado en bandeja`, `🔼 Mostrar USBAnywhere`, `❌ Salir`.
-- **Comandos CLI Headless (sobre instancia activa):** `--connect <ip> <busid>`, `--disconnect-all`, `--disconnect <puerto>` y `--quit`.
+- **Comandos CLI Headless (sobre instancia activa):** `--connect <ip> <busid>` / `--attach <ip> <busid>` (reenvío IPC a instancia única), `--disconnect-all`, `--disconnect <puerto>` y `--quit`.
+- **Menú Contextual de Kernel y Diagnóstico (`v3.5.0-rc.1`):** Clic derecho en el árbol de dispositivos para abrir `🏷️ Número de serie USB...`, `📌 Persistencia Kernel (Boot)`, `🛑 Detener reintentos de kernel`, `⚙️ Puertos Hub Virtual...` y `🩺 Exportar diagnóstico...`.
 - **Eventos Kernel en Tiempo Real:** El cliente escucha eventos de estado del driver `usbip2_ude` vía `DeviceIoControl` / `ReadFile` asíncrono para reflejar conexiones y desconexiones al instante sin lanzar subprocesos periódicos.
 
 ## 🔧 Barra de Estado y Ciclo de Vida de Drivers

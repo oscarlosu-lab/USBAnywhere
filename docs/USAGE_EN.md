@@ -1,4 +1,4 @@
-# 📖 USBAnywhere v3.4.0 User Manual
+# 📖 USBAnywhere v3.4.1 / v3.5.0-rc.1 User Manual
 
 🌐 **Language / Idioma:** **English** | [Español](USAGE_ES.md)
 
@@ -123,28 +123,39 @@ USBAnywhere client connects transparently to any USB/IP host server:
 └───────────────────────────────────────────────┘
                         │
                         ▼
-            ┌─────────────────────────┐
-            │ ▶️ Connect              │
-            │ ⏹️ Disconnect           │
-            ├─────────────────────────┤
-            │ ⭐ Add to Favorites     │
-            │ ❌ Remove from Favorites│
-            │ 🗑️ Remove server        │
-            ├─────────────────────────┤
-            │ 📋 Properties           │
-            │ ✏️ Rename               │
-            └─────────────────────────┘
+            ┌───────────────────────────┐
+            │ 🔗 Connect                │
+            │ ❌ Disconnect             │
+            ├───────────────────────────┤
+            │ ⭐ Add to Favorites       │
+            │ ❌ Remove from Favorites  │
+            ├───────────────────────────┤
+            │ 🗑️ Remove server          │
+            │ 📋 Properties             │
+            │ ✏️ Rename                 │
+            │ 🏷️ Set USB Serial...      │
+            │ 📌 Kernel Persistence(Boot)│
+            │ 🛑 Stop Kernel Retries    │
+            ├───────────────────────────┤
+            │ ⚙️ Virtual Hub Ports...   │
+            │ 🩺 Export Diagnostics...  │
+            └───────────────────────────┘
 ```
 
 | Option | Description |
 |--------|-------------|
-| ▶️ Connect | Connects the remote USB device (or favorite) to your PC |
-| ⏹️ Disconnect | Releases the connected USB device |
+| 🔗 Connect | Connects the remote USB device (or favorite) to your PC |
+| ❌ Disconnect | Releases the connected USB device |
 | ⭐ Add to Favorites | Saves the device for quick reconnection |
 | ❌ Remove from Favorites | Removes the device from the favorites list |
 | 🗑️ Remove server | Removes the server from the tree |
 | 📋 Properties | Displays detailed info (`VID:PID`, manufacturer, product, local port) |
 | ✏️ Rename | Assigns a persistent custom friendly name to the device (`VID:PID`) |
+| 🏷️ Set USB Serial... | Assigns a custom USB serial string for stable COM/HID/dongle identity (`v3.5.0-rc.1`) |
+| 📌 Kernel Persistence (Boot) | Toggles `usbip2_ude` kernel-level persistent attach across Windows reboots (`v3.5.0-rc.1`) |
+| 🛑 Stop Kernel Retries | Cancels active kernel-level attach retry attempts (`v3.5.0-rc.1`) |
+| ⚙️ Virtual Hub Ports... | Configures the `usbip2_ude` Virtual Hub USB 2.0 / USB 3.0 port counts (`v3.5.0-rc.1`) |
+| 🩺 Export Diagnostics... | Generates a `.zip` diagnostics bundle with driver, port, hub, and log state (`v3.5.0-rc.1`) |
 
 ## Shortcuts
 
@@ -176,7 +187,7 @@ When closing the application, shutting down Windows (`AutoDetachOnExit: true`), 
 - When **minimizing** (or launching with `--minimized` / `-m`), the app hides to the system tray.
 - **Double-click** on the tray icon to restore the window at any time.
 - **Right-click** for quick menu: `📡 Scan network`, `🔌 Disconnect all`, `☑️ Start minimized to tray`, `🔼 Show USBAnywhere`, `❌ Exit`.
-- **Headless CLI Commands (to running instance):** `--connect <ip> <busid>`, `--disconnect-all`, `--disconnect <port>`, and `--quit`.
+- **Headless CLI Commands (to running instance):** `--connect <ip> <busid>` / `--attach <ip> <busid>` (single-instance IPC forwarding), `--disconnect-all`, `--disconnect <port>`, and `--quit`.
 - **Real-Time Kernel Push Events:** The Windows client listens directly to `usbip2_ude` state transitions over asynchronous `ReadFile` / `DeviceIoControl` so connected device status updates immediately without polling subprocesses.
 
 ## 🔧 Status Bar & Driver Lifecycle

@@ -93,6 +93,13 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 
 ---
 
+## 🧪 Novedades en v3.5.0-rc.1 (Release Candidate)
+
+- 📌 **Persistencia en Kernel al Arrancar y Control de Reintentos (`VhciNativeClient.cs`)** - Guarda dispositivos en el driver `usbip2_ude` para reconectarlos automáticamente al iniciar Windows o detén reintentos activos desde el menú contextual.
+- 🏷️ **Números de Serie USB Personalizados y Puertos del Hub Virtual (`KernelConfigService.cs`)** - Asigna un `Serial` persistente por dispositivo y ajusta la capacidad de puertos USB 2.0 / USB 3.0 del hub virtual (`30` / `30` por defecto).
+- 🩺 **Paquete de Diagnóstico en 1 Clic (`KernelDiagnosticsService.cs`)** - Exporta un `.zip` con el estado del driver, puertos VHCI importados, configuración del hub y logs recientes.
+- 🔒 **Endurecimiento API de Control Linux y Detección UAS (`usbanywhere-ctl` v3.5.0-rc.1)** - Lista blanca `allowed_ips` opcional y autenticación HMAC `control_token` en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) sobre TCP `3241`, más aviso de compatibilidad `uas` en SSDs externos.
+
 ## 🆕 Novedades en v3.4.1 (Suite Multiplataforma USBAnywhere)
 
 - 🔗 **Reenvío IPC a Instancia Única (`--connect` / `--attach`)** - Al ejecutar `USBAnywhere.exe --connect` o `--attach`, la orden se reenvía por pipe IPC a la instancia ya abierta sin duplicar ventanas.
@@ -128,7 +135,7 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1):
+1. Descarga desde [USBAnywhere Releases (v3.4.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1) (o [v3.5.0-rc.1 Release Candidate](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0-rc.1)):
    - **Windows x64**: `USBAnywhere-v3.4.1-x64.zip`
    - **Windows ARM64**: `USBAnywhere-v3.4.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
    - **Cliente y Servidor Linux**: Ejecuta [`scripts/install-server.sh`](scripts/install-server.sh) (ver instalador de 1 línea abajo)
@@ -137,7 +144,7 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.4.1.exe` desde [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1)
+1. Descarga `USBAnywhere_Setup_v3.4.1.exe` desde [USBAnywhere Releases (v3.4.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1) (o `USBAnywhere_Setup_v3.5.0-rc.1.exe` en [v3.5.0-rc.1](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0-rc.1))
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 
@@ -204,7 +211,7 @@ opkg update && opkg install usbip-server kmod-usb-ohci
 usbipd -D
 ```
 
-Ver [docs/RASPBERRY_PI_SERVER_EN.md](docs/RASPBERRY_PI_SERVER_EN.md) para la guía detallada.
+Ver [docs/RASPBERRY_PI_SERVER_ES.md](docs/RASPBERRY_PI_SERVER_ES.md) para la guía detallada.
 
 ---
 

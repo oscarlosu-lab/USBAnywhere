@@ -1,8 +1,8 @@
-﻿# 🌐 Internet Connection (VPN)
+# 🌐 Internet Connection (VPN)
 
 🌐 **Language / Idioma:** **English** | [Español](VPN_INTERNET_ES.md)
 
-> **New in v1.7.0** - Connect remote USB devices over the Internet using Tailscale or ZeroTier.
+> **Tailscale, ZeroTier & WireGuard Guide** — Connect remote USB devices over the Internet with On-Demand TCP `3241` & USB/IP `3240`. When exposing `TCP 3241` across shared VPNs, use `sudo usbanywhere-ctl policy allow-ip <vpn-ip>` and `sudo usbanywhere-ctl policy set-token <secret>`.
 
 ## 📋 Summary
 

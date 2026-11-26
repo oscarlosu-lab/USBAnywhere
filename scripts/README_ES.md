@@ -18,6 +18,8 @@ Panel interactivo con interfaz TUI para terminal y herramienta de gestión CLI s
 - **Autoprueba del Protocolo**: `usbanywhere-ctl test`
 - **Gestión del Servicio**: `sudo usbanywhere-ctl start|stop|restart|status`
 - **Gestión de Dispositivos**: `usbanywhere-ctl list`, `sudo usbanywhere-ctl share <busid>`
+- **Modo Cliente Linux (`vhci_hcd`)**: `usbanywhere-ctl scan|remote <ip>`, `sudo usbanywhere-ctl connect|disconnect|ports`
+- **Política de Seguridad (`TCP 3241`)**: `sudo usbanywhere-ctl policy show|allow|deny|protect-hid|allow-ip|deny-ip|set-token|clear-token`
 - **Parche DualSense para SBCs**: `sudo usbanywhere-ctl fix-dualsense enable|disable|status`
 
 ### 2. `install-server-mac.sh` — Instalador 1-Click para macOS

@@ -290,7 +290,7 @@
           </div>
           <h3 class="text-base font-bold text-white" data-i18n="card2_title">On-Demand TCP/UDP 3241</h3>
           <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card2_desc">
-            Automatic LAN/VPN server discovery on UDP 3241 and serialized per-busid <code class="font-mono text-slate-200">LIST / BIND / UNBIND / STATUS</code> control over TCP 3241 with immediate host release on client detach.
+            Automatic LAN/VPN discovery on UDP 3241, serialized <code class="font-mono text-slate-200">LIST / BIND / UNBIND / STATUS</code> over TCP 3241 with optional IP allowlist and HMAC token auth, plus immediate host release on detach.
           </p>
         </div>
 
@@ -299,9 +299,9 @@
             <span class="text-xs font-mono text-slate-400">03 / KERNEL_HARDENING</span>
             <i data-lucide="shield-check" class="w-4 h-4 text-slate-300"></i>
           </div>
-          <h3 class="text-base font-bold text-white" data-i18n="card3_title">High-Throughput &amp; SBC Ready</h3>
+          <h3 class="text-base font-bold text-white" data-i18n="card3_title">Persistence, Diagnostics &amp; SBC Ready</h3>
           <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card3_desc">
-            Includes Linux <code class="font-mono text-slate-200">usbip-host</code> and RPi/OrangePi <code class="font-mono text-slate-200">dwc2</code> kernel patches for composite endpoints, isochronous audio/video, CNC/laser controllers, and DualSense HID polling.
+            Supports Windows kernel boot persistence, custom USB serials, Virtual Hub port tuning, 1-click diagnostics ZIP export, UAS storage warnings, and Linux <code class="font-mono text-slate-200">usbip-host</code>/<code class="font-mono text-slate-200">dwc2</code> patches.
           </p>
         </div>
       </div>
@@ -515,11 +515,11 @@
         <div class="p-5 rounded panel-surface flex flex-col justify-between">
           <div>
             <div class="text-xs font-mono text-slate-400 uppercase">Linux Client</div>
-            <h3 class="text-base font-bold text-white mt-1">Linux Bundle v3.3.0</h3>
+            <h3 class="text-base font-bold text-white mt-1">Linux Bundle v3.5.0-rc.1</h3>
             <p class="text-xs text-slate-400 mt-1">Linux Client &amp; CLI bundle (<code class="font-mono text-slate-300">vhci_hcd</code> + <code class="font-mono text-slate-300">usbanywhere-ctl</code>).</p>
-            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Linux-v3.3.0.tar.gz</div>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Linux-v3.5.0-rc.1.tar.gz</div>
           </div>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.3.0/USBAnywhere-Linux-v3.3.0.tar.gz" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.5.0-rc.1/USBAnywhere-Linux-v3.5.0-rc.1.tar.gz" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
             Download .tar.gz
           </a>
         </div>
@@ -590,9 +590,9 @@
         card1_title: "Direct Windows VHCI IOCTL",
         card1_desc: "Communicates directly with the WHQL-signed usbip2_ude kernel device handle via Win32 DeviceIoControl, eliminating process-spawn overhead and stdout regex parsing.",
         card2_title: "On-Demand TCP/UDP 3241",
-        card2_desc: "Automatic LAN/VPN server discovery on UDP 3241 and serialized per-busid LIST / BIND / UNBIND / STATUS control over TCP 3241 with immediate host release on client detach.",
-        card3_title: "High-Throughput & SBC Ready",
-        card3_desc: "Includes Linux usbip-host and RPi/OrangePi dwc2 kernel patches for composite endpoints, isochronous audio/video, CNC/laser controllers, and DualSense HID polling.",
+        card2_desc: "Automatic LAN/VPN discovery on UDP 3241, serialized LIST / BIND / UNBIND / STATUS over TCP 3241 with optional IP allowlist and HMAC token auth, plus immediate host release on detach.",
+        card3_title: "Persistence, Diagnostics & SBC Ready",
+        card3_desc: "Supports Windows kernel boot persistence, custom USB serials, Virtual Hub port tuning, 1-click diagnostics ZIP export, UAS storage warnings, and Linux usbip-host/dwc2 patches.",
         hw1_title: "Joysticks & Gamepads",
         hw1_desc: "Low-latency HID passthrough for DualSense, Xbox, flight sticks, racing wheels, and VR trackers.",
         hw2_title: "3D Printers",
@@ -638,9 +638,9 @@
         card1_title: "IOCTL Directo VHCI en Windows",
         card1_desc: "Comunica directamente con el handle del driver WHQL usbip2_ude vía Win32 DeviceIoControl, eliminando subprocesos y parsing regex.",
         card2_title: "Control Bajo Demanda TCP/UDP 3241",
-        card2_desc: "Descubrimiento LAN/VPN en UDP 3241 y control serializado LIST / BIND / UNBIND / STATUS sobre TCP 3241 con liberación inmediata al desconectar.",
-        card3_title: "Alto Rendimiento y SBCs",
-        card3_desc: "Incluye parches de kernel Linux usbip-host y dwc2 (RPi/OrangePi) para interfaces compuestas, audio/vídeo isócrono, CNC/láser y DualSense.",
+        card2_desc: "Descubrimiento LAN/VPN en UDP 3241 y control serializado LIST / BIND / UNBIND / STATUS sobre TCP 3241 con lista blanca IP y token HMAC opcionales, más liberación inmediata al desconectar.",
+        card3_title: "Persistencia, Diagnóstico y SBCs",
+        card3_desc: "Incluye persistencia en kernel al arrancar, seriales USB personalizados, ajuste de puertos del Hub Virtual, exportación de diagnóstico .zip, avisos UAS y parches Linux usbip-host/dwc2.",
         hw1_title: "Joysticks y Mandos USB",
         hw1_desc: "Passthrough HID de baja latencia para DualSense, Xbox, hotas, volantes y trackers VR.",
         hw2_title: "Impresoras 3D",
