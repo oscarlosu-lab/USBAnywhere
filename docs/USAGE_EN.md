@@ -1,4 +1,4 @@
-# 📖 USBAnywhere v3.4.1 / v3.5.0-rc.1 User Manual
+# 📖 USBAnywhere v3.4.1 / v3.5.0 User Manual
 
 🌐 **Language / Idioma:** **English** | [Español](USAGE_ES.md)
 
@@ -151,11 +151,11 @@ USBAnywhere client connects transparently to any USB/IP host server:
 | 🗑️ Remove server | Removes the server from the tree |
 | 📋 Properties | Displays detailed info (`VID:PID`, manufacturer, product, local port) |
 | ✏️ Rename | Assigns a persistent custom friendly name to the device (`VID:PID`) |
-| 🏷️ Set USB Serial... | Assigns a custom USB serial string for stable COM/HID/dongle identity (`v3.5.0-rc.1`) |
-| 📌 Kernel Persistence (Boot) | Toggles `usbip2_ude` kernel-level persistent attach across Windows reboots (`v3.5.0-rc.1`) |
-| 🛑 Stop Kernel Retries | Cancels active kernel-level attach retry attempts (`v3.5.0-rc.1`) |
-| ⚙️ Virtual Hub Ports... | Configures the `usbip2_ude` Virtual Hub USB 2.0 / USB 3.0 port counts (`v3.5.0-rc.1`) |
-| 🩺 Export Diagnostics... | Generates a `.zip` diagnostics bundle with driver, port, hub, and log state (`v3.5.0-rc.1`) |
+| 🏷️ Set USB Serial... | Assigns a custom USB serial string for stable COM/HID/dongle identity (`v3.5.0`) |
+| 📌 Kernel Persistence (Boot) | Toggles `usbip2_ude` kernel-level persistent attach across Windows reboots (`v3.5.0`) |
+| 🛑 Stop Kernel Retries | Cancels active kernel-level attach retry attempts (`v3.5.0`) |
+| ⚙️ Virtual Hub Ports... | Configures the `usbip2_ude` Virtual Hub USB 2.0 / USB 3.0 port counts (`v3.5.0`) |
+| 🩺 Export Diagnostics... | Generates a `.zip` diagnostics bundle with driver, port, hub, and log state (`v3.5.0`) |
 
 ## Shortcuts
 
@@ -201,7 +201,7 @@ When closing the application, shutting down Windows (`AutoDetachOnExit: true`), 
 - **Install**: Cleans up any stale virtual nodes and installs the Microsoft WHQL-certified drivers (`usbip2_filter.inf` and `usbip2_ude.inf`), instantiating the `ROOT\USBIP_WIN2\UDE` virtual host controller.
 - **Uninstall**: Detaches active USB/IP devices first, removes the virtual UDE node, and safely removes DriverStore packages in two stages without disrupting physical USB 3.0 Root Hubs or third-party virtual adapters (such as Parsec).
 
-## 🛡️ Kernel Boot Persistence, Custom Serials, Hub Ports & Diagnostics (`v3.5.0-rc.1`)
+## 🛡️ Kernel Boot Persistence, Custom Serials, Hub Ports & Diagnostics (`v3.5.0`)
 
 - **Kernel Boot Persistence**: Save attached USB devices directly in the `usbip2_ude` kernel driver configuration so they automatically re-attach at Windows boot before user login.
 - **Custom USB Serial Numbers**: Assign a custom `Serial` string per remote device (via Properties / Persistent config) to keep COM ports, game controllers, or licenses consistent across reconnections.

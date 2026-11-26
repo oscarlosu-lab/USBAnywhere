@@ -491,7 +491,8 @@ public partial class MainWindow : Window
             string.Equals(f.BusId, cliBusId, StringComparison.OrdinalIgnoreCase));
         var requestedMode = _config.Load().DefaultReceiveMode;
         var mode = UsbipService.ResolveEffectiveReceiveMode(requestedMode, fav?.Description, null);
-        await _usbip.AttachDeviceAsync(cliIp, cliBusId, mode);
+        string? customSerial = GetCustomSerialForDevice(null, cliIp, cliBusId);
+        await _usbip.AttachDeviceAsync(cliIp, cliBusId, mode, serial: customSerial);
         await LoadConnectedDevicesAsync();
     }
 
@@ -1827,7 +1828,10 @@ public partial class MainWindow : Window
         if (string.IsNullOrEmpty(trimmed)) cfg.CustomDeviceSerials.Remove(key);
         else cfg.CustomDeviceSerials[key] = trimmed;
         _config.Save(cfg);
-        AddLog("Success", string.IsNullOrEmpty(trimmed) ? $"Cleared custom serial for {device.BusId}" : $"Set custom serial '{trimmed}' for {device.BusId}");
+        bool isEs = _currentLanguage == "es";
+        AddLog("Success", string.IsNullOrEmpty(trimmed)
+            ? (isEs ? $"Número de serie personalizado eliminado para {device.BusId}" : $"Cleared custom serial for {device.BusId}")
+            : (isEs ? $"Número de serie personalizado '{trimmed}' guardado para {device.BusId}" : $"Set custom serial '{trimmed}' for {device.BusId}"));
     }
 
     private async void MenuToggleKernelPersist_Click(object sender, RoutedEventArgs e)
@@ -1842,14 +1846,19 @@ public partial class MainWindow : Window
             updated.Add(new VhciPersistentDevice(device.ServerIP, VhciNativeClient.DefaultServicePort, device.BusId, serial, _currentReceiveMode, AttachOnce: false));
         }
         var res = await _usbip.SetKernelPersistentDevicesAsync(updated);
+        bool isEs = _currentLanguage == "es";
         if (res.Success)
         {
-            AddLog("Success", exists ? $"Removed {device.BusId} from kernel boot persistence" : $"Pinned {device.BusId} ({device.ServerIP}) to kernel boot persistence");
-            lblStatus.Text = exists ? "Unpinned from boot" : "Pinned to kernel boot";
+            AddLog("Success", exists
+                ? (isEs ? $"Eliminado {device.BusId} de la persistencia de arranque del kernel" : $"Removed {device.BusId} from kernel boot persistence")
+                : (isEs ? $"Fijado {device.BusId} ({device.ServerIP}) a la persistencia de arranque del kernel" : $"Pinned {device.BusId} ({device.ServerIP}) to kernel boot persistence"));
+            lblStatus.Text = exists
+                ? (isEs ? "Desfijado del arranque" : "Unpinned from boot")
+                : (isEs ? "Fijado al arranque del kernel" : "Pinned to kernel boot");
         }
         else
         {
-            AddLog("Warning", res.Error ?? "Kernel persistence update failed");
+            AddLog("Warning", res.Error ?? (isEs ? "Fallo al actualizar la persistencia del kernel" : "Kernel persistence update failed"));
         }
     }
 
@@ -1863,23 +1872,35 @@ public partial class MainWindow : Window
             busId = device.BusId;
         }
         int canceled = await _usbip.StopKernelAttachAttemptsAsync(host, busId);
-        AddLog("Info", $"Stopped {canceled} pending kernel attach attempt(s).");
-        lblStatus.Text = $"Canceled: {canceled}";
+        bool isEs = _currentLanguage == "es";
+        AddLog("Info", isEs
+            ? $"Detenido(s) {canceled} reintento(s) de conexión del kernel."
+            : $"Stopped {canceled} pending kernel attach attempt(s).");
+        lblStatus.Text = isEs ? $"Cancelados: {canceled}" : $"Canceled: {canceled}";
     }
 
     private void MenuConfigureHubPorts_Click(object sender, RoutedEventArgs e)
     {
         var cur = KernelConfigService.GetVirtualHubPortSettings();
-        var prompt = _currentLanguage == "es"
+        bool isEs = _currentLanguage == "es";
+        var prompt = isEs
             ? $"Puertos USB 2.0, USB 3.0 (total <= 255). Actual: {cur.Usb20Ports},{cur.Usb30Ports}"
             : $"USB 2.0, USB 3.0 port counts (total <= 255). Current: {cur.Usb20Ports},{cur.Usb30Ports}";
-        var input = Microsoft.VisualBasic.Interaction.InputBox(prompt, _currentLanguage == "es" ? "Puertos Hub Virtual" : "Virtual Hub Ports", $"{cur.Usb20Ports},{cur.Usb30Ports}");
+        var input = Microsoft.VisualBasic.Interaction.InputBox(prompt, isEs ? "Puertos Hub Virtual" : "Virtual Hub Ports", $"{cur.Usb20Ports},{cur.Usb30Ports}");
         if (string.IsNullOrWhiteSpace(input)) return;
         var parts = input.Split(',');
         if (parts.Length == 2 && int.TryParse(parts[0].Trim(), out int u20) && int.TryParse(parts[1].Trim(), out int u30))
         {
             var res = KernelConfigService.SetVirtualHubPortSettings(u20, u30);
-            AddLog(res.Success ? "Success" : "Warning", res.Success ? $"Hub ports updated to {u20}/{u30} (reboot to apply)" : (res.Error ?? "Failed"));
+            AddLog(res.Success ? "Success" : "Warning", res.Success
+                ? (isEs ? $"Puertos del hub actualizados a {u20}/{u30} (reinicia para aplicar)" : $"Hub ports updated to {u20}/{u30} (reboot to apply)")
+                : (res.Error ?? (isEs ? "Error al actualizar puertos" : "Failed")));
+        }
+        else
+        {
+            string msg = isEs ? "Formato inválido. Usa 'USB20,USB30' (ej. 30,30)." : "Invalid format. Use 'USB20,USB30' (e.g. 30,30).";
+            AddLog("Warning", msg);
+            lblStatus.Text = isEs ? "Formato de puertos inválido" : "Invalid port format";
         }
     }
 
@@ -1892,7 +1913,8 @@ public partial class MainWindow : Window
             driverStatusText: lblDriverValue.Text,
             connectedDevices: connected,
             persistentDevices: persistent);
-        AddLog("Success", $"Diagnostics exported: {zipPath}");
+        bool isEs = _currentLanguage == "es";
+        AddLog("Success", isEs ? $"Diagnóstico exportado: {zipPath}" : $"Diagnostics exported: {zipPath}");
         lblStatus.Text = System.IO.Path.GetFileName(zipPath);
     }
 

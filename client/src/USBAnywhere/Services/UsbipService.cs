@@ -307,9 +307,21 @@ namespace USBAnywhere.Services
                     var nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: attachOnce, serial: serial);
                     if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
                     {
-                        if (nativeRes.Port <= 0 && bindStatus.BoundOnDemand)
+                        if (nativeRes.Port <= 0 &&
+                            (bindStatus.BoundOnDemand || VhciNativeClient.IsTransientNotReadyError(nativeRes.Win32Error)))
                         {
-                            await Task.Delay(350, ct);
+                            if (!bindStatus.BoundOnDemand)
+                            {
+                                bindStatus = await TryDynamicBindAsync(ip, busId, ct);
+                                if (!bindStatus.Allowed)
+                                {
+                                    var error = bindStatus.ErrorMessage ?? $"Device {busId} blocked by server export policy";
+                                    _logger.LogWarning("Conexión denegada por política del servidor {IP}: {Reason}", ip, error);
+                                    return OperationResult.Fail(error);
+                                }
+                            }
+
+                            await Task.Delay(bindStatus.BoundOnDemand ? 350 : 500, ct);
                             nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: attachOnce, serial: serial);
                         }
 
@@ -808,11 +820,11 @@ namespace USBAnywhere.Services
 
                 // Parse usbip port output format:
                 // Port 00: <Port in Use> at Speed(480Mbps)
-                //        Server IP: 192.168.1.50
+                //        Server IP: 198.51.100.50
                 //        busid: 1-1.4 (0bda:5100)
                 //  or (usbip-win format):
                 // Port 0: imported
-                //     remote: 192.168.1.50
+                //     remote: 198.51.100.50
                 //     bus id: 1-1.4 (class: 0e / subclass: 01 / protocol: 00)
 
                 var lines = result.Output.Split('\n', StringSplitOptions.None);
@@ -859,7 +871,7 @@ namespace USBAnywhere.Services
                         continue;
                     }
 
-                    // Match modern usbip URI: "-> usbip://192.168.1.162:3240/5-1" or IPv6
+                    // Match modern usbip URI: "-> usbip://198.51.100.162:3240/5-1" or IPv6
                     var urlMatch = Regex.Match(line, @"usbip://\[?([a-zA-Z0-9\.\-:]+?)\]?(?::\d+)?/([\d\-\.]+)", RegexOptions.IgnoreCase);
                     if (urlMatch.Success)
                     {
@@ -966,49 +978,61 @@ namespace USBAnywhere.Services
 
         private async Task<(bool Allowed, bool BoundOnDemand, string? ErrorMessage)> TryDynamicBindAsync(string ip, string busId, CancellationToken ct)
         {
-            try
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                using var tcp = new System.Net.Sockets.TcpClient();
-                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                connectCts.CancelAfter(700);
-                await tcp.ConnectAsync(ip, 3241, connectCts.Token);
-
-                using var stream = tcp.GetStream();
-                var msg = Encoding.UTF8.GetBytes($"BIND {busId}\n");
-                await stream.WriteAsync(msg, 0, msg.Length, connectCts.Token);
-                _logger.LogDebug("Comando dinámico BIND {BusId} enviado a {IP}:3241", busId, ip);
-
-                using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                readCts.CancelAfter(6000);
-                var respLine = await ReadBoundedUtf8Async(stream, 4096, stopAtNewLine: true, readCts.Token);
-                if (!string.IsNullOrWhiteSpace(respLine))
+                try
                 {
-                    using var doc = System.Text.Json.JsonDocument.Parse(respLine.Trim());
-                    if (doc.RootElement.TryGetProperty("status", out var statusProp))
+                    using var tcp = new System.Net.Sockets.TcpClient();
+                    using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    connectCts.CancelAfter(2500);
+                    await tcp.ConnectAsync(ip, 3241, connectCts.Token);
+
+                    using var stream = tcp.GetStream();
+                    var msg = Encoding.UTF8.GetBytes($"BIND {busId}\n");
+                    await stream.WriteAsync(msg, 0, msg.Length, connectCts.Token);
+                    _logger.LogDebug("Comando dinámico BIND {BusId} enviado a {IP}:3241 (intento {Attempt}/2)", busId, ip, attempt + 1);
+
+                    using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    readCts.CancelAfter(9000);
+                    var respLine = await ReadBoundedUtf8Async(stream, 4096, stopAtNewLine: true, readCts.Token);
+                    if (!string.IsNullOrWhiteSpace(respLine))
                     {
-                        var status = statusProp.GetString() ?? "";
-                        if (status.Equals("DENIED", StringComparison.OrdinalIgnoreCase) ||
-                            status.Equals("ERROR", StringComparison.OrdinalIgnoreCase) ||
-                            status.Equals("UNSUPPORTED", StringComparison.OrdinalIgnoreCase))
+                        using var doc = System.Text.Json.JsonDocument.Parse(respLine.Trim());
+                        if (doc.RootElement.TryGetProperty("status", out var statusProp))
                         {
-                            var reason = doc.RootElement.TryGetProperty("message", out var msgProp)
-                                ? msgProp.GetString()
-                                : $"Server rejected the bind request for device {busId}";
-                            return (false, false, reason);
-                        }
-                        if (status.Equals("OK", StringComparison.OrdinalIgnoreCase))
-                        {
-                            return (true, true, null);
+                            var status = statusProp.GetString() ?? "";
+                            if (status.Equals("DENIED", StringComparison.OrdinalIgnoreCase) ||
+                                status.Equals("ERROR", StringComparison.OrdinalIgnoreCase) ||
+                                status.Equals("UNSUPPORTED", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var reason = doc.RootElement.TryGetProperty("message", out var msgProp)
+                                    ? msgProp.GetString()
+                                    : $"Server rejected the bind request for device {busId}";
+                                return (false, false, reason);
+                            }
+                            if (status.Equals("OK", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return (true, true, null);
+                            }
                         }
                     }
+                    return (true, false, null);
                 }
-                return (true, false, null);
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Intento {Attempt}/2 de BIND dinámico para {BusId} en {IP}:3241 falló: {Message}",
+                        attempt + 1, busId, ip, ex.Message);
+                    if (attempt == 0)
+                        await Task.Delay(300, ct);
+                }
             }
-            catch
-            {
-                // Dynamic daemon not running or timeout; fallback to standard attach
-                return (true, false, null);
-            }
+
+            // Dynamic daemon not running or unreachable; fallback to standard attach
+            return (true, false, null);
         }
 
         private async Task TryDynamicUnbindAsync(string ip, string busId, CancellationToken ct)
@@ -1020,7 +1044,7 @@ namespace USBAnywhere.Services
             {
                 using var tcp = new System.Net.Sockets.TcpClient();
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(700);
+                cts.CancelAfter(2500);
                 await tcp.ConnectAsync(ip, 3241, cts.Token);
 
                 using var stream = tcp.GetStream();
@@ -1029,12 +1053,13 @@ namespace USBAnywhere.Services
                 _logger.LogDebug("Comando dinámico UNBIND {BusId} enviado a {IP}:3241", busId, ip);
 
                 using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                readCts.CancelAfter(2500);
+                readCts.CancelAfter(5500);
                 await ReadBoundedUtf8Async(stream, 1024, stopAtNewLine: true, readCts.Token);
             }
-            catch
+            catch (Exception ex)
             {
-                // Best-effort instant server release; auto-unbind daemon handles fallback
+                _logger.LogDebug("UNBIND dinámico para {BusId} en {IP}:3241 no completado (auto-unbind lo liberará): {Message}",
+                    busId, ip, ex.Message);
             }
         }
 

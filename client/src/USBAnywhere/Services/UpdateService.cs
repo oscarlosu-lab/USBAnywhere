@@ -32,7 +32,7 @@ public class UpdateService : IUpdateService
         _currentVersion = System.Reflection.Assembly.GetExecutingAssembly()
             .GetName().Version?.ToString(3) ?? "3.5.0";
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "USBAnywhere-WPF/3.5.0-rc.1");
+        _httpClient.DefaultRequestHeaders.Add("User-Agent", "USBAnywhere-WPF/3.5.0");
     }
 
     public async Task<UpdateInfo> CheckForUpdatesAsync(CancellationToken ct = default)

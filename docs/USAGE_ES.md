@@ -1,4 +1,4 @@
-# 📖 Manual de Usuario de USBAnywhere v3.4.1 / v3.5.0-rc.1
+# 📖 Manual de Usuario de USBAnywhere v3.4.1 / v3.5.0
 
 🌐 **Idioma / Language:** [English](USAGE_EN.md) | **Español**
 
@@ -177,7 +177,7 @@ Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar 
 - **Doble-click** en el icono de la bandeja para restaurar la ventana en cualquier momento.
 - **Click derecho** para menú rápido: `📡 Escanear red`, `🔌 Desconectar todo`, `☑️ Iniciar minimizado en bandeja`, `🔼 Mostrar USBAnywhere`, `❌ Salir`.
 - **Comandos CLI Headless (sobre instancia activa):** `--connect <ip> <busid>` / `--attach <ip> <busid>` (reenvío IPC a instancia única), `--disconnect-all`, `--disconnect <puerto>` y `--quit`.
-- **Menú Contextual de Kernel y Diagnóstico (`v3.5.0-rc.1`):** Clic derecho en el árbol de dispositivos para abrir `🏷️ Número de serie USB...`, `📌 Persistencia Kernel (Boot)`, `🛑 Detener reintentos de kernel`, `⚙️ Puertos Hub Virtual...` y `🩺 Exportar diagnóstico...`.
+- **Menú Contextual de Kernel y Diagnóstico (`v3.5.0`):** Clic derecho en el árbol de dispositivos para abrir `🏷️ Número de serie USB...`, `📌 Persistencia Kernel (Boot)`, `🛑 Detener reintentos de kernel`, `⚙️ Puertos Hub Virtual...` y `🩺 Exportar diagnóstico...`.
 - **Eventos Kernel en Tiempo Real:** El cliente escucha eventos de estado del driver `usbip2_ude` vía `DeviceIoControl` / `ReadFile` asíncrono para reflejar conexiones y desconexiones al instante sin lanzar subprocesos periódicos.
 
 ## 🔧 Barra de Estado y Ciclo de Vida de Drivers
@@ -191,7 +191,7 @@ Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar 
 - **Instalar**: Limpia cualquier nodo virtual residual e instala los drivers certificados WHQL (`usbip2_filter.inf` y `usbip2_ude.inf`) creando el controlador emulado `ROOT\USBIP_WIN2\UDE`.
 - **Desinstalar**: Desconecta primero los dispositivos USB/IP activos, elimina el nodo virtual UDE y limpia los paquetes del `DriverStore` de forma segura en dos fases sin afectar a tus concentradores USB 3.0 físicos ni a otros adaptadores virtuales (como Parsec).
 
-## 🛡️ Persistencia en Arranque, Seriales USB, Puertos del Hub y Diagnóstico (`v3.5.0-rc.1`)
+## 🛡️ Persistencia en Arranque, Seriales USB, Puertos del Hub y Diagnóstico (`v3.5.0`)
 
 - **Persistencia en Kernel al Arrancar**: Guarda dispositivos USB en la configuración del driver `usbip2_ude` para reconectarlos automáticamente al iniciar Windows.
 - **Números de Serie USB Personalizados**: Asigna un `Serial` personalizado por dispositivo para mantener estables puertos COM, mandos o dongles de licencia.

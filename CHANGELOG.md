@@ -1,6 +1,6 @@
 # CHANGELOG - USBAnywhere
 
-## [3.5.0-rc.1] - 2026-11-26 (Release Candidate)
+## [3.5.0] - 2026-11-26
 
 ### Added
 - **Windows Kernel Boot Persistence & Custom USB Serials (`VhciNativeClient.cs`, `KernelConfigService.cs`)**:
@@ -9,6 +9,14 @@
   - Exports a ZIP diagnostics archive containing driver state, imported VHCI ports, Virtual Hub configuration, and recent logs directly from the UI.
 - **Linux `usbanywhere-ctl` Control API Hardening & UAS Detection**:
   - Added optional IP allowlist (`allowed_ips`) and constant-time HMAC `control_token` authentication (`policy allow-ip|deny-ip|set-token|clear-token`) for TCP `3241`, plus UAS (`usb-storage` / `uas`) storage device detection warnings.
+- **Linux `usbanywhere-ctl` Interactive `sudo`, Dashboard Modes & Client Sleep Guard (PR #21 by @50P15)**:
+  - Preserves TTY/non-interactive `sudo` re-exec properly, expands server/client dashboard modes, adds an optional `client-guard` sleep inhibitor service (`systemd-inhibit`), and adds 35 native Linux unit tests (`scripts/tests/test_control_suite.py`).
+
+### Fixed
+- **Wi-Fi Dynamic Bind Resilience & `0xE102xxxx` VHCI Error Mapping (`UsbipService.cs`, `VhciNativeClient.cs`)**:
+  - Increased TCP `3241` dynamic `BIND`/`UNBIND` timeouts and added retry recovery on transient `ST_NA` / `ST_DEV_BUSY` / `ST_NODEV` attach responses (`0xE101xxxx` and `0xE102xxxx`), plus human-readable error mapping.
+- **CLI Custom Serial Parity & ES/EN Menu Localization (`MainWindow.xaml.cs`)**:
+  - Forwarded saved custom USB serials in `--connect` / `--attach` IPC calls and localized all kernel persistence, hub port, serial, and diagnostics log/status messages.
 
 ## [3.4.1] - 2026-11-20
 

@@ -2,7 +2,7 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.4.1** (Estable) · **[v3.5.0-rc.1](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0-rc.1)** (Release Candidate) | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.5.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
@@ -93,12 +93,12 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 
 ---
 
-## 🧪 Novedades en v3.5.0-rc.1 (Release Candidate)
+## 🆕 Novedades en v3.5.0
 
 - 📌 **Persistencia en Kernel al Arrancar y Control de Reintentos (`VhciNativeClient.cs`)** - Guarda dispositivos en el driver `usbip2_ude` para reconectarlos automáticamente al iniciar Windows o detén reintentos activos desde el menú contextual.
 - 🏷️ **Números de Serie USB Personalizados y Puertos del Hub Virtual (`KernelConfigService.cs`)** - Asigna un `Serial` persistente por dispositivo y ajusta la capacidad de puertos USB 2.0 / USB 3.0 del hub virtual (`30` / `30` por defecto).
 - 🩺 **Paquete de Diagnóstico en 1 Clic (`KernelDiagnosticsService.cs`)** - Exporta un `.zip` con el estado del driver, puertos VHCI importados, configuración del hub y logs recientes.
-- 🔒 **Endurecimiento API de Control Linux y Detección UAS (`usbanywhere-ctl` v3.5.0-rc.1)** - Lista blanca `allowed_ips` opcional y autenticación HMAC `control_token` en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) sobre TCP `3241`, más aviso de compatibilidad `uas` en SSDs externos.
+- 🔒 **Endurecimiento API de Control Linux y Detección UAS (`usbanywhere-ctl` v3.5.0)** - Lista blanca `allowed_ips` opcional y autenticación HMAC `control_token` en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) sobre TCP `3241`, más aviso de compatibilidad `uas` en SSDs externos.
 
 ## 🆕 Novedades en v3.4.1 (Suite Multiplataforma USBAnywhere)
 
@@ -135,7 +135,7 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Releases (v3.4.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1) (o [v3.5.0-rc.1 Release Candidate](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0-rc.1)):
+1. Descarga desde [USBAnywhere Releases (v3.5.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0):
    - **Windows x64**: `USBAnywhere-v3.4.1-x64.zip`
    - **Windows ARM64**: `USBAnywhere-v3.4.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
    - **Cliente y Servidor Linux**: Ejecuta [`scripts/install-server.sh`](scripts/install-server.sh) (ver instalador de 1 línea abajo)
@@ -144,7 +144,7 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.4.1.exe` desde [USBAnywhere Releases (v3.4.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.1) (o `USBAnywhere_Setup_v3.5.0-rc.1.exe` en [v3.5.0-rc.1](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0-rc.1))
+1. Descarga `USBAnywhere_Setup_v3.5.0.exe` desde [USBAnywhere Releases (v3.5.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 

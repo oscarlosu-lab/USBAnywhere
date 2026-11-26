@@ -6,7 +6,7 @@
 
 | Versión | Estado              | Comentarios |
 | ------- | ------------------- | ----------- |
-| 3.5.0-rc.1 | :white_check_mark: | Release Candidate (Pre-release) |
+| 3.5.0 | :white_check_mark: | Latest Stable Release |
 | 3.4.x   | :white_check_mark:  | Estable Activa (Actual: v3.4.1) |
 | < 3.4   | :x:                 | Sin soporte (Actualizar a USBAnywhere v3.4.1+) |
 
@@ -38,7 +38,7 @@
 - **Servidor Linux**: Se ejecuta bajo servicios systemd dedicados (`usbipd.service` + `usbanywhere-autounbind.service`) y restringe la exportación de periféricos mediante reglas udev específicas.
 
 ### 6. Endurecimiento del Plano de Control (`TCP 3241`) y Puertas CI
-- **Lista Blanca de IPs y Token HMAC Opcional (`v3.5.0-rc.1`)**: `usbanywhere-ctl` soporta filtrado `allowed_ips` y verificación `control_token` por HMAC en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) para comandos sobre TCP `3241`.
+- **Lista Blanca de IPs y Token HMAC Opcional (`v3.5.0`)**: `usbanywhere-ctl` soporta filtrado `allowed_ips` y verificación `control_token` por HMAC en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) para comandos sobre TCP `3241`.
 - **Auditoría Automatizada en CI**: Cada commit pasa por **CodeQL SAST**, **Gitleaks**, **OpenSSF Scorecard** y firma Authenticode con **SignPath Foundation**.
 
 ---

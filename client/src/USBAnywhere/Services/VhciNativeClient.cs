@@ -721,15 +721,20 @@ public static class VhciNativeClient
         err == ErrorInvalidUserBuffer ||
         err == UsbipErrorAbi;
 
-    private static string MapAttachError(int err) => err switch
+    internal static bool IsTransientNotReadyError(int err) => err is
+        unchecked((int)0xE1010001) or unchecked((int)0xE1020001) or
+        unchecked((int)0xE1010002) or unchecked((int)0xE1020002) or
+        unchecked((int)0xE1010004) or unchecked((int)0xE1020004);
+
+    internal static string MapAttachError(int err) => err switch
     {
         ErrorSemTimeout or 10060 => $"VHCI attach timed out connecting to remote server (error {err}).",
         ErrorConnectionRefused or 10061 => $"VHCI attach failed: connection refused by remote USB/IP daemon (error {err}).",
         10051 => $"VHCI attach failed: remote network unreachable (error {err}).",
-        unchecked((int)0xE1010001) => "VHCI attach failed: device not available on remote host (ST_NA).",
-        unchecked((int)0xE1010002) => "VHCI attach failed: device is already in use (ST_DEV_BUSY).",
-        unchecked((int)0xE1010003) => "VHCI attach failed: remote USB/IP device error (ST_DEV_ERR).",
-        unchecked((int)0xE1010004) => "VHCI attach failed: requested busid not found on server (ST_NODEV).",
+        unchecked((int)0xE1010001) or unchecked((int)0xE1020001) => "VHCI attach failed: device not available on remote host (ST_NA).",
+        unchecked((int)0xE1010002) or unchecked((int)0xE1020002) => "VHCI attach failed: device is already in use (ST_DEV_BUSY).",
+        unchecked((int)0xE1010003) or unchecked((int)0xE1020003) => "VHCI attach failed: remote USB/IP device error (ST_DEV_ERR).",
+        unchecked((int)0xE1010004) or unchecked((int)0xE1020004) => "VHCI attach failed: requested busid not found or not yet bound on server (ST_NODEV).",
         unchecked((int)0xE1000006) => "VHCI attach failed: invalid USB serial string.",
         _ => $"VHCI attach failed with Win32 error 0x{err:X8} ({new Win32Exception(err).Message})."
     };
@@ -858,13 +863,13 @@ public static class VhciNativeClient
                   .Append(d.Serial ?? string.Empty).Append(',')
                   .Append(flags);
             }
-            sb.Append(' ');
+            sb.Append('\0');
             count++;
         }
 
         if (count == 0)
-            sb.Append(' ');
-        sb.Append(' ');
+            sb.Append('\0');
+        sb.Append('\0');
         return Encoding.Unicode.GetBytes(sb.ToString());
     }
 
@@ -875,7 +880,7 @@ public static class VhciNativeClient
             return list;
 
         string text = Encoding.Unicode.GetString(data);
-        foreach (string entry in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        foreach (string entry in text.Split('\0', StringSplitOptions.RemoveEmptyEntries))
         {
             if (entry.Contains('='))
             {

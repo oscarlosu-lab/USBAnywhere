@@ -104,4 +104,32 @@ public class KernelFeaturesTests
             if (File.Exists(outZip)) File.Delete(outZip);
         }
     }
+
+    [Theory]
+    [InlineData(unchecked((int)0xE1020001), "ST_NA")]
+    [InlineData(unchecked((int)0xE1020002), "ST_DEV_BUSY")]
+    [InlineData(unchecked((int)0xE1020003), "ST_DEV_ERR")]
+    [InlineData(unchecked((int)0xE1020004), "ST_NODEV")]
+    [InlineData(unchecked((int)0xE1010001), "ST_NA")]
+    [InlineData(unchecked((int)0xE1010004), "ST_NODEV")]
+    [InlineData(unchecked((int)0xE1000006), "invalid USB serial")]
+    public void MapAttachError_FormatsProtocolAndDriverErrorCodes(int code, string expectedToken)
+    {
+        string msg = VhciNativeClient.MapAttachError(code);
+        Assert.Contains(expectedToken, msg);
+        Assert.DoesNotContain("Unknown error", msg);
+    }
+
+    [Theory]
+    [InlineData(unchecked((int)0xE1020004), true)]
+    [InlineData(unchecked((int)0xE1020001), true)]
+    [InlineData(unchecked((int)0xE1020002), true)]
+    [InlineData(unchecked((int)0xE1010004), true)]
+    [InlineData(unchecked((int)0xE1000006), false)]
+    [InlineData(10061, false)]
+    [InlineData(0, false)]
+    public void IsTransientNotReadyError_IdentifiesRetryableProtocolErrors(int code, bool expected)
+    {
+        Assert.Equal(expected, VhciNativeClient.IsTransientNotReadyError(code));
+    }
 }
