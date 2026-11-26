@@ -14,6 +14,8 @@ Este directorio contiene scripts de aprovisionamiento, suites de control y herra
 ### 1. `usbanywhere-ctl` — Suite de Control Unificada (macOS y Linux)
 Panel interactivo con interfaz TUI para terminal y herramienta de gestión CLI sin dependencias externas.
 - **Panel de Control Interactivo (TUI)**: `usbanywhere-ctl` (o `usbanywhere-ctl dashboard`)
+- **Modo del Panel**: `usbanywhere-ctl mode [server|client|both]` (se pregunta en el primer arranque; cambiable en cualquier momento con `[m]`)
+- **Protección de Suspensión del Cliente opcional (cliente Linux)**: desactivada por defecto. Instalar el script, abrir el panel o conectar dispositivos no instala ni activa ningún servicio. Desde el panel (`[g]`), puedes elegir **Disabled** (desactivada), **Temporary** (activa solo mientras el panel está abierto, se detiene al salir) o **Permanent** (servicio systemd en segundo plano, arranca al iniciar el equipo). Desde CLI: `sudo usbanywhere-ctl client-guard install|uninstall|status`. La conexión y desconexión normal funcionan sin ella. Cuando está activa, escucha `PrepareForSleep` de logind, mantiene un inhibidor de retardo de suspensión, desconecta los dispositivos USB/IP importados antes de suspender (verificado en sysfs de `vhci_hcd`) y los vuelve a conectar al reanudar cuando el servidor responde en TCP 3240. Registros: `journalctl -u usbanywhere-client-guard`. Requiere Linux con systemd/logind, `busctl`, `systemd-inhibit`, `udevadm` y `usbip`. USBAnywhere no configura el comportamiento de la tapa.
 - **Doctor del Sistema**: `usbanywhere-ctl doctor`
 - **Autoprueba del Protocolo**: `usbanywhere-ctl test`
 - **Gestión del Servicio**: `sudo usbanywhere-ctl start|stop|restart|status`

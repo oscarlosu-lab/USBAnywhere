@@ -14,6 +14,8 @@ This directory contains provisioning scripts, control suites, and media automati
 ### 1. `usbanywhere-ctl` — Unified Control Suite (macOS & Linux)
 Interactive Terminal User Interface (TUI) dashboard and CLI management tool with zero external dependencies.
 - **Interactive TUI Dashboard**: `usbanywhere-ctl` (or `usbanywhere-ctl dashboard`)
+- **Dashboard Mode**: `usbanywhere-ctl mode [server|client|both]` (asked on first launch; switch anytime with `[m]`)
+- **Optional Client Sleep Guard (Linux client)**: disabled by default. Installing the script, opening the dashboard and connecting devices do not install or enable any service. From the dashboard (`[g]`), you can choose **Disabled**, **Temporary** (active only while the dashboard is open, stops on exit), or **Permanent** (background systemd service, starts at boot). From the CLI: `sudo usbanywhere-ctl client-guard install|uninstall|status`. Ordinary connect/disconnect works without it. When active, it listens for logind `PrepareForSleep`, holds a sleep delay inhibitor, detaches imported USB/IP devices before suspend (verified in vhci_hcd sysfs) and re-attaches them on resume once the server answers on TCP 3240. Logs: `journalctl -u usbanywhere-client-guard`. Requires Linux with systemd/logind, `busctl`, `systemd-inhibit`, `udevadm` and `usbip`. Lid behavior is not configured by USBAnywhere.
 - **System Doctor**: `usbanywhere-ctl doctor`
 - **Protocol Loopback Test**: `usbanywhere-ctl test`
 - **Service Control**: `sudo usbanywhere-ctl start|stop|restart|status`

@@ -41,6 +41,9 @@ YELLOW = "\033[93m"
 RED = "\033[91m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
+GUARD_COLOR = "\033[38;5;202m"
+SERVER_COLOR = "\033[38;5;214m"
+CLIENT_COLOR = "\033[38;5;157m"
 RESET = "\033[0m"
 
 
@@ -227,9 +230,43 @@ def run_cmd(cmd, capture=True, check=False, timeout=30):
             raise
         return ""
 
+def run_cmd_result(cmd, timeout=30):
+    """Run a command and return (returncode, stdout, stderr). returncode is None if it could not run."""
+    try:
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, timeout=timeout)
+        return res.returncode, (res.stdout or "").strip(), (res.stderr or "").strip()
+    except subprocess.TimeoutExpired:
+        return None, "", f"timed out after {timeout}s"
+    except Exception as e:
+        return None, "", str(e)
+
 def is_root():
     """Check if script is running with superuser privileges."""
     return os.geteuid() == 0 if hasattr(os, "geteuid") else False
+
+def build_sudo_command(*args):
+    """Build the argv used to re-run this script with sudo for one explicit subcommand."""
+    return ["sudo", sys.executable, os.path.realpath(__file__), *[str(a) for a in args]]
+
+def rerun_with_sudo(*args):
+    """
+    Re-run this script with sudo for one explicit subcommand (e.g. "connect", ip, busid).
+    Never re-uses sys.argv: in the interactive dashboard sys.argv has no subcommand, so
+    re-running it would just open a second dashboard and drop the requested action.
+    """
+    if not shutil.which("sudo"):
+        print(f"{RED}[Error] 'sudo' not found. Run as root: usbanywhere-ctl {' '.join(str(a) for a in args)}{RESET}")
+        return False
+    sys.stdout.flush()
+    try:
+        return subprocess.run(build_sudo_command(*args)).returncode == 0
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}Cancelled.{RESET}")
+        return False
+    except OSError as e:
+        print(f"{RED}[Error] Could not run sudo: {e}{RESET}")
+        return False
 
 def get_lan_ip():
     """Find local LAN IPv4 address."""
@@ -298,7 +335,7 @@ def start_service():
     """Start the USB/IP server service."""
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        return rerun_with_sudo("start")
 
     if IS_MACOS:
         plist = "/Library/LaunchDaemons/com.usbanywhere.server.plist"
@@ -311,7 +348,10 @@ def start_service():
             subprocess.Popen(["usbanywhere-server-mac", "serve", "--auto-bind"])
             return True
     elif IS_LINUX:
-        run_cmd(["systemctl", "restart", "usbipd"])
+        rc, _, err = run_cmd_result(["systemctl", "restart", "usbipd"])
+        if rc != 0:
+            print(f"{RED}✗ Failed to start usbipd via systemd: {err or f'exit code {rc}'}{RESET}")
+            return False
         print(f"{GREEN}✓ Linux service started via systemd.{RESET}")
         return True
     return False
@@ -320,7 +360,7 @@ def stop_service():
     """Stop the USB/IP server service."""
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        return rerun_with_sudo("stop")
 
     if IS_MACOS:
         plist = "/Library/LaunchDaemons/com.usbanywhere.server.plist"
@@ -560,7 +600,7 @@ def share_device(busid):
 
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        return rerun_with_sudo("share", busid)
 
     if IS_MACOS:
         bin_path = shutil.which("usbanywhere-server-mac")
@@ -582,7 +622,7 @@ def unshare_device(busid):
 
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        return rerun_with_sudo("unshare", busid)
 
     if IS_MACOS:
         bin_path = shutil.which("usbanywhere-server-mac")
@@ -904,6 +944,9 @@ def run_doctor():
         host_str = f"{GREEN}LOADED{RESET}" if has_host else f"{RED}MISSING (run: sudo modprobe usbip_host){RESET}"
         print(f"• Kernel Module core: {core_str}")
         print(f"• Kernel Module host: {host_str}")
+        has_vhci = "vhci_hcd" in lsmod or os.path.exists("/sys/devices/platform/vhci_hcd.0")
+        vhci_str = f"{GREEN}LOADED{RESET}" if has_vhci else f"{DIM}not loaded (client only; loaded automatically on connect){RESET}"
+        print(f"• Kernel Module vhci: {vhci_str}")
 
         # Check Raspberry Pi legacy dwc_otg driver (causes kernel Oops in stub_send_ret_submit behind USB 2.0 Hub HATs)
         if os.path.exists("/sys/bus/platform/drivers/dwc_otg") and any(
@@ -934,103 +977,415 @@ def run_doctor():
 # INTERACTIVE DASHBOARD / TUI
 # ══════════════════════════════════════════════════════════════════════════════
 
-def render_dashboard():
-    """Interactive Control Suite Terminal Dashboard."""
+CANCEL_WORDS = ("q", "quit", "exit", "cancel")
+
+class PromptCancelled(Exception):
+    """Raised when the user cancels an interactive prompt (q, empty input, Ctrl+C or Ctrl+D)."""
+
+def ask(prompt_text):
+    """input() that turns Ctrl+C, Ctrl+D and cancel words into PromptCancelled."""
+    try:
+        value = input(prompt_text).strip()
+    except (KeyboardInterrupt, EOFError):
+        print()
+        raise PromptCancelled()
+    if value.lower() in CANCEL_WORDS:
+        raise PromptCancelled()
+    return value
+
+def pause(message="Press Enter to return to Dashboard..."):
+    """Wait for Enter so the user can read the output before the screen is cleared."""
+    try:
+        input(f"\n{DIM}{message}{RESET}")
+    except (KeyboardInterrupt, EOFError):
+        print()
+
+def choose_item(label, items, validator, free_text_hint):
+    """
+    Let the user pick one of `items` by its number, or type a value accepted by `validator`.
+    `items` may contain None for entries that cannot be selected by number.
+    Raises PromptCancelled on empty input, q, Ctrl+C or Ctrl+D.
+    """
+    selectable = any(items)
+    if selectable:
+        choices = "1" if len(items) == 1 else f"1-{len(items)}"
+        prompt_text = f"Select {label} [{choices}] or type {free_text_hint} (q to cancel): "
+    else:
+        prompt_text = f"Enter {free_text_hint} (q to cancel): "
+    while True:
+        value = ask(prompt_text)
+        if not value:
+            raise PromptCancelled()
+        if value.isdigit():
+            n = int(value)
+            if selectable and 1 <= n <= len(items) and items[n - 1]:
+                return items[n - 1]
+            if selectable and 1 <= n <= len(items):
+                print(f"{YELLOW}Entry {n} has no usable {label} identifier; type it instead.{RESET}")
+            elif selectable:
+                print(f"{YELLOW}Invalid number. Choose between 1 and {len(items)}.{RESET}")
+            else:
+                print(f"{YELLOW}Nothing to select by number; type {free_text_hint}.{RESET}")
+            continue
+        if validator(value):
+            return value
+        print(f"{YELLOW}Invalid {label}: {value}{RESET}")
+
+ROLES = ("server", "client", "both")
+ROLE_LABELS = {"server": f"{SERVER_COLOR}Server{RESET}",
+               "client": f"{CLIENT_COLOR}Client{RESET}",
+               "both": f"{SERVER_COLOR}Server{RESET} + {CLIENT_COLOR}Client{RESET}"}
+
+def _role_config_path():
+    """Per-user config file. Under sudo it still points to the invoking user's home."""
+    home = None
+    sudo_user = os.environ.get("SUDO_USER")
+    if sudo_user and is_root():
+        try:
+            import pwd
+            home = pwd.getpwnam(sudo_user).pw_dir
+        except Exception:
+            home = None
+    return os.path.join(home or os.path.expanduser("~"), ".config", "usbanywhere", "ctl.json")
+
+def load_role():
+    """Return the saved dashboard role ('server', 'client' or 'both'), or None."""
+    try:
+        with open(_role_config_path(), "r", encoding="utf-8") as f:
+            role = json.load(f).get("role")
+        return role if role in ROLES else None
+    except Exception:
+        return None
+
+def save_role(role):
+    """Persist the dashboard role. When running under sudo, keep the file owned by the real user."""
+    path = _role_config_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"role": role}, f, indent=2)
+        uid, gid = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
+        if is_root() and uid and gid and uid.isdigit() and gid.isdigit():
+            for p in (os.path.dirname(path), path):
+                os.chown(p, int(uid), int(gid))
+        return True
+    except Exception as e:
+        print(f"{YELLOW}[!] Could not save role to {path}: {e}{RESET}")
+        return False
+
+def suggest_role():
+    """Default role: 'both' when the USB/IP server service is installed here, otherwise 'client'."""
+    return "both" if get_service_status().get("installed") else "client"
+
+def ask_role(current=None):
+    """Ask how this computer is used. Returns the chosen role (or `current` if cancelled)."""
+    default = current or suggest_role()
+    default_idx = ROLES.index(default) + 1
+    print(f"""
+{BOLD}How will you use USBAnywhere on this computer?{RESET}
+  {BOLD}{SERVER_COLOR}[1] Server{RESET}  — share this computer's USB devices with other computers
+  {BOLD}{CLIENT_COLOR}[2] Client{RESET}  — use USB devices shared by another computer
+  {BOLD}[3]{RESET} {BOLD}Both{RESET}
+""")
+    while True:
+        try:
+            value = input(f"{BOLD}Select [1-3] (Enter = {default_idx}): {RESET}").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            if current:
+                return current
+            sys.exit(0)
+        if not value:
+            return default
+        if value in ("1", "2", "3"):
+            return ROLES[int(value) - 1]
+        if value in ROLES:
+            return value
+        print(f"{YELLOW}Invalid option.{RESET}")
+
+def offer_sudo_relaunch(role="both"):
+    """When the dashboard is opened without root, offer to relaunch it with sudo."""
+    if is_root() or not (IS_LINUX or IS_MACOS) or not sys.stdin.isatty() or not shutil.which("sudo"):
+        return
+    needs = []
+    if role in ("server", "both"):
+        needs.append("starting/stopping the service and sharing devices")
+    if role in ("client", "both"):
+        needs.append("connecting/detaching remote USB devices")
+    print(f"{YELLOW}[!] Running as a standard user: {' and '.join(needs)} require superuser privileges.{RESET}")
+    try:
+        answer = input(f"{BOLD}Relaunch the Control Suite with sudo now? [Y/n]: {RESET}").strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        print()
+        sys.exit(0)
+    if answer not in ("", "y", "yes", "s", "si", "sí"):
+        return
+    try:
+        # 'sudo -n true' succeeds silently with NOPASSWD rules; 'sudo -v' alone would still
+        # ask for a password unless *every* matching sudoers entry is NOPASSWD (verifypw=all).
+        no_pw = subprocess.run(["sudo", "-n", "true"], stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL).returncode == 0
+        if not no_pw and subprocess.run(["sudo", "-v"]).returncode != 0:
+            print(f"{YELLOW}sudo authentication failed. Continuing as standard user.{RESET}")
+            time.sleep(1.5)
+            return
+        cmd = build_sudo_command("dashboard")
+        os.execvp(cmd[0], cmd)
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}Continuing as standard user.{RESET}")
+        time.sleep(1)
+    except OSError as e:
+        print(f"{RED}[Error] Could not relaunch with sudo: {e}{RESET}")
+        time.sleep(1.5)
+
+def get_attached_ports():
+    """Return (ports, error) without printing. ports is None if 'usbip' is unavailable and nothing is attached."""
+    entries, err = read_client_ports()
+    if not entries and not shutil.which("usbip"):
+        return None, None
+    return entries, err
+
+class DashboardGuard:
+    """Own a temporary guard through a pipe; EOF also handles a crashed dashboard."""
+    def __init__(self):
+        self.process = None
+
+    def active(self):
+        return self.process is not None and self.process.poll() is None
+
+    def stop(self):
+        if self.process is not None:
+            if self.process.stdin:
+                try:
+                    self.process.stdin.close()
+                except OSError:
+                    pass
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                print(f"{RED}Temporary guard has not stopped yet; check the journal.{RESET}")
+                return False
+            self.process = None
+        return True
+
+    def start(self):
+        if self.active():
+            return True
+        cmd = [sys.executable, os.path.realpath(__file__), "client-guard", "session"]
+        if not is_root():
+            if not shutil.which("sudo"):
+                return False
+            if subprocess.run(["sudo", "-n", "true"], stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL).returncode != 0:
+                if subprocess.run(["sudo", "-v"]).returncode != 0:
+                    return False
+            cmd = ["sudo", "-n", *cmd]
+        before = ClientSleepGuard.inhibitor_pids()
+        self.process = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                                        stdout=subprocess.DEVNULL, start_new_session=True)
+        for _ in range(40):
+            if not self.active():
+                self.stop()
+                return False
+            if ClientSleepGuard.inhibitor_pids() - before:
+                return True
+            time.sleep(0.2)
+        self.stop()
+        return False
+
+
+def render_dashboard(role=None):
+    temporary = DashboardGuard()
+    try:
+        _render_dashboard(role, temporary)
+    finally:
+        temporary.stop()
+
+
+def _render_dashboard(role, temporary):
+    """Interactive Control Suite Terminal Dashboard, split into Server and Client sections."""
+    role = role if role in ROLES else "both"
     while True:
         # Clear screen
         os.system("clear" if os.name != "nt" else "cls")
 
-        st = get_service_status()
+        is_server = role in ("server", "both")
+        is_client = role in ("client", "both")
         lan_ip = get_lan_ip()
-        devs = list_devices()
-
-        status_badge = f"{GREEN}● ACTIVE{RESET}" if st["running"] else f"{RED}○ STOPPED{RESET}"
-        port_badge = f"{GREEN}OPEN (Port {PORT}){RESET}" if st["port_active"] else f"{RED}CLOSED{RESET}"
+        st = get_service_status()
+        devs = list_devices() if is_server else []
+        ports, ports_err = get_attached_ports() if (is_client and IS_LINUX) else (None, None)
+        privs = f"{GREEN}root{RESET}" if is_root() else f"{YELLOW}standard user (sudo will be requested){RESET}"
 
         print(f"""
 {CYAN}╔══════════════════════════════════════════════════════════════════════════════╗
-║                 🎛️  {BOLD}USBAnywhere Control Suite v{VERSION}{RESET}{CYAN}                           ║
+║                 🎛️  {BOLD}USBAnywhere Control Suite v{VERSION}{RESET}{CYAN}                         ║
 ║   Share local USB peripherals over network (Moonlight/Sunshine/Sim/Work)     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝{RESET}
-  • {BOLD}OS:{RESET} {st['os']}
-  • {BOLD}Server Daemon:{RESET} {status_badge}  |  {BOLD}Port 3240:{RESET} {port_badge}
-  • {BOLD}Server IP (LAN):{RESET} {BOLD}{GREEN}{lan_ip}{RESET}  (Enter this IP in USBAnywhere Windows Client)
-  • {BOLD}Service Manager:{RESET} {st['service_manager']}
+  • {BOLD}OS:{RESET} {st['os']}  |  {BOLD}LAN IP:{RESET} {BOLD}{GREEN}{lan_ip}{RESET}
+  • {BOLD}Mode:{RESET} {BOLD}{ROLE_LABELS[role]}{RESET}  |  {BOLD}Privileges:{RESET} {privs}""")
 
-{BOLD}📋 Discovered Physical USB Peripherals ({len(devs)}):{RESET}""")
+        if is_server:
+            status_badge = f"{GREEN}● ACTIVE{RESET}" if st["running"] else f"{RED}○ STOPPED{RESET}"
+            port_badge = f"{GREEN}OPEN (Port {PORT}){RESET}" if st["port_active"] else f"{RED}CLOSED{RESET}"
+            print(f"""
+{SERVER_COLOR}══════════════ 🖥️  SERVER — share this computer's USB devices ══════════════{RESET}
+  • {BOLD}Server Daemon:{RESET} {status_badge} ({st['service_manager']})  |  {BOLD}Port 3240:{RESET} {port_badge}
+  • Clients connect to {BOLD}{GREEN}{lan_ip}{RESET} (enter this IP in the USBAnywhere client)
 
-        if not devs:
-            print(f"  {YELLOW}No USB devices discovered or permission required.{RESET}")
-        else:
-            for idx, d in enumerate(devs[:8], start=1):
-                print(f"  {BOLD}[{idx}]{RESET} {d}")
-            if len(devs) > 8:
-                print(f"  {DIM}... ({len(devs) - 8} more devices){RESET}")
+  {BOLD}📋 Local USB Peripherals ({len(devs)}):{RESET}""")
+            if not devs:
+                print(f"    {YELLOW}No USB devices discovered or permission required.{RESET}")
+            else:
+                for idx, d in enumerate(devs[:8], start=1):
+                    print(f"    {BOLD}#{idx}{RESET}  {d.strip()}")
+                if len(devs) > 8:
+                    print(f"    {DIM}... ({len(devs) - 8} more devices){RESET}")
+            print(f"""
+  {BOLD}[1]{RESET} Start / Restart Service       {BOLD}[3]{RESET} Share a USB Device
+  {BOLD}[2]{RESET} Stop Service                  {BOLD}[4]{RESET} Unshare a USB Device
+  {BOLD}[6]{RESET} Protocol Self-Test            {BOLD}[7]{RESET} View Live Logs""")
+
+        if is_client:
+            print(f"""
+{CLIENT_COLOR}══════════════ 💻 CLIENT — use USB devices from another computer ══════════════{RESET}""")
+            if not IS_LINUX:
+                print(f"  {YELLOW}Client mode (vhci_hcd attach) is only supported on Linux.{RESET}")
+            elif ports is None:
+                print(f"  {YELLOW}'usbip' binary not found: install usbip / linux-tools to use client mode.{RESET}")
+            else:
+                if ports_err:
+                    print(f"  {RED}[!] Could not read attached ports reliably: {ports_err}{RESET}")
+                print(f"  {BOLD}🔌 Remote USB devices attached here ({len(ports)}):{RESET}")
+                if not ports and not ports_err:
+                    print(f"    {DIM}None. Use [9] to connect one.{RESET}")
+                for e in ports:
+                    remote_str = f"{e['ip']}/{e['busid']}" if e["ip"] or e["busid"] else "remote"
+                    print(f"    • Port {BOLD}{e['port']}{RESET}: {remote_str} — {e['desc']}")
+            print(f"""
+  {BOLD}[9]{RESET} Connect Remote USB            {BOLD}[0]{RESET} Detach Remote USB""")
+            if IS_LINUX:
+                guard = run_cmd(["systemctl", "is-active", GUARD_UNIT], timeout=5) if shutil.which("systemctl") else ""
+                print(f"\n{GUARD_COLOR}────────────── SLEEP PROTECTION (optional) ──────────────{RESET}")
+                mode = "temporary — until this menu closes" if temporary.active() else (
+                    "background service" if guard == "active" else "disabled")
+                color = GREEN if temporary.active() or guard == "active" else GUARD_COLOR
+                print(f"  {BOLD}{GUARD_COLOR}[g] Client guard mode{RESET}: {color}{mode}{RESET}")
 
         print(f"""
-{CYAN}═══════════════════════════════ CONTROL ACTIONS ═══════════════════════════════{RESET}
-  {BOLD}[1]{RESET} Start / Restart Service       {BOLD}[5]{RESET} Run Health Doctor
-  {BOLD}[2]{RESET} Stop Service                  {BOLD}[6]{RESET} Run Protocol Self-Test
-  {BOLD}[3]{RESET} Share a USB Device            {BOLD}[7]{RESET} View Live Logs
-  {BOLD}[4]{RESET} Unshare a USB Device          {BOLD}[8]{RESET} Refresh Dashboard
-  {BOLD}[9]{RESET} Client: Connect Remote USB    {BOLD}[0]{RESET} Client: Detach Remote USB
-  {BOLD}[q]{RESET} Quit Control Suite
+{CYAN}══════════════════════════════════════════════════════════════════════════════{RESET}
+  {BOLD}{CYAN}[m] Change mode: Server / Client / Both{RESET}
+  {BOLD}[5]{RESET} Health Doctor   {BOLD}[8]{RESET} Refresh   {BOLD}[q]{RESET} Quit
 """)
 
-        choice = input(f"{BOLD}Select an action [0-9, q]: {RESET}").strip().lower()
+        valid = ["5", "8", "m"] + (["1", "2", "3", "4", "6", "7"] if is_server else []) + (["9", "0"] if is_client else [])
+        if is_client and IS_LINUX:
+            valid.append("g")
+        keys = "0-9" if (is_server and is_client) else ", ".join(sorted(k for k in valid if k.isdigit()))
+        keys += (", g" if "g" in valid else "") + ", m, q"
+        try:
+            choice = input(f"{BOLD}Select an action [{keys}]: {RESET}").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            choice = "q"
+            print()
 
-        if choice == "1":
-            start_service()
-            time.sleep(2)
-        elif choice == "2":
-            stop_service()
-            time.sleep(1.5)
-        elif choice == "3":
-            bus = input("Enter USB Bus ID to share (e.g. 1-1): ").strip()
-            if bus:
-                share_device(bus)
-                time.sleep(2)
-        elif choice == "4":
-            bus = input("Enter USB Bus ID to unshare: ").strip()
-            if bus:
-                unshare_device(bus)
-                time.sleep(2)
-        elif choice == "5":
-            run_doctor()
-            input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
-        elif choice == "6":
-            run_self_test()
-            input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
-        elif choice == "7":
-            if IS_MACOS:
-                log_file = "/var/log/usbanywhere-server.log"
-                if os.path.exists(log_file):
-                    os.system(f"tail -n 30 {log_file}")
-                else:
-                    print("Log file /var/log/usbanywhere-server.log does not exist yet.")
-            elif IS_LINUX:
-                os.system("journalctl -u usbipd -n 30 --no-pager")
-            input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
-        elif choice == "8" or choice == "":
-            continue
-        elif choice == "9":
-            scan_network_servers()
-            srv_ip = input("Enter Remote Server IP (e.g. 192.168.1.50): ").strip()
-            if srv_ip:
-                list_remote_devices(srv_ip)
-                rem_bus = input("Enter Remote Bus ID to attach (e.g. 1-1): ").strip()
-                if rem_bus:
-                    connect_remote_device(srv_ip, rem_bus)
-            input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
-        elif choice == "0":
-            list_client_ports()
-            port_or_bus = input("Enter Port number, Bus ID, or 'all' to detach: ").strip()
-            if port_or_bus:
-                disconnect_remote_device(port_or_bus)
-            input(f"\n{DIM}Press Enter to return to Dashboard...{RESET}")
-        elif choice in ["q", "quit", "exit"]:
+        if choice in CANCEL_WORDS:
             print(f"\n{GREEN}Exiting USBAnywhere Control Suite. Have a great day!{RESET}\n")
             break
+        if choice not in valid:
+            continue
+
+        local_busids = [extract_busid(d) for d in devs[:8]]
+        try:
+            if choice == "m":
+                new_role = ask_role(role)
+                if new_role != role:
+                    role = new_role
+                    save_role(role)
+            elif choice == "g":
+                print(f"  {GUARD_COLOR}[0] Disabled{RESET}")
+                print(f"  {GREEN}[1] Temporary — only while this menu is open{RESET}")
+                print(f"  {GREEN}[2] Permanent — background service, starts at boot{RESET}")
+                action = ask("Select guard mode [0-2] (Enter/q = back): ")
+                if action not in ("0", "1", "2"):
+                    continue
+                svc_present = any(os.path.exists(os.path.join(SYSTEMD_UNIT_DIR, u)) for u in (GUARD_UNIT, SLEEP_UNIT))
+                if action == "1" and temporary.active() and not svc_present:
+                    print(f"{GREEN}✓ Temporary guard is already active until this menu closes.{RESET}")
+                    pause()
+                    continue
+                was_temp = temporary.active()
+                if not temporary.stop():
+                    pause()
+                    continue
+                if action == "2":
+                    manage_client_guard("install")
+                elif action == "0":
+                    if svc_present:
+                        manage_client_guard("uninstall")
+                    elif was_temp:
+                        print(f"{GREEN}✓ Temporary client sleep guard stopped.{RESET}")
+                    else:
+                        print(f"{DIM}Client sleep guard is already disabled.{RESET}")
+                elif action == "1":
+                    if not svc_present or manage_client_guard("uninstall"):
+                        ok = temporary.start()
+                        print(f"{GREEN}✓ Temporary guard active until this menu closes.{RESET}" if ok else
+                              f"{RED}✗ Could not start temporary guard.{RESET}")
+                pause()
+            elif choice == "1":
+                start_service()
+                pause()
+            elif choice == "2":
+                stop_service()
+                pause()
+            elif choice == "3":
+                bus = choose_item("device", local_busids, is_valid_busid, "a USB Bus ID to share (e.g. 1-1)")
+                share_device(bus)
+                pause()
+            elif choice == "4":
+                bus = choose_item("device", local_busids, is_valid_busid, "a USB Bus ID to unshare (e.g. 1-1)")
+                unshare_device(bus)
+                pause()
+            elif choice == "5":
+                run_doctor()
+                pause()
+            elif choice == "6":
+                run_self_test()
+                pause()
+            elif choice == "7":
+                if IS_MACOS:
+                    log_file = "/var/log/usbanywhere-server.log"
+                    if os.path.exists(log_file):
+                        os.system(f"tail -n 30 {log_file}")
+                    else:
+                        print("Log file /var/log/usbanywhere-server.log does not exist yet.")
+                elif IS_LINUX:
+                    os.system("journalctl -u usbipd -n 30 --no-pager")
+                pause()
+            elif choice == "8":
+                continue
+            elif choice == "9":
+                servers = scan_network_servers(numbered=True)
+                srv_ip = choose_item("server", [ip for ip, _ in servers], is_valid_host,
+                                     "a Remote Server IP (e.g. 192.168.1.50)")
+                remote = list_remote_devices(srv_ip, numbered=True)
+                rem_bus = choose_item("device", [extract_busid(r) for r in remote], is_valid_busid,
+                                      "a Remote Bus ID to attach (e.g. 1-1)")
+                connect_remote_device(srv_ip, rem_bus)
+                pause()
+            elif choice == "0":
+                if list_client_ports() or load_client_state():
+                    port_or_bus = ask("Enter Port number, Bus ID, or 'all' to detach (q to cancel): ")
+                    if not port_or_bus:
+                        raise PromptCancelled()
+                    disconnect_remote_device(port_or_bus)
+                pause()
+        except PromptCancelled:
+            continue
+        except KeyboardInterrupt:
+            print(f"\n{YELLOW}Cancelled.{RESET}")
+            pause()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LINUX CLIENT MODE (vhci_hcd + On-Demand Dynamic BIND/UNBIND TCP 3241)
@@ -1038,7 +1393,12 @@ def render_dashboard():
 
 def is_valid_host(host):
     """Validate hostname or IPv4 address strictly against command injection."""
-    return bool(host and isinstance(host, str) and re.match(r"^[a-zA-Z0-9.\-_]+$", host.strip()))
+    return bool(host and isinstance(host, str) and re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9.\-_]*$", host.strip()))
+
+def extract_busid(line):
+    """Return the Bus ID at the start of a device listing line ('  1-1.2    : ...'), or None."""
+    m = re.match(r"^\s*(\d+-[\d.]+)\s*:", line or "")
+    return m.group(1) if m else None
 
 def send_control_command(server_ip, cmd_line, port=CONTROL_PORT, timeout=2.5):
     """Send a single-line control command to remote TCP 3241 daemon and parse JSON response."""
@@ -1054,7 +1414,7 @@ def send_control_command(server_ip, cmd_line, port=CONTROL_PORT, timeout=2.5):
         pass
     return None
 
-def scan_network_servers(port=CONTROL_PORT, timeout=1.2):
+def scan_network_servers(port=CONTROL_PORT, timeout=1.2, numbered=False):
     """Broadcast UDP discovery probe on port 3241 to find USB/IP servers on LAN."""
     print(f"\n{CYAN}═══ 🔍 Scanning LAN for USB/IP Servers (UDP {port}) ═══{RESET}")
     found = []
@@ -1094,13 +1454,14 @@ def scan_network_servers(port=CONTROL_PORT, timeout=1.2):
         print(f"{YELLOW}Discovery warning: {e}{RESET}")
 
     if found:
-        for ip, host in found:
-            print(f"  {GREEN}●{RESET} {BOLD}{ip}{RESET} ({host})")
+        for idx, (ip, host) in enumerate(found, start=1):
+            prefix = f"{BOLD}[{idx}]{RESET} " if numbered else ""
+            print(f"  {prefix}{GREEN}●{RESET} {BOLD}{ip}{RESET} ({host})")
     else:
         print(f"  {DIM}No broadcast responders replied within {timeout:.1f}s (you can still connect by direct IP).{RESET}")
     return found
 
-def list_remote_devices(server_ip):
+def list_remote_devices(server_ip, numbered=False):
     """List remote USB devices on server_ip using both TCP 3241 dynamic inventory and TCP 3240."""
     if not is_valid_host(server_ip):
         print(f"{RED}[Error] Invalid server IP or hostname: {server_ip}{RESET}")
@@ -1127,17 +1488,270 @@ def list_remote_devices(server_ip):
     if not results:
         bin_path = shutil.which("usbip")
         if bin_path:
-            out = run_cmd([bin_path, "list", "-r", ip])
+            out = run_cmd([bin_path, "list", "-r", ip], timeout=10)
             for line in out.splitlines():
                 if re.search(r"^\s*\d+-[\d.]+\s*:", line):
                     results.append("  " + line.strip())
 
     if results:
-        for r in results:
-            print(r)
+        for idx, r in enumerate(results, start=1):
+            print(f"  {BOLD}[{idx}]{RESET} {r.strip()}" if numbered else r)
     else:
         print(f"  {YELLOW}No remote USB devices found on {ip} (verify server IP and ports 3240/3241).{RESET}")
     return results
+
+VHCI_PLATFORM_GLOB = "/sys/devices/platform/vhci_hcd.*"
+VHCI_ST_USED = 6
+VHCI_ST_ERROR = 7
+CLIENT_RUN_DIR = "/run/usbanywhere"
+CLIENT_LOCK_FILE = os.path.join(CLIENT_RUN_DIR, "client.lock")
+CLIENT_STATE_FILE = os.path.join(CLIENT_RUN_DIR, "client-restore.json")
+GUARD_UNIT = "usbanywhere-client-guard.service"
+SLEEP_UNIT = "usbanywhere-client-sleep.service"
+SYSTEMD_UNIT_DIR = "/etc/systemd/system"
+GUARD_SLEEP_BUDGET = 4.0    # logind's default InhibitDelayMaxSec is 5s
+GUARD_RESTORE_WINDOW = 180.0
+GUARD_FORCE_REBIND_AFTER = 30.0
+
+def run_bounded(cmd, timeout):
+    """
+    Like run_cmd_result(), but never blocks past the timeout: a process stuck in
+    uninterruptible sleep (D state) cannot be reaped, so it is abandoned instead.
+    """
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    except Exception as e:
+        return None, "", str(e)
+    try:
+        out, err = proc.communicate(timeout=max(0.1, timeout))
+        return proc.returncode, (out or "").strip(), (err or "").strip()
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.communicate(timeout=0.5)
+        except Exception:
+            pass
+        return None, "", f"timed out after {timeout:.1f}s"
+
+def read_vhci_status():
+    """
+    Read vhci_hcd port states from sysfs. Returns {port: {"status": int, "local_busid": str}},
+    or None when no vhci_hcd controller exists (module not loaded).
+    """
+    import glob
+    files = sorted(glob.glob(os.path.join(VHCI_PLATFORM_GLOB, "status*")))
+    if not files:
+        return None
+    ports = {}
+    for path in files:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.read().splitlines()
+        except Exception:
+            continue
+        for line in lines:
+            parts = line.split()
+            if not parts or parts[0] in ("hub", "port", "prt"):
+                continue
+            if parts[0] in ("hs", "ss"):
+                parts = parts[1:]
+            if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+                continue
+            ports[int(parts[0])] = {
+                "status": int(parts[1]),
+                "local_busid": parts[-1] if len(parts) >= 6 and parts[-1] != "0-0" else "",
+            }
+    return ports
+
+def _occupied_ports(status):
+    return {p: s for p, s in (status or {}).items() if s["status"] in (VHCI_ST_USED, VHCI_ST_ERROR)}
+
+def read_client_ports():
+    """
+    Return (entries, error) for imported USB/IP devices. A failing 'usbip port' is reported
+    as an error and never as "no devices": occupied vhci ports found in sysfs are still
+    returned (without remote ip/busid) so they can be detached.
+    """
+    status = read_vhci_status()
+    if status is None:
+        return [], None
+    occupied = _occupied_ports(status)
+    bin_path = shutil.which("usbip")
+    error = None
+    entries = []
+    if not bin_path:
+        error = "'usbip' binary not found"
+    else:
+        rc, out, err = run_bounded([bin_path, "port"], timeout=10)
+        if rc != 0:
+            error = f"'usbip port' failed: {err or out or f'exit code {rc}'}"
+        else:
+            entries = parse_client_ports(out)
+    listed = {e["port"] for e in entries}
+    missing = [p for p in sorted(occupied) if str(p) not in listed]
+    if missing and not error:
+        error = f"'usbip port' did not list occupied vhci port(s) {', '.join(map(str, missing))}"
+    for p in missing:
+        entries.append({"port": str(p), "ip": "", "busid": "", "desc": f"vhci port {p} (remote unknown)"})
+    for e in entries:
+        st = status.get(int(e["port"])) if e["port"].isdigit() else None
+        e["state"] = st["status"] if st else None
+    return entries, error
+
+class client_lock:
+    """
+    Exclusive lock shared by manual connect/disconnect, the sleep guard and the sleep hook.
+    flock() locks belong to the open file, so threads of one process also exclude each other.
+    """
+    def __init__(self, timeout=30.0):
+        self.timeout = timeout
+        self.fd = None
+        self.acquired = False
+
+    def __enter__(self):
+        import fcntl
+        try:
+            os.makedirs(CLIENT_RUN_DIR, mode=0o755, exist_ok=True)
+            self.fd = os.open(CLIENT_LOCK_FILE, os.O_RDWR | os.O_CREAT, 0o644)
+        except OSError:
+            return False
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                self.acquired = True
+                return True
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    return False
+                time.sleep(0.05)
+
+    def __exit__(self, *exc):
+        if self.fd is not None:
+            os.close(self.fd)  # also releases the lock
+            self.fd = None
+        return False
+
+def load_client_state():
+    """Devices detached for suspend that still have to be restored: [{'ip':..., 'busid':...}]."""
+    try:
+        with open(CLIENT_STATE_FILE, "r", encoding="utf-8") as f:
+            devs = json.load(f).get("devices", [])
+        return [{"ip": d["ip"], "busid": d["busid"]} for d in devs
+                if is_valid_host(d.get("ip")) and is_valid_busid(d.get("busid"))]
+    except Exception:
+        return []
+
+def save_client_state(devices):
+    uniq = []
+    for d in devices:
+        key = {"ip": d["ip"], "busid": d["busid"]}
+        if key not in uniq:
+            uniq.append(key)
+    try:
+        if not uniq:
+            if os.path.exists(CLIENT_STATE_FILE):
+                os.remove(CLIENT_STATE_FILE)
+            return True
+        os.makedirs(CLIENT_RUN_DIR, mode=0o755, exist_ok=True)
+        tmp = CLIENT_STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"devices": uniq, "updated": time.time()}, f, indent=2)
+        os.replace(tmp, CLIENT_STATE_FILE)
+        return True
+    except Exception:
+        return False
+
+def _same_remote(entry, ip, busid):
+    return entry.get("ip", "").lower() == ip.lower() and entry.get("busid", "") == busid
+
+def detach_client_ports(entries, deadline):
+    """
+    Detach vhci ports and verify in sysfs that they were released.
+    Returns (released_entries, failed [(entry, reason)]). Never waits past `deadline`.
+    """
+    bin_path = shutil.which("usbip")
+    for e in entries:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0.2:
+            break
+        rc, out, err = (None, "", "'usbip' binary not found")
+        if bin_path:
+            rc, out, err = run_bounded([bin_path, "detach", "-p", e["port"]], timeout=min(2.0, remaining))
+        if rc != 0 and e["port"].isdigit():
+            # Fall back to the kernel interface used by 'usbip detach'
+            remaining = deadline - time.monotonic()
+            if remaining > 0.2:
+                run_bounded(["sh", "-c", f"echo {int(e['port'])} > /sys/devices/platform/vhci_hcd.0/detach"],
+                            timeout=min(1.5, remaining))
+        e["_detach_msg"] = err or out
+    released, failed = [], []
+    while True:
+        status = read_vhci_status() or {}
+        busy = _occupied_ports(status)
+        pending = [e for e in entries if e["port"].isdigit() and int(e["port"]) in busy]
+        if not pending or time.monotonic() >= deadline:
+            break
+        time.sleep(0.1)
+    for e in entries:
+        if e in pending or not e["port"].isdigit():
+            failed.append((e, e.get("_detach_msg") or "port still in use"))
+        else:
+            released.append(e)
+    return released, failed
+
+def attach_remote_device(ip, busid, attach_timeout=10.0, verify_timeout=5.0):
+    """
+    Bind (TCP 3241, if supported) and attach a remote device, then verify that a vhci port
+    shows ip/busid. Caller must hold client_lock. Returns (ok, message).
+    """
+    entries, err = read_client_ports()
+    if err:
+        return False, f"cannot check attached ports: {err}"
+    for e in entries:
+        if _same_remote(e, ip, busid):
+            if e.get("state") == VHCI_ST_ERROR:
+                detach_client_ports([e], time.monotonic() + 3)
+                break
+            return True, f"already attached on port {e['port']}"
+
+    bin_path = shutil.which("usbip")
+    if not bin_path:
+        return False, "'usbip' client binary not found. Install linux-tools-generic or usbip."
+    run_bounded(["modprobe", "usbip_core"], timeout=10)
+    rc, _, merr = run_bounded(["modprobe", "vhci_hcd"], timeout=10)
+    if rc != 0:
+        return False, f"could not load vhci_hcd kernel module: {merr or f'exit code {rc}'}"
+
+    notes = []
+    bind_resp = send_control_command(ip, f"BIND {busid}", timeout=2.0)
+    if isinstance(bind_resp, dict):
+        st = (bind_resp.get("status") or "").upper()
+        if st == "DENIED":
+            return False, f"remote server denied export of {busid}: {bind_resp.get('message')}"
+        if st == "OK":
+            notes.append(f"on-demand BIND accepted by {ip}:{CONTROL_PORT}")
+            time.sleep(0.25)
+        elif bind_resp.get("message"):
+            notes.append(f"remote BIND reported: {bind_resp.get('message')}")
+
+    # usbip reports errors on stderr, so check the exit code and both streams
+    rc, out, aerr = run_bounded([bin_path, "attach", "-r", ip, "-b", busid], timeout=attach_timeout)
+    combined = f"{out}\n{aerr}".strip()
+    if rc != 0 or "error" in combined.lower() or "failed" in combined.lower():
+        return False, f"attach failed: {combined or f'exit code {rc}'}"
+
+    deadline = time.monotonic() + verify_timeout
+    while True:
+        entries, err = read_client_ports()
+        match = [e for e in entries if _same_remote(e, ip, busid) and e.get("state") == VHCI_ST_USED]
+        if match:
+            notes.append(f"verified on vhci port {match[0]['port']}")
+            return True, "; ".join(notes)
+        if time.monotonic() >= deadline:
+            detail = f" ({err})" if err else ""
+            return False, f"'usbip attach' returned success but no vhci port shows {ip}/{busid}{detail}"
+        time.sleep(0.2)
 
 def connect_remote_device(server_ip, busid):
     """Attach a remote USB/IP device into local Linux vhci_hcd client driver (with on-demand TCP 3241 BIND)."""
@@ -1147,41 +1761,23 @@ def connect_remote_device(server_ip, busid):
     if not is_valid_host(server_ip) or not is_valid_busid(busid):
         print(f"{RED}[Error] Invalid Server IP ({server_ip}) or Bus ID ({busid}).{RESET}")
         return False
-    if not is_root():
-        print(f"{YELLOW}[!] Superuser privileges required for vhci_hcd attach. Re-running with sudo...{RESET}")
-        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
-
     ip = server_ip.strip()
     bid = busid.strip()
 
-    # 1. Load Linux USB/IP client kernel modules
-    run_cmd(["modprobe", "usbip_core"])
-    run_cmd(["modprobe", "vhci_hcd"])
+    if not is_root():
+        print(f"{YELLOW}[!] Superuser privileges required for vhci_hcd attach. Re-running with sudo...{RESET}")
+        return rerun_with_sudo("connect", ip, bid)
 
-    # 2. Request on-demand BIND via TCP 3241 if server supports Dynamic Control
-    bind_resp = send_control_command(ip, f"BIND {bid}")
-    if isinstance(bind_resp, dict):
-        st = (bind_resp.get("status") or "").upper()
-        if st == "DENIED":
-            print(f"{RED}[Policy Denied] Remote server blocked export of {bid}: {bind_resp.get('message')}{RESET}")
+    with client_lock(timeout=30) as locked:
+        if not locked:
+            print(f"{RED}✗ Another USB/IP client operation (sleep guard or attach/detach) is still running. Try again.{RESET}")
             return False
-        elif st == "OK":
-            print(f"{GREEN}✓ On-demand BIND {bid} accepted by {ip}:{CONTROL_PORT}{RESET}")
-            time.sleep(0.25)
-
-    # 3. Attach into local vhci_hcd
-    bin_path = shutil.which("usbip")
-    if not bin_path:
-        print(f"{RED}[Error] 'usbip' client binary not found. Install linux-tools-generic or usbip.{RESET}")
-        return False
-
-    out = run_cmd([bin_path, "attach", "-r", ip, "-b", bid])
-    if "error" in out.lower() or "failed" in out.lower():
-        print(f"{RED}✗ Failed to attach {bid} from {ip}: {out}{RESET}")
-        return False
-
-    print(f"{GREEN}✓ Attached {bid} from {ip} into local Linux vhci_hcd!{RESET}")
-    return True
+        ok, msg = attach_remote_device(ip, bid)
+    if ok:
+        print(f"{GREEN}✓ Attached {bid} from {ip} into local Linux vhci_hcd ({msg}).{RESET}")
+    else:
+        print(f"{RED}✗ Failed to attach {bid} from {ip}: {msg}{RESET}")
+    return ok
 
 def parse_client_ports(port_output):
     """Parse 'usbip port' output into list of dicts: [{'port': '00', 'ip': '...', 'busid': '...', 'desc': '...'}]."""
@@ -1211,19 +1807,20 @@ def parse_client_ports(port_output):
 
 def list_client_ports():
     """Display currently attached remote USB devices on this Linux client."""
-    bin_path = shutil.which("usbip")
-    if not bin_path:
-        print(f"{YELLOW}'usbip' binary not found.{RESET}")
-        return []
-    out = run_cmd([bin_path, "port"])
-    entries = parse_client_ports(out)
+    entries, err = read_client_ports()
+    if err:
+        print(f"{RED}[Error] Could not read attached ports reliably: {err}{RESET}")
     print(f"\n{CYAN}═══ 🔌 Attached Remote USB Ports ({len(entries)}) ═══{RESET}")
     if not entries:
-        print(f"  {DIM}No remote USB devices currently attached.{RESET}")
+        print(f"  {DIM}{'Unknown.' if err else 'No remote USB devices currently attached.'}{RESET}")
     else:
         for e in entries:
             remote_str = f"{e['ip']}/{e['busid']}" if e["ip"] or e["busid"] else "remote"
             print(f"  • Port {BOLD}{e['port']}{RESET}: {remote_str} — {e['desc']}")
+    pending = load_client_state()
+    if pending:
+        items = ", ".join(f"{d['ip']}/{d['busid']}" for d in pending)
+        print(f"  {YELLOW}Waiting to be restored after resume: {items}{RESET}")
     return entries
 
 def disconnect_remote_device(target="all"):
@@ -1233,34 +1830,480 @@ def disconnect_remote_device(target="all"):
         return False
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required for vhci_hcd detach. Re-running with sudo...{RESET}")
-        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        return rerun_with_sudo("disconnect", (target or "all").strip())
 
-    bin_path = shutil.which("usbip")
-    if not bin_path:
-        print(f"{RED}[Error] 'usbip' client binary not found.{RESET}")
+    with client_lock(timeout=30) as locked:
+        if not locked:
+            print(f"{RED}✗ Another USB/IP client operation (sleep guard or attach/detach) is still running. Try again.{RESET}")
+            return False
+        return _disconnect_locked(target)
+
+def _disconnect_locked(target):
+    tgt = (target or "all").strip().lower()
+    tgt_port = str(int(tgt)) if tgt.isdigit() else tgt
+
+    # A manual detach also cancels a pending restore of the same device
+    pending = load_client_state()
+    keep = [d for d in pending if not (tgt == "all" or d["busid"].lower() == tgt)]
+    dropped = [d for d in pending if d not in keep]
+
+    entries, err = read_client_ports()
+    if err:
+        print(f"{YELLOW}[!] Could not read attached ports reliably: {err}{RESET}")
+    matched = [e for e in entries if tgt == "all" or e["port"] == tgt_port or e["busid"].lower() == tgt]
+    if not matched and tgt.isdigit():
+        status = read_vhci_status() or {}
+        if int(tgt) in _occupied_ports(status):
+            matched = [{"port": tgt_port, "ip": "", "busid": "", "desc": ""}]
+    for e in matched:
+        keep = [d for d in keep if not _same_remote(e, d["ip"], d["busid"])]
+    if len(keep) != len(pending):
+        save_client_state(keep)
+        for d in pending:
+            if d not in keep:
+                print(f"{GREEN}✓ Cancelled pending restore of {d['ip']}/{d['busid']}{RESET}")
+
+    if not matched:
+        if err and not entries:
+            print(f"{RED}✗ Cannot tell which ports are attached, nothing was detached.{RESET}")
+            return False
+        if dropped:
+            return True
+        if not entries:
+            print(f"{YELLOW}No attached USB/IP client ports found.{RESET}")
+            return True
+        print(f"{YELLOW}No attached port or Bus ID matches '{target}'.{RESET}")
         return False
 
-    entries = parse_client_ports(run_cmd([bin_path, "port"]))
-    if not entries:
-        print(f"{YELLOW}No attached USB/IP client ports found.{RESET}")
-        return True
-
-    tgt = (target or "all").strip().lower()
-    matched = [
-        e for e in entries
-        if tgt == "all" or e["port"] == tgt.lstrip("0") or e["port"] == tgt or e["busid"].lower() == tgt
-    ]
-    if not matched and tgt.isdigit():
-        matched = [{"port": tgt, "ip": "", "busid": "", "desc": ""}]
-
-    for e in matched:
-        run_cmd([bin_path, "detach", "-p", e["port"]])
-        print(f"{GREEN}✓ Detached local vhci_hcd Port {e['port']}{RESET}")
+    released, failed = detach_client_ports(matched, time.monotonic() + 10)
+    for e, reason in failed:
+        print(f"{RED}✗ Failed to detach Port {e['port']}: {reason or 'port still in use'}{RESET}")
+    for e in released:
+        print(f"{GREEN}✓ Detached local vhci_hcd Port {e['port']} (verified released){RESET}")
         if e["ip"] and e["busid"]:
             unbind_resp = send_control_command(e["ip"], f"UNBIND {e['busid']}")
             if isinstance(unbind_resp, dict) and (unbind_resp.get("status") or "").upper() == "OK":
                 print(f"{GREEN}✓ Released {e['busid']} back to remote host {e['ip']}{RESET}")
-    return True
+    return not failed
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LINUX CLIENT SLEEP GUARD (logind PrepareForSleep + delay inhibitor)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def glog(level, msg):
+    """Log a line for the journal (sd-daemon priority prefix) or the terminal."""
+    prio = {"error": 3, "warning": 4, "info": 6}.get(level, 6)
+    if sys.stdout.isatty():
+        color = {"error": RED, "warning": YELLOW}.get(level, "")
+        print(f"{color}{msg}{RESET if color else ''}", flush=True)
+    else:
+        print(f"<{prio}>{msg}", flush=True)
+
+def tcp_reachable(host, port=PORT, timeout=1.5):
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+def client_suspend_detach(deadline, log=glog):
+    """
+    Detach every imported device before sleep, record it for restore and verify the release.
+    Network-independent: the remote UNBIND is only attempted with the time left.
+    Caller must hold client_lock (or have failed to get it in time). Returns True if all released.
+    """
+    entries, err = read_client_ports()
+    if err:
+        log("warning", f"Port listing incomplete: {err}")
+    if not entries:
+        if not err:
+            log("info", "No imported USB/IP devices to detach.")
+        return not err
+    restorable = [{"ip": e["ip"], "busid": e["busid"]} for e in entries if e["ip"] and e["busid"]]
+    if not save_client_state(load_client_state() + restorable):
+        log("error", f"Could not write {CLIENT_STATE_FILE}: devices will not be restored after resume.")
+    for e in entries:
+        if not (e["ip"] and e["busid"]):
+            log("warning", f"Port {e['port']}: remote ip/busid unknown, it will be detached but not restored.")
+
+    released, failed = detach_client_ports(entries, deadline)
+    for e in released:
+        log("info", f"Detached port {e['port']} ({e['ip']}/{e['busid']}), released in sysfs.")
+    for e, reason in failed:
+        log("error", f"Port {e['port']} ({e['ip']}/{e['busid']}) NOT released before sleep: {reason}")
+    remaining = deadline - time.monotonic()
+    if released and remaining > 0.3:
+        rc, _, serr = run_bounded(["udevadm", "settle", f"--timeout={max(1, int(min(remaining - 0.2, 2)))}"],
+                                  timeout=min(remaining - 0.1, 2.5))
+        if rc != 0:
+            log("warning", f"udevadm settle: {serr or f'exit code {rc}'}")
+    for e in released:
+        remaining = deadline - time.monotonic()
+        if not (e["ip"] and e["busid"]) or remaining < 0.3:
+            continue
+        resp = send_control_command(e["ip"], f"UNBIND {e['busid']}", timeout=min(1.0, remaining - 0.1))
+        if isinstance(resp, dict) and (resp.get("status") or "").upper() == "OK":
+            log("info", f"Remote {e['ip']} released {e['busid']}.")
+    return not failed
+
+class ClientSleepGuard:
+    """Detach imported USB/IP devices on PrepareForSleep(true), restore them on PrepareForSleep(false)."""
+
+    def __init__(self, log=glog):
+        self.log = log
+        self.inhibitor = None
+        self.monitor = None
+        self.restore_thread = None
+        self.restore_cancel = threading.Event()
+        self.stopping = threading.Event()
+        self.logind_owner = None
+
+    # ── logind delay inhibitor ──
+    def take_inhibitor(self):
+        if self.inhibitor and self.inhibitor.poll() is None:
+            return True
+        try:
+            self.inhibitor = subprocess.Popen(
+                ["systemd-inhibit", "--what=sleep", "--mode=delay", "--who=USBAnywhere",
+                 "--why=Detach imported USB/IP devices before sleep", "sleep", "infinity"],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                start_new_session=True)
+        except OSError as e:
+            self.log("error", f"Could not start systemd-inhibit: {e}")
+            return False
+        for _ in range(30):
+            if self.inhibitor.poll() is not None:
+                err = (self.inhibitor.stderr.read() or b"").decode(errors="ignore").strip()
+                self.log("error", f"systemd-inhibit exited: {err or self.inhibitor.returncode}")
+                return False
+            if self.inhibitor.pid in self.inhibitor_pids():
+                return True
+            time.sleep(0.1)
+        self.log("warning", "Delay inhibitor not visible in logind yet.")
+        return True
+
+    def release_inhibitor(self):
+        proc, self.inhibitor = self.inhibitor, None
+        if proc and proc.poll() is None:
+            try:
+                os.killpg(proc.pid, 15)
+            except OSError:
+                proc.terminate()
+            try:
+                proc.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+
+    @staticmethod
+    def inhibitor_pids():
+        rc, out, _ = run_bounded(["busctl", "--system", "--json=short", "call", "org.freedesktop.login1",
+                                  "/org/freedesktop/login1", "org.freedesktop.login1.Manager",
+                                  "ListInhibitors"], timeout=3)
+        try:
+            return {i[5] for i in json.loads(out)["data"][0] if i[1] == "USBAnywhere"} if rc == 0 else set()
+        except Exception:
+            return set()
+
+    def refresh_logind_owner(self):
+        rc, out, _ = run_bounded(["busctl", "--system", "call", "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                                  "org.freedesktop.DBus", "GetNameOwner", "s", "org.freedesktop.login1"], timeout=3)
+        m = re.search(r'"(:[\d.]+)"', out) if rc == 0 else None
+        self.logind_owner = m.group(1) if m else None
+        return self.logind_owner
+
+    def parse_signal(self, line):
+        """Return True/False for a genuine logind PrepareForSleep signal line, else None."""
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            return None
+        if (msg.get("type") != "signal" or msg.get("member") != "PrepareForSleep"
+                or msg.get("interface") != "org.freedesktop.login1.Manager"
+                or msg.get("path") != "/org/freedesktop/login1"):
+            return None
+        data = (msg.get("payload") or {}).get("data") or []
+        if not data or not isinstance(data[0], bool):
+            return None
+        sender = msg.get("sender")
+        if sender != self.logind_owner and sender != self.refresh_logind_owner():
+            self.log("warning", f"Ignoring PrepareForSleep from {sender} (logind is {self.logind_owner}).")
+            return None
+        return data[0]
+
+    # ── sleep / resume handlers ──
+    def on_prepare_sleep(self):
+        t0 = time.monotonic()
+        deadline = t0 + GUARD_SLEEP_BUDGET
+        self.log("info", "PrepareForSleep(true): detaching imported USB/IP devices.")
+        self.cancel_restore(wait=1.0)
+        with client_lock(timeout=max(0.2, deadline - time.monotonic() - 2.5)) as locked:
+            if not locked:
+                self.log("warning", "Client lock busy (manual attach/detach?): detaching anyway.")
+            ok = client_suspend_detach(deadline, self.log)
+        self.release_inhibitor()
+        took = time.monotonic() - t0
+        if ok:
+            self.log("info", f"Ready for sleep after {took:.2f}s, inhibitor released.")
+        else:
+            self.log("error", f"Some ports were not released ({took:.2f}s); inhibitor released anyway.")
+
+    def on_resume(self):
+        self.log("info", "PrepareForSleep(false): resumed or sleep aborted.")
+        self.take_inhibitor()
+        self.start_restore()
+
+    def cancel_restore(self, wait=0.0):
+        self.restore_cancel.set()
+        t = self.restore_thread
+        if t and t.is_alive() and wait:
+            t.join(wait)
+
+    def start_restore(self):
+        if not load_client_state():
+            return
+        self.cancel_restore(wait=2.0)
+        self.restore_cancel = threading.Event()
+        self.restore_thread = threading.Thread(target=self.restore_loop, args=(self.restore_cancel,), daemon=True)
+        self.restore_thread.start()
+
+    def force_rebind(self, ip, busid):
+        un = send_control_command(ip, f"UNBIND {busid}", timeout=2.0)
+        time.sleep(0.5)
+        bi = send_control_command(ip, f"BIND {busid}", timeout=2.0)
+        self.log("warning", f"Forced UNBIND+BIND of {busid} on {ip} to drop a stale session "
+                            f"(unbind={un and un.get('status')}, bind={bi and bi.get('status')}).")
+
+    def restore_loop(self, cancel, window=GUARD_RESTORE_WINDOW, max_delay=10.0):
+        start = time.monotonic()
+        first_fail = {}
+        forced = set()
+        delay = min(1.0, max_delay)
+        while not cancel.is_set():
+            pending = load_client_state()
+            if not pending:
+                self.log("info", "All USB/IP devices restored.")
+                return
+            for dev in pending:
+                if cancel.is_set():
+                    return
+                ip, busid = dev["ip"], dev["busid"]
+                key = (ip, busid)
+                if not tcp_reachable(ip, PORT, timeout=1.5):
+                    continue
+                with client_lock(timeout=5) as locked:
+                    if not locked or cancel.is_set():
+                        continue
+                    if dev not in load_client_state():
+                        continue  # cancelled by a manual detach
+                    ok, msg = attach_remote_device(ip, busid, attach_timeout=8.0)
+                    if ok:
+                        save_client_state([d for d in load_client_state() if d != dev])
+                if ok:
+                    self.log("info", f"Restored {ip}/{busid}: {msg}")
+                    continue
+                self.log("warning", f"Restore of {ip}/{busid} failed: {msg}")
+                first_fail.setdefault(key, time.monotonic())
+                if key not in forced and time.monotonic() - first_fail[key] >= GUARD_FORCE_REBIND_AFTER:
+                    forced.add(key)
+                    self.force_rebind(ip, busid)
+            if time.monotonic() - start >= window:
+                left = load_client_state()
+                if left:
+                    unreachable = [f"{d['ip']}/{d['busid']}" for d in left if (d["ip"], d["busid"]) not in first_fail]
+                    self.log("error", f"Gave up restoring after {window:.0f}s: "
+                                      f"{', '.join(d['ip'] + '/' + d['busid'] for d in left)}"
+                                      + (f" (server never reachable: {', '.join(unreachable)})" if unreachable else "")
+                                      + ". Reconnect manually with 'usbanywhere-ctl connect'.")
+                    save_client_state([])
+                return
+            cancel.wait(delay)
+            delay = min(delay * 1.5, max_delay)
+
+    # ── main loop ──
+    def handle_line(self, line):
+        value = self.parse_signal(line)
+        if value is True:
+            self.on_prepare_sleep()
+        elif value is False:
+            self.on_resume()
+
+    def stop(self, *_):
+        self.stopping.set()
+        self.cancel_restore()
+        mon = self.monitor
+        if mon and mon.poll() is None:
+            mon.terminate()
+
+    def run(self):
+        import fcntl
+        os.makedirs(CLIENT_RUN_DIR, mode=0o755, exist_ok=True)
+        with open(os.path.join(CLIENT_RUN_DIR, "guard.lock"), "w") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                self.log("error", "Another client guard is running; close its menu first.")
+                return False
+            return self._run()
+
+    def _run(self):
+        import signal
+        signal.signal(signal.SIGTERM, self.stop)
+        signal.signal(signal.SIGINT, self.stop)
+        if not shutil.which("busctl") or not shutil.which("systemd-inhibit"):
+            self.log("error", "busctl and systemd-inhibit (systemd) are required.")
+            return False
+        self.refresh_logind_owner()
+        self.log("info", f"USBAnywhere client sleep guard v{VERSION} started (logind {self.logind_owner}).")
+        try:
+            while not self.stopping.is_set():
+                self.monitor = subprocess.Popen(
+                    ["busctl", "--system", "--json=short", "monitor", "--match",
+                     "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'"],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+                # Subscribe first, then inhibit, so no PrepareForSleep can slip in between.
+                time.sleep(0.3)
+                if self.stopping.is_set():
+                    break
+                self.take_inhibitor()
+                if load_client_state():
+                    self.log("info", "Pending devices from a previous sleep: restoring.")
+                    self.start_restore()
+                for line in self.monitor.stdout:
+                    if self.stopping.is_set():
+                        break
+                    try:
+                        self.handle_line(line)
+                    except Exception as e:
+                        self.log("error", f"Error handling sleep signal: {e}")
+                        self.take_inhibitor()
+                if not self.stopping.is_set():
+                    self.log("warning", f"busctl monitor exited ({self.monitor.wait()}), restarting.")
+                    self.stopping.wait(2)
+        finally:
+            self.release_inhibitor()
+            if self.monitor and self.monitor.poll() is None:
+                self.monitor.terminate()
+            self.log("info", "Client sleep guard stopped.")
+        return True
+
+def run_client_sleep_hook(phase="pre"):
+    """Fallback for sleep.target: detach anything still attached (e.g. guard not running)."""
+    if phase != "pre":
+        glog("error", f"Unknown sleep hook phase '{phase}' (only 'pre' is supported).")
+        return False
+    deadline = time.monotonic() + 8.0
+    with client_lock(timeout=3) as locked:
+        if not locked:
+            glog("warning", "Client lock busy: detaching anyway.")
+        return client_suspend_detach(deadline)
+
+def _guard_units():
+    exe = f"{sys.executable} {os.path.realpath(__file__)}"
+    guard = f"""[Unit]
+Description=USBAnywhere client sleep guard (detach imported USB/IP devices before sleep, restore on resume)
+After=dbus.service systemd-logind.service
+
+[Service]
+Type=simple
+ExecStart={exe} client-guard run
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+"""
+    hook = f"""[Unit]
+Description=USBAnywhere: detach imported USB/IP devices before sleep (fallback)
+Before=sleep.target
+
+[Service]
+Type=oneshot
+ExecStart={exe} client-sleep-hook pre
+TimeoutStartSec=15
+
+[Install]
+WantedBy=sleep.target
+"""
+    return {GUARD_UNIT: guard, SLEEP_UNIT: hook}
+
+def manage_client_guard(action="status"):
+    """client-guard run|install|uninstall|status"""
+    action = (action or "status").lower()
+    if action == "status":
+        for unit in (GUARD_UNIT, SLEEP_UNIT):
+            enabled = run_cmd(["systemctl", "is-enabled", unit]) or "not installed"
+            active = run_cmd(["systemctl", "is-active", unit]) or "unknown"
+            print(f"{unit:<36} enabled: {enabled:<14} active: {active}")
+        pids = ClientSleepGuard.inhibitor_pids() if shutil.which("busctl") else set()
+        print(f"Sleep delay inhibitor:               {GREEN + 'held' + RESET if pids else YELLOW + 'not held' + RESET}")
+        pending = load_client_state()
+        print(f"Pending restore:                     {', '.join(d['ip'] + '/' + d['busid'] for d in pending) or 'none'}")
+        return True
+    if not IS_LINUX:
+        print(f"{RED}[Error] The client sleep guard is only supported on Linux with systemd.{RESET}")
+        return False
+    if not is_root():
+        print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
+        return rerun_with_sudo("client-guard", action)
+    if action == "run":
+        return ClientSleepGuard().run()
+    if action == "session":
+        guard = ClientSleepGuard()
+        def watch_dashboard():
+            try:
+                fd = sys.stdin.fileno()
+                while os.read(fd, 1):
+                    pass
+            except OSError:
+                pass
+            finally:
+                guard.stop()
+        threading.Thread(target=watch_dashboard, daemon=True).start()
+        return guard.run()
+    if action == "install":
+        try:
+            for name, text in _guard_units().items():
+                with open(os.path.join(SYSTEMD_UNIT_DIR, name), "w", encoding="utf-8") as f:
+                    f.write(text)
+        except OSError as e:
+            print(f"{RED}✗ Could not write systemd units: {e}{RESET}")
+            return False
+        before = ClientSleepGuard.inhibitor_pids()
+        steps = [["systemctl", "daemon-reload"], ["systemctl", "enable", SLEEP_UNIT],
+                 ["systemctl", "enable", GUARD_UNIT], ["systemctl", "restart", GUARD_UNIT]]
+        for cmd in steps:
+            rc, out, err = run_cmd_result(cmd)
+            if rc != 0:
+                print(f"{RED}✗ {' '.join(cmd)}: {err or out or f'exit code {rc}'}{RESET}")
+                return False
+        for _ in range(30):
+            if ClientSleepGuard.inhibitor_pids() - before:
+                print(f"{GREEN}✓ Client sleep guard installed and running (delay inhibitor held).{RESET}")
+                return True
+            time.sleep(0.2)
+        print(f"{RED}✗ Guard started but its inhibitor is not visible: check 'journalctl -u {GUARD_UNIT}'.{RESET}")
+        return False
+    if action == "uninstall":
+        for name in (GUARD_UNIT, SLEEP_UNIT):
+            if not os.path.exists(os.path.join(SYSTEMD_UNIT_DIR, name)):
+                continue
+            rc, out, err = run_cmd_result(["systemctl", "disable", "--now", name])
+            if rc != 0:
+                print(f"{RED}Could not disable {name}: {err or out}{RESET}")
+                return False
+        for name in (GUARD_UNIT, SLEEP_UNIT):
+            try:
+                os.remove(os.path.join(SYSTEMD_UNIT_DIR, name))
+            except FileNotFoundError:
+                pass
+        rc, out, err = run_cmd_result(["systemctl", "daemon-reload"])
+        if rc != 0:
+            print(f"{RED}Could not reload systemd: {err or out}{RESET}")
+            return False
+        print(f"{GREEN}✓ Client sleep guard removed.{RESET}")
+        return True
+    print("Usage: usbanywhere-ctl client-guard [status|install|uninstall|run]")
+    return False
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN DISPATCHER
@@ -1273,7 +2316,7 @@ def apply_dualsense_fix():
         return False
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return subprocess.run(["sudo", sys.executable, *sys.argv], timeout=30).returncode == 0
+        return rerun_with_sudo("fix-dualsense")
 
     rule_path = "/etc/udev/rules.d/99-usbanywhere-dualsense-fix.rules"
     rule_content = (
@@ -1320,7 +2363,8 @@ def main():
                         choices=["dashboard", "status", "start", "stop", "restart",
                                  "list", "share", "unshare", "policy", "auto-unbind",
                                  "dynamic-daemon", "fix-dualsense", "doctor", "test", "logs",
-                                 "scan", "remote", "connect", "attach", "disconnect", "detach", "ports"],
+                                 "scan", "remote", "connect", "attach", "disconnect", "detach", "ports", "mode",
+                                 "client-guard", "client-sleep-hook"],
                         help="Action to perform (default: interactive dashboard)")
     parser.add_argument("busid", nargs="?", default=None, help="Target USB bus ID or action parameter")
     parser.add_argument("extra", nargs="?", default=None, help="Additional argument for policy management")
@@ -1329,7 +2373,19 @@ def main():
     args = parser.parse_args()
 
     if args.command == "dashboard":
-        render_dashboard()
+        role = load_role()
+        if not role:
+            role = ask_role()
+            save_role(role)
+        offer_sudo_relaunch(role)
+        render_dashboard(role)
+    elif args.command == "mode":
+        if args.busid:
+            if args.busid not in ROLES:
+                print(f"{RED}Error: mode must be one of: {', '.join(ROLES)}{RESET}")
+                sys.exit(1)
+            sys.exit(0 if save_role(args.busid) else 1)
+        print(load_role() or "not set")
     elif args.command == "status":
         st = get_service_status()
         st["lan_ip"] = get_lan_ip()
@@ -1343,13 +2399,16 @@ def main():
             print(f"LAN IP:            {st['lan_ip']}")
             print(f"Devices detected:  {len(st['devices'])}")
     elif args.command == "start":
-        start_service()
+        sys.exit(0 if start_service() else 1)
     elif args.command == "stop":
-        stop_service()
+        sys.exit(0 if stop_service() else 1)
     elif args.command == "restart":
+        if not is_root():
+            print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
+            sys.exit(0 if rerun_with_sudo("restart") else 1)
         stop_service()
         time.sleep(1)
-        start_service()
+        sys.exit(0 if start_service() else 1)
     elif args.command == "list":
         devs = list_devices()
         print(f"Discovered USB Peripherals ({len(devs)}):")
@@ -1359,12 +2418,12 @@ def main():
         if not args.busid:
             print(f"{RED}Error: Missing bus ID. Usage: usbanywhere-ctl share <busid>{RESET}")
             sys.exit(1)
-        share_device(args.busid)
+        sys.exit(0 if share_device(args.busid) else 1)
     elif args.command == "unshare":
         if not args.busid:
             print(f"{RED}Error: Missing bus ID. Usage: usbanywhere-ctl unshare <busid>{RESET}")
             sys.exit(1)
-        unshare_device(args.busid)
+        sys.exit(0 if unshare_device(args.busid) else 1)
     elif args.command == "policy":
         pol = load_policy()
         action = (args.busid or "").lower()
@@ -1467,6 +2526,14 @@ def main():
         sys.exit(0 if ok else 1)
     elif args.command == "ports":
         list_client_ports()
+    elif args.command == "client-guard":
+        sys.exit(0 if manage_client_guard(args.busid or "status") else 1)
+    elif args.command == "client-sleep-hook":
+        sys.exit(0 if run_client_sleep_hook(args.busid or "pre") else 1)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n{YELLOW}Interrupted.{RESET}")
+        sys.exit(130)
