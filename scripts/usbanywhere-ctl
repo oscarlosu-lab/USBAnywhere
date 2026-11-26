@@ -26,7 +26,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-VERSION = "3.4.0"
+VERSION = "3.5.0-rc.1"
 PORT = 3240
 CONTROL_PORT = 3241
 

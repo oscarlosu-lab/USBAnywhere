@@ -203,6 +203,20 @@ EOF'
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
+## 🔒 Seguridad de la API de Control (`allowed_ips` y `control_token`) y Aviso UAS
+
+Restringe el acceso al puerto de control TCP `3241` en hosts Linux mediante `usbanywhere-ctl`:
+
+```bash
+sudo usbanywhere-ctl policy allow-ip 192.168.1.50
+sudo usbanywhere-ctl policy deny-ip 192.168.1.50
+sudo usbanywhere-ctl policy set-token <token-secreto>
+sudo usbanywhere-ctl policy clear-token
+sudo usbanywhere-ctl policy show
+```
+
+- **Discos SSD Externos UAS**: Las unidades que usan el driver `uas` (USB Attached SCSI) muestran un aviso de compatibilidad antes de vincularse; si un disco falla al enumerarse en remoto, se recomienda modo `usb-storage`.
+
 ## 📝 Notas
 
 - El `bus-id` (ej: `1-1.4`) puede cambiar si reconectas el dispositivo

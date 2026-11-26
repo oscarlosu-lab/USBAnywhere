@@ -190,6 +190,13 @@ When closing the application, shutting down Windows (`AutoDetachOnExit: true`), 
 - **Install**: Cleans up any stale virtual nodes and installs the Microsoft WHQL-certified drivers (`usbip2_filter.inf` and `usbip2_ude.inf`), instantiating the `ROOT\USBIP_WIN2\UDE` virtual host controller.
 - **Uninstall**: Detaches active USB/IP devices first, removes the virtual UDE node, and safely removes DriverStore packages in two stages without disrupting physical USB 3.0 Root Hubs or third-party virtual adapters (such as Parsec).
 
+## 🛡️ Kernel Boot Persistence, Custom Serials, Hub Ports & Diagnostics (`v3.5.0-rc.1`)
+
+- **Kernel Boot Persistence**: Save attached USB devices directly in the `usbip2_ude` kernel driver configuration so they automatically re-attach at Windows boot before user login.
+- **Custom USB Serial Numbers**: Assign a custom `Serial` string per remote device (via Properties / Persistent config) to keep COM ports, game controllers, or licenses consistent across reconnections.
+- **Virtual Hub Port Count**: Adjust the virtual USB 2.0 and USB 3.0 port capacity (`30` / `30` by default) from the status bar / kernel configuration dialog.
+- **One-Click Diagnostics Bundle**: Export a `.zip` bundle containing driver status, imported VHCI ports, Virtual Hub configuration, and recent logs for troubleshooting.
+
 ---
 
 ## 📚 More Information

@@ -190,6 +190,13 @@ Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar 
 - **Instalar**: Limpia cualquier nodo virtual residual e instala los drivers certificados WHQL (`usbip2_filter.inf` y `usbip2_ude.inf`) creando el controlador emulado `ROOT\USBIP_WIN2\UDE`.
 - **Desinstalar**: Desconecta primero los dispositivos USB/IP activos, elimina el nodo virtual UDE y limpia los paquetes del `DriverStore` de forma segura en dos fases sin afectar a tus concentradores USB 3.0 físicos ni a otros adaptadores virtuales (como Parsec).
 
+## 🛡️ Persistencia en Arranque, Seriales USB, Puertos del Hub y Diagnóstico (`v3.5.0-rc.1`)
+
+- **Persistencia en Kernel al Arrancar**: Guarda dispositivos USB en la configuración del driver `usbip2_ude` para reconectarlos automáticamente al iniciar Windows.
+- **Números de Serie USB Personalizados**: Asigna un `Serial` personalizado por dispositivo para mantener estables puertos COM, mandos o dongles de licencia.
+- **Capacidad de Puertos del Hub Virtual**: Configura el número de puertos USB 2.0 y USB 3.0 del hub virtual (`30` / `30` por defecto).
+- **Paquete de Diagnóstico en 1 Clic**: Exporta un archivo `.zip` con el estado del driver, puertos VHCI importados, configuración del hub y logs recientes.
+
 ---
 
 ## 📚 Más Información

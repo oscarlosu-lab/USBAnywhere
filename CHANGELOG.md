@@ -1,5 +1,15 @@
 # CHANGELOG - USBAnywhere
 
+## [3.5.0-rc.1] - 2026-11-26 (Release Candidate)
+
+### Added
+- **Windows Kernel Boot Persistence & Custom USB Serials (`VhciNativeClient.cs`, `KernelConfigService.cs`)**:
+  - Added native VHCI IOCTL support for kernel-level persistent device attachments across reboots (`SetKernelPersistentDevicesAsync`, `GetKernelPersistentDevicesAsync`), custom per-device USB serial strings, and configurable Virtual Hub USB 2.0 / USB 3.0 port counts.
+- **One-Click Diagnostics Bundle Export (`KernelDiagnosticsService.cs`)**:
+  - Exports a ZIP diagnostics archive containing driver state, imported VHCI ports, Virtual Hub configuration, and recent logs directly from the UI.
+- **Linux `usbanywhere-ctl` Control API Hardening & UAS Detection**:
+  - Added optional IP allowlist (`allowed_ips`) and constant-time HMAC `control_token` authentication (`policy allow-ip|deny-ip|set-token|clear-token`) for TCP `3241`, plus UAS (`usb-storage` / `uas`) storage device detection warnings.
+
 ## [3.4.0] - 2026-11-15
 
 ### Added
