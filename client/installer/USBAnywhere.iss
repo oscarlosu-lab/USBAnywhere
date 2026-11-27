@@ -3,7 +3,7 @@
 
 #define MyAppName "USBAnywhere"
 #ifndef MyAppVersion
-#define MyAppVersion "3.5.0"
+#define MyAppVersion "3.6.0"
 #endif
 #define MyAppPublisher "SnakeFoxu (OscarLosu)"
 #define MyAppURL "https://github.com/oscarlosu-lab/USBAnywhere"
@@ -69,7 +69,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 ; Install USB/IP drivers if selected (remove any previous UDE node first to prevent duplicates)
-Filename: "pnputil.exe"; Parameters: "/add-driver ""{app}\drivers\usbip2_filter.inf"" /install"; StatusMsg: "Instalando filtro USB/IP..."; Tasks: installdrivers; Flags: runhidden waituntilterminated
+; Skip usbip2_filter on Windows To Go / USB-booted Windows (PortableOperatingSystem != 0) to prevent boot-hub veto BSOD
+Filename: "pnputil.exe"; Parameters: "/add-driver ""{app}\drivers\usbip2_filter.inf"" /install"; StatusMsg: "Instalando filtro USB/IP..."; Tasks: installdrivers; Check: IsNotPortableOS; Flags: runhidden waituntilterminated
 Filename: "{app}\devnode.exe"; Parameters: "remove ROOT\USBIP_WIN2\UDE root"; StatusMsg: "Limpiando nodos virtuales previos..."; Tasks: installdrivers; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{app}\devnode.exe"; Parameters: "install ""{app}\drivers\usbip2_ude.inf"" ROOT\USBIP_WIN2\UDE"; StatusMsg: "Instalando controlador emulado USB/IP (UDE)..."; Tasks: installdrivers; Flags: runhidden waituntilterminated skipifdoesntexist
 ; Launch application
@@ -84,3 +85,16 @@ Filename: "{app}\devnode.exe"; Parameters: "remove ROOT\USBIP_WIN2\UDE root"; Fl
 Type: filesandordirs; Name: "{app}\logs"
 Type: filesandordirs; Name: "{app}\temp"
 Type: filesandordirs; Name: "{app}\data"
+
+[Code]
+function IsNotPortableOS: Boolean;
+var
+  PortableVal: Cardinal;
+begin
+  Result := True;
+  if RegQueryDWordValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control', 'PortableOperatingSystem', PortableVal) then
+  begin
+    if PortableVal <> 0 then
+      Result := False;
+  end;
+end;

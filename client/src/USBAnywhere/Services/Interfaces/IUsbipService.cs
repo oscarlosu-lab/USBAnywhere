@@ -20,6 +20,8 @@ public interface IUsbipService
     Task<List<VhciPersistentDevice>> GetKernelPersistentDevicesAsync();
     Task<OperationResult> SetKernelPersistentDevicesAsync(IReadOnlyList<VhciPersistentDevice> devices);
     Task<int> StopKernelAttachAttemptsAsync(string? host = null, string? busId = null);
+    List<ConnectedDevice> DetachAllConnectedDevicesFastForSuspend();
+    Task NotifyRemoteUnbindBestEffortAsync(IEnumerable<(string ServerIP, string BusId)> bindings, int timeoutMs = 800);
 }
 
 

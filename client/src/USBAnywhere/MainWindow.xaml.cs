@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _trayScanItem;
     private Forms.ToolStripMenuItem? _trayDisconnectAllItem;
     private Forms.ToolStripMenuItem? _trayStartMinimizedItem;
+    private Forms.ToolStripMenuItem? _trayAutoDetachOnSleepItem;
     private Forms.ToolStripMenuItem? _trayShowItem;
     private Forms.ToolStripMenuItem? _trayExitItem;
     private bool _autoScanStarted;
@@ -66,6 +67,11 @@ public partial class MainWindow : Window
     private long _vhciRefreshVersion;
     private readonly List<string> _availableSubnets = new();
     private readonly SemaphoreSlim _disconnectAllLock = new(1, 1);
+    private readonly StreamingSessionMonitor _streamMonitor = new();
+    private readonly SessionIsolationService _sessionIsolation = new();
+    private readonly HashSet<int> _streamAttachedPorts = new();
+    private System.Windows.Threading.DispatcherTimer? _streamPollTimer;
+    private LocalControlApiService? _localApi;
 
     // IPC Events & Global Win32 Hotkey (Ctrl+Alt+D / CLI --disconnect-all)
     private EventWaitHandle? _disconnectAllEvent;
@@ -139,6 +145,9 @@ public partial class MainWindow : Window
 
         // Load favorites on startup
         LoadFavorites();
+
+        // Start local HTTP control API if enabled
+        InitializeLocalControlApi();
 
         // Initialize IPC events and global Win32 hotkey (works even when started minimized)
         InitializeIpcAndHotkey();
@@ -240,6 +249,20 @@ public partial class MainWindow : Window
                 Dispatcher.Invoke(() => chkStartMinimized.IsChecked = cfg.StartMinimized);
             };
             trayMenu.Items.Add(_trayStartMinimizedItem);
+
+            _trayAutoDetachOnSleepItem = new Forms.ToolStripMenuItem(_localization.GetText("tray_auto_detach_sleep", _currentLanguage))
+            {
+                CheckOnClick = true,
+                Checked = _config.Load().AutoDetachOnSleep
+            };
+            _trayAutoDetachOnSleepItem.Click += (s, e) =>
+            {
+                var cfg = _config.Load();
+                cfg.AutoDetachOnSleep = _trayAutoDetachOnSleepItem.Checked;
+                _config.Save(cfg);
+                Dispatcher.Invoke(() => chkAutoDetachOnSleep.IsChecked = cfg.AutoDetachOnSleep);
+            };
+            trayMenu.Items.Add(_trayAutoDetachOnSleepItem);
 
             trayMenu.Items.Add(new Forms.ToolStripSeparator());
 
@@ -703,30 +726,45 @@ public partial class MainWindow : Window
             {
                 string? favSerial = !string.IsNullOrWhiteSpace(fav.CustomSerial) ? fav.CustomSerial : GetCustomSerialForDevice(null, fav.ServerIP, fav.BusId);
                 var result = await _usbip.ConnectAsync(fav.ServerIP, fav.BusId, effectiveMode, serial: favSerial);
+                string activeIp = fav.ServerIP;
+                string activeBusId = fav.BusId;
+
+                if (!result.Success)
+                {
+                    var (resolvedIp, resolvedBusId, resolvedChanged) = await _favorites.ResolveFavoriteTargetAsync(fav);
+                    if (resolvedChanged)
+                    {
+                        activeIp = resolvedIp;
+                        activeBusId = resolvedBusId;
+                        favSerial = !string.IsNullOrWhiteSpace(fav.CustomSerial) ? fav.CustomSerial : GetCustomSerialForDevice(null, activeIp, activeBusId);
+                        result = await _usbip.ConnectAsync(activeIp, activeBusId, effectiveMode, serial: favSerial);
+                    }
+                }
+
                 if (result.Success)
                 {
-                    AddLocalizedLog("Success", "log_connected_favorite", fav.Description, fav.BusId);
+                    AddLocalizedLog("Success", "log_connected_favorite", fav.Description, activeBusId);
                     AddDeviceToConnectedTree(new ConnectedDevice
                     {
-                        ServerIP = fav.ServerIP,
-                        BusId = fav.BusId,
+                        ServerIP = activeIp,
+                        BusId = activeBusId,
                         Description = fav.Description
                     });
 
-                    if (!HasServerNode(fav.ServerIP))
+                    if (!HasServerNode(activeIp))
                     {
                         if (string.IsNullOrWhiteSpace(txtServerIP.Text))
-                            txtServerIP.Text = fav.ServerIP;
-                        await ListDevicesOnServer(fav.ServerIP);
+                            txtServerIP.Text = activeIp;
+                        await ListDevicesOnServer(activeIp);
                     }
 
-                    _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: true);
+                    _connectionMonitor.AddDevice(activeIp, activeBusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: true);
                     _connectionMonitor.Start();
                 }
                 else
                 {
-                    AddLocalizedLog("Warning", "log_connection_failed", fav.BusId, result.Error ?? "");
-                    _connectionMonitor.AddDevice(fav.ServerIP, fav.BusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: false);
+                    AddLocalizedLog("Warning", "log_connection_failed", activeBusId, result.Error ?? "");
+                    _connectionMonitor.AddDevice(activeIp, activeBusId, autoReconnect: true, receiveMode: effectiveMode, initiallyConnected: false);
                     _connectionMonitor.Start();
                 }
             }
@@ -952,6 +990,103 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ChkAutoDetachOnSleep_Click(object sender, RoutedEventArgs e)
+    {
+        bool isChecked = chkAutoDetachOnSleep.IsChecked == true;
+        var cfg = _config.Load();
+        cfg.AutoDetachOnSleep = isChecked;
+        _config.Save(cfg);
+        if (_trayAutoDetachOnSleepItem != null)
+        {
+            _trayAutoDetachOnSleepItem.Checked = isChecked;
+        }
+    }
+
+    private void BtnPair_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Views.PairServerDialog(_config, txtServerIP.Text) { Owner = this };
+        if (dlg.ShowDialog() == true && !string.IsNullOrWhiteSpace(dlg.PairedHost))
+        {
+            txtServerIP.Text = dlg.PairedHost;
+            AddLog("Success", $"Emparejado con {dlg.PairedHost}");
+        }
+    }
+
+    private void ChkLocalApi_Click(object sender, RoutedEventArgs e)
+    {
+        bool enabled = chkLocalApi.IsChecked == true;
+        var cfg = _config.Load();
+        cfg.LocalApiEnabled = enabled;
+        if (enabled && string.IsNullOrWhiteSpace(cfg.LocalApiToken))
+        {
+            cfg.LocalApiToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        }
+        _config.Save(cfg);
+
+        if (enabled && _localApi == null)
+        {
+            try
+            {
+                _localApi = new LocalControlApiService(_config, _usbip, _drivers, _favorites, _streamMonitor, cfg.LocalApiPort);
+                _localApi.Start();
+            }
+            catch (Exception ex) { AddLog("Warning", $"Local API error: {ex.Message}"); }
+        }
+        else if (!enabled && _localApi != null)
+        {
+            try { _localApi.Dispose(); } catch { }
+            _localApi = null;
+        }
+    }
+
+    private void BtnCopyApiToken_Click(object sender, RoutedEventArgs e)
+    {
+        var cfg = _config.Load();
+        if (string.IsNullOrWhiteSpace(cfg.LocalApiToken))
+        {
+            cfg.LocalApiToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+            _config.Save(cfg);
+        }
+        System.Windows.Clipboard.SetText(cfg.LocalApiToken);
+        AddLog("Success", "Token Bearer de API Local copiado al portapapeles");
+    }
+
+    private void ChkSessionIsolation_Click(object sender, RoutedEventArgs e)
+    {
+        var cfg = _config.Load();
+        cfg.EnforceSessionIsolation = chkSessionIsolation.IsChecked == true;
+        _config.Save(cfg);
+    }
+
+    private void MenuSetAttachMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem mi || mi.Tag is not string mode) return;
+        if (treeDevices.SelectedItem is TreeViewItem node)
+        {
+            FavoriteDevice? fav = node.Tag as FavoriteDevice;
+            if (fav == null && node.Tag is UsbDevice dev)
+            {
+                fav = _favorites.GetFavorites().FirstOrDefault(f =>
+                    string.Equals(f.ServerIP, dev.ServerIP, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(f.BusId, dev.BusId, StringComparison.OrdinalIgnoreCase));
+            }
+            if (fav != null)
+            {
+                fav.AttachMode = mode;
+                var cfg = _config.Load();
+                var target = cfg.Favorites.FirstOrDefault(f =>
+                    string.Equals(f.ServerIP, fav.ServerIP, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(f.BusId, fav.BusId, StringComparison.OrdinalIgnoreCase));
+                if (target != null)
+                {
+                    target.AttachMode = mode;
+                    _config.Save(cfg);
+                }
+                AddLog("Info", $"Modo de conexión para {fav.Description} -> {mode}");
+            }
+        }
+    }
+
     private async Task GracefulShutdownAsync()
     {
         _isShuttingDown = true;
@@ -1133,11 +1268,13 @@ public partial class MainWindow : Window
         menuExportDiagnostics.Header = _localization.GetText("menu_export_diagnostics", _currentLanguage);
 
         chkStartMinimized.Content = _localization.GetText("chk_start_minimized", _currentLanguage);
+        chkAutoDetachOnSleep.Content = _localization.GetText("chk_auto_detach_sleep", _currentLanguage);
 
         // Localize Tray Menu
         if (_trayScanItem != null) _trayScanItem.Text = _localization.GetText("tray_scan", _currentLanguage);
         if (_trayDisconnectAllItem != null) _trayDisconnectAllItem.Text = _localization.GetText("tray_disconnect_all", _currentLanguage);
         if (_trayStartMinimizedItem != null) _trayStartMinimizedItem.Text = _localization.GetText("tray_start_minimized", _currentLanguage);
+        if (_trayAutoDetachOnSleepItem != null) _trayAutoDetachOnSleepItem.Text = _localization.GetText("tray_auto_detach_sleep", _currentLanguage);
         if (_trayShowItem != null) _trayShowItem.Text = _localization.GetText("tray_show", _currentLanguage);
         if (_trayExitItem != null) _trayExitItem.Text = _localization.GetText("tray_exit", _currentLanguage);
 
@@ -1598,6 +1735,11 @@ public partial class MainWindow : Window
         chkStartMinimized.IsChecked = config.StartMinimized;
         if (_trayStartMinimizedItem != null)
             _trayStartMinimizedItem.Checked = config.StartMinimized;
+        chkAutoDetachOnSleep.IsChecked = config.AutoDetachOnSleep;
+        if (_trayAutoDetachOnSleepItem != null)
+            _trayAutoDetachOnSleepItem.Checked = config.AutoDetachOnSleep;
+        chkLocalApi.IsChecked = config.LocalApiEnabled;
+        chkSessionIsolation.IsChecked = config.EnforceSessionIsolation;
 
         _usbIds.LoadCustomNames(config.CustomDeviceNames);
     }
@@ -1612,8 +1754,36 @@ public partial class MainWindow : Window
             if (e.Mode == Microsoft.Win32.PowerModes.Suspend)
             {
                 _connectionMonitor.Stop();
-                var connected = await _usbip.GetConnectedDevicesAsync();
                 _suspendedDevices.Clear();
+
+                // Release local VHCI ports synchronously (< 5ms) before Windows suspends the process
+                var fastDetached = _usbip.DetachAllConnectedDevicesFastForSuspend();
+                if (fastDetached.Count > 0)
+                {
+                    foreach (var dev in fastDetached)
+                    {
+                        _suspendedDevices.Add(new SuspendedDeviceState(
+                            dev.ServerIP,
+                            dev.BusId,
+                            dev.Description,
+                            dev.VendorId,
+                            dev.ProductId,
+                            _currentReceiveMode));
+                    }
+
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        nodeConnected.Items.Clear();
+                        UpdateConnectedCount();
+                    });
+
+                    await _usbip.NotifyRemoteUnbindBestEffortAsync(
+                        fastDetached.Select(d => (d.ServerIP, d.BusId)),
+                        timeoutMs: 800);
+                    return;
+                }
+
+                var connected = await _usbip.GetConnectedDevicesAsync();
                 foreach (var dev in connected)
                 {
                     _suspendedDevices.Add(new SuspendedDeviceState(
@@ -1655,8 +1825,103 @@ public partial class MainWindow : Window
         }
     }
 
+    private void InitializeLocalControlApi()
+    {
+        try
+        {
+            var cfg = _config.Load();
+            if (cfg.LocalApiEnabled)
+            {
+                _localApi = new LocalControlApiService(_config, _usbip, _drivers, _favorites, _streamMonitor, cfg.LocalApiPort);
+                _localApi.Start();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LocalControlApi] {ex.Message}");
+        }
+
+        _streamMonitor.StreamStarted += OnStreamStartedAsync;
+        _streamMonitor.StreamStopped += OnStreamStoppedAsync;
+        _streamPollTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        _streamPollTimer.Tick += (_, _) =>
+        {
+            try
+            {
+                var procs = Process.GetProcesses().Select(p => p.ProcessName);
+                var detected = StreamingSessionMonitor.DetectStreamingProvider(procs);
+                _streamMonitor.SetStreamState(detected != null, detected);
+            }
+            catch { }
+        };
+        _streamPollTimer.Start();
+    }
+
+    private async void OnStreamStartedAsync(object? sender, string provider)
+    {
+        try
+        {
+            var cfg = _config.Load();
+            if (!SessionIsolationService.ShouldAllowAutoConnect(SessionIsolationService.GetCurrentSessionInfo(), cfg.EnforceSessionIsolation))
+                return;
+
+            var targets = StreamingSessionMonitor.FilterFavoritesForStreamTransition(_favorites.GetFavorites(), true);
+            foreach (var fav in targets)
+            {
+                var (resolvedIp, resolvedBusId, _) = await _favorites.ResolveFavoriteTargetAsync(fav);
+                var op = await _usbip.ConnectAsync(resolvedIp, resolvedBusId, fav.ReceiveMode, fav.CustomSerial);
+                if (op.Success)
+                {
+                    var connected = await _usbip.GetConnectedDevicesAsync();
+                    var match = connected.FirstOrDefault(d =>
+                        string.Equals(d.BusId, resolvedBusId, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(d.ServerIP, resolvedIp, StringComparison.OrdinalIgnoreCase));
+                    if (match != null)
+                    {
+                        lock (_streamAttachedPorts) { _streamAttachedPorts.Add(match.Port); }
+                        _sessionIsolation.RegisterPortOwner(match.Port);
+                    }
+                }
+            }
+            await Dispatcher.InvokeAsync(async () => await RefreshConnectedDevicesAsync());
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[StreamStarted] {ex.Message}");
+        }
+    }
+
+    private async void OnStreamStoppedAsync(object? sender, string provider)
+    {
+        try
+        {
+            List<int> ports;
+            lock (_streamAttachedPorts)
+            {
+                ports = _streamAttachedPorts.ToList();
+                _streamAttachedPorts.Clear();
+            }
+            foreach (var port in ports)
+            {
+                await _usbip.DisconnectAsync(port);
+                _sessionIsolation.ReleasePortOwner(port);
+            }
+            if (ports.Count > 0)
+                await Dispatcher.InvokeAsync(async () => await RefreshConnectedDevicesAsync());
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[StreamStopped] {ex.Message}");
+        }
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        try { _streamPollTimer?.Stop(); _streamPollTimer = null; } catch { }
+        try { _localApi?.Dispose(); _localApi = null; } catch { }
         try
         {
             _vhciListenerCts?.Cancel();
@@ -1723,7 +1988,20 @@ public partial class MainWindow : Window
     {
         if (treeDevices.SelectedItem is TreeViewItem node && node.Tag is UsbDevice device)
         {
-            var result = _favorites.AddFavorite(device.ServerIP, device.BusId, device.Description, true, _currentReceiveMode);
+            string? serverHost = null;
+            if (node.Parent is TreeViewItem parentNode && parentNode.Tag is string parentHost && !string.IsNullOrWhiteSpace(parentHost))
+            {
+                serverHost = parentHost;
+            }
+            var result = _favorites.AddFavorite(
+                device.ServerIP,
+                device.BusId,
+                device.Description,
+                true,
+                _currentReceiveMode,
+                device.HardwareId,
+                serverHostname: serverHost,
+                revision: device.Revision);
             if (result.Success)
             {
                 AddLocalizedLog("Success", "log_favorite_added");

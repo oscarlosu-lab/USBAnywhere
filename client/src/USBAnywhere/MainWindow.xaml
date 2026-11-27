@@ -95,7 +95,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="125"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 
@@ -109,16 +109,19 @@
                 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
                     <Button x:Name="btnScan" Content="🔍 Escanear" Style="{StaticResource AccentButton}"
-                            Height="34" Margin="0,0,10,0" Width="110"
+                            Height="34" Margin="0,0,6,0" Width="95"
                             Click="BtnScan_Click"/>
                     <Button x:Name="btnList" Content="📋 Listar" Style="{StaticResource FlatButton}"
-                            Height="34" Margin="0,0,10,0" Width="90"
+                            Height="34" Margin="0,0,6,0" Width="78"
                             Click="BtnList_Click"/>
+                    <Button x:Name="btnPair" Content="🔐 Emparejar" Style="{StaticResource FlatButton}"
+                            Height="34" Margin="0,0,6,0" Width="92"
+                            Click="BtnPair_Click"/>
                     <Button x:Name="btnSSH" Content="🔗 SSH" Style="{StaticResource FlatButton}"
-                            Height="34" Margin="0,0,10,0" Width="90"
+                            Height="34" Margin="0,0,6,0" Width="74"
                             Click="BtnSSH_Click"/>
                     <Button x:Name="btnVPN" Content="📡 VPN" Style="{StaticResource FlatButton}"
-                            Background="#0D7377" Foreground="White" Height="34" Width="90"
+                            Background="#0D7377" Foreground="White" Height="34" Width="74"
                             Click="BtnVPN_Click"/>
                 </StackPanel>
             </Grid>
@@ -136,6 +139,11 @@
                         <Separator/>
                         <MenuItem x:Name="menuAddFavorite" Header="⭐ Añadir a Favoritos" Click="MenuAddFavorite_Click"/>
                         <MenuItem x:Name="menuRemoveFavorite" Header="❌ Quitar de Favoritos" Click="MenuRemoveFavorite_Click"/>
+                        <MenuItem x:Name="menuAttachMode" Header="🎬 Modo de conexión">
+                            <MenuItem Header="Siempre (always)" Tag="always" Click="MenuSetAttachMode_Click"/>
+                            <MenuItem Header="Solo durante stream (only-during-stream)" Tag="only-during-stream" Click="MenuSetAttachMode_Click"/>
+                            <MenuItem Header="Manual (manual)" Tag="manual" Click="MenuSetAttachMode_Click"/>
+                        </MenuItem>
                         <Separator/>
                         <MenuItem x:Name="menuRemoveServer" Header="🗑️ Quitar servidor" Click="MenuRemoveServer_Click"/>
                         <MenuItem x:Name="menuProperties" Header="📋 Propiedades" Click="MenuProperties_Click"/>
@@ -216,10 +224,25 @@
                 
                 <!-- Options & Driver Buttons -->
                 <Grid Grid.Row="2" Margin="10,6,12,12" VerticalAlignment="Bottom">
-                    <CheckBox x:Name="chkStartMinimized" Content="Iniciar minimizado en bandeja"
-                              FontSize="12" Foreground="{DynamicResource ForegroundSecondary}"
-                              VerticalAlignment="Center" HorizontalAlignment="Left" Cursor="Hand"
-                              Click="ChkStartMinimized_Click"/>
+                    <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <CheckBox x:Name="chkStartMinimized" Content="Iniciar minimizado en bandeja"
+                                  FontSize="12" Foreground="{DynamicResource ForegroundSecondary}"
+                                  Cursor="Hand" Click="ChkStartMinimized_Click"/>
+                        <CheckBox x:Name="chkAutoDetachOnSleep" Content="Desconectar al suspender"
+                                  FontSize="12" Foreground="{DynamicResource ForegroundSecondary}"
+                                  Margin="0,2,0,0" Cursor="Hand" Click="ChkAutoDetachOnSleep_Click"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <CheckBox x:Name="chkLocalApi" Content="API Local :13241"
+                                      FontSize="11.5" Foreground="{DynamicResource ForegroundSecondary}"
+                                      Cursor="Hand" VerticalAlignment="Center" Click="ChkLocalApi_Click"/>
+                            <Button x:Name="btnCopyApiToken" Content="📋 Token" Style="{StaticResource FlatButton}"
+                                    Width="66" Height="20" FontSize="10" Margin="6,0,8,0"
+                                    Click="BtnCopyApiToken_Click"/>
+                            <CheckBox x:Name="chkSessionIsolation" Content="Aislamiento sesión"
+                                      FontSize="11.5" Foreground="{DynamicResource ForegroundSecondary}"
+                                      Cursor="Hand" VerticalAlignment="Center" Click="ChkSessionIsolation_Click"/>
+                        </StackPanel>
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="btnReceiveMode" Content="⚡ Modo: Zero-Copy" Style="{StaticResource FlatButton}" Background="#107C41" Foreground="White" Width="165" Height="30" FontSize="12" Margin="0,0,10,0" Click="BtnReceiveMode_Click"/>
                         <Button x:Name="btnInstallDrivers" Content="Instalar" Style="{StaticResource FlatButton}"

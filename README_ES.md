@@ -2,7 +2,7 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.5.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.6.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
@@ -43,7 +43,7 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
 
 ## ⚔️ ¿Por qué cambiar de VirtualHere a USBAnywhere?
 
-| Característica | **USBAnywhere v3.4.1** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
+| Característica | **USBAnywhere v3.6.0** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: | :---: |
 | **Precio y Licencia** | **100% Gratis y Código Abierto (GPLv3)** | 49,00 USD / Servidor | ~15–30+ USD / mes SaaS | +159,00 USD |
 | **Dispositivos Simultáneos (Free)** | **♾️ Ilimitados** | ⚠️ Solo 1 dispositivo | ❌ Trial 20 min / 1 Conex. | ❌ Trial limitado |
@@ -93,6 +93,12 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 
 ---
 
+## 🆕 Novedades en v3.6.0
+- 🔐 **Emparejamiento 6 dígitos / `UA2:` y Túnel TLS 1.3 con Certificate Pinning** - Emparejamiento en 1 clic (`PairServerDialog` + `--pair` CLI) y puente TLS automático por `SHA-256` en `UsbipService`.
+- 🎬 **Streaming Handoff Multi-Proveedor y Modos por Dispositivo** - Detección automática y adjunto `only-during-stream` para **Sunshine, Apollo, Vibeshine, Vibepollo, Parsec y Steam Remote Play**.
+- 🧩 **Aislamiento Multi-Sesión, API REST Local y Servidor MCP** - Aislamiento WTS (`SessionIsolationService`), API HTTP loopback (`127.0.0.1:13241`), servidor MCP stdio de 6 herramientas (`usbanywhere-mcp.py`) y guía de [Home Assistant](docs/HOME_ASSISTANT.md).
+- 🔍 **Smart Favorites `[Rev:XXXX]` y Dual-ABI Driver `0.9.8.2`** - Desambiguación de dongles idénticos por revisión, desactivación automática de USB autosuspend en Linux, `--reset` pre-bind, drop-in systemd y nuevos iconos multi-resolución.
+
 ## 🆕 Novedades en v3.5.0
 
 - 📌 **Persistencia en Kernel al Arrancar y Control de Reintentos (`VhciNativeClient.cs`)** - Guarda dispositivos en el driver `usbip2_ude` para reconectarlos automáticamente al iniciar Windows o detén reintentos activos desde el menú contextual.
@@ -135,16 +141,16 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Releases (v3.5.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0):
-   - **Windows x64**: `USBAnywhere-v3.4.1-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.4.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Descarga desde [USBAnywhere Releases (v3.6.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0):
+   - **Windows x64**: `USBAnywhere-v3.6.0-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.6.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
    - **Cliente y Servidor Linux**: Ejecuta [`scripts/install-server.sh`](scripts/install-server.sh) (ver instalador de 1 línea abajo)
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.5.0.exe` desde [USBAnywhere Releases (v3.5.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.5.0)
+1. Descarga `USBAnywhere_Setup_v3.6.0.exe` desde [USBAnywhere Releases (v3.5.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 

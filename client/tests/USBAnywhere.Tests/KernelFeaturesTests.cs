@@ -53,6 +53,12 @@ public class KernelFeaturesTests
             new VhciPersistentDevice("10.0.0.5", "3240", "1-3", "", "zero-copy", AttachOnce: false)
         };
         byte[] raw = VhciNativeClient.BuildPersistentMultiSz(input, abi);
+        if (abi == VhciAbiVersion.V0982)
+        {
+            string text = Encoding.Unicode.GetString(raw);
+            Assert.Contains("recv_mode=low-latency", text);
+            Assert.Contains("recv_mode=zero-copy", text);
+        }
         var parsed = VhciNativeClient.ParsePersistentMultiSz(raw);
         Assert.Equal(2, parsed.Count);
         Assert.Equal("192.168.1.50", parsed[0].Host);
@@ -131,5 +137,18 @@ public class KernelFeaturesTests
     public void IsTransientNotReadyError_IdentifiesRetryableProtocolErrors(int code, bool expected)
     {
         Assert.Equal(expected, VhciNativeClient.IsTransientNotReadyError(code));
+    }
+
+    [Fact]
+    public void StripFilterFromUtf16PropertyBlob_PreservesUpperMarkerAndOtherFilters()
+    {
+        byte[] blob = Encoding.Unicode.GetBytes("*Upper\0usbip2_filter\0OtherFilter\0\0");
+        byte[]? updated = DriverService.StripFilterFromUtf16PropertyBlob(blob, "usbip2_filter");
+        Assert.NotNull(updated);
+        var tokens = Encoding.Unicode.GetString(updated!).Split('\0', System.StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(new[] { "*Upper", "OtherFilter" }, tokens);
+
+        byte[] cleanBlob = Encoding.Unicode.GetBytes("*Upper\0OtherFilter\0\0");
+        Assert.Null(DriverService.StripFilterFromUtf16PropertyBlob(cleanBlob, "usbip2_filter"));
     }
 }

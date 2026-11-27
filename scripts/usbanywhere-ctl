@@ -20,13 +20,18 @@ import shutil
 import re
 import argparse
 import threading
+import ipaddress
+import base64
+import hashlib
+import secrets
+import ssl
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-VERSION = "3.5.0"
+VERSION = "3.6.0"
 PORT = 3240
 CONTROL_PORT = 3241
 
@@ -55,7 +60,10 @@ DEFAULT_POLICY = {
     "protect_local_hid": False,
     "skip_classes": ["09"],
     "allowed_ips": [],
-    "control_token": ""
+    "control_token": "",
+    "bind_address": "",
+    "disable_autosuspend": True,
+    "reset_xpad_before_bind": True
 }
 
 def load_policy(path=POLICY_FILE):
@@ -127,6 +135,157 @@ def is_uas_device(busid):
 def is_valid_busid(busid):
     """Validate USB Bus ID format strictly to prevent path traversal and argument injection."""
     return bool(busid and isinstance(busid, str) and re.match(r"^\d+-[\d.]+$", busid.strip()))
+
+def is_valid_bind_address(addr):
+    """Validate optional bind IPv4/IPv6 address (empty/0.0.0.0/:: means all interfaces)."""
+    if addr is None:
+        return True
+    s = str(addr).strip()
+    if s in ("", "0.0.0.0", "::", "any", "*"):
+        return True
+    try:
+        ipaddress.ip_address(s)
+        return True
+    except ValueError:
+        return False
+
+def resolve_bind_address(policy=None):
+    """Return validated listener bind address from policy or 0.0.0.0 wildcard."""
+    if policy is None:
+        policy = load_policy()
+    raw = str(policy.get("bind_address", "") or "").strip()
+    if raw in ("", "any", "*"):
+        return "0.0.0.0"
+    try:
+        ipaddress.ip_address(raw)
+        return raw
+    except ValueError:
+        return "0.0.0.0"
+
+def build_usbipd_systemd_dropin(bind_address, usbipd_bin="/usr/sbin/usbipd"):
+    """Build systemd override unit content for usbipd listener binding."""
+    addr = resolve_bind_address({"bind_address": bind_address})
+    if addr == "0.0.0.0":
+        return None
+    return (
+        "[Service]\n"
+        "ExecStart=\n"
+        f"ExecStart={usbipd_bin} -4\n"
+        f"Environment=USBANYWHERE_BIND_ADDRESS={addr}\n"
+    )
+
+USBIPD_DROPIN_DIR = "/etc/systemd/system/usbipd.service.d"
+
+def apply_usbipd_systemd_dropin(bind_address, dropin_dir=USBIPD_DROPIN_DIR, reload_systemd=True):
+    """Write or remove the usbipd systemd override for the configured bind address.
+
+    Returns "written", "removed", "unchanged" or "error".
+    """
+    target = os.path.join(dropin_dir, "override.conf")
+    content = build_usbipd_systemd_dropin(bind_address)
+    try:
+        if content is None:
+            if os.path.isfile(target):
+                os.remove(target)
+                state = "removed"
+            else:
+                return "unchanged"
+        else:
+            if os.path.isfile(target):
+                with open(target, "r", encoding="utf-8") as f:
+                    if f.read() == content:
+                        return "unchanged"
+            os.makedirs(dropin_dir, exist_ok=True)
+            with open(target, "w", encoding="utf-8") as f:
+                f.write(content)
+            state = "written"
+    except OSError as e:
+        print(f"{YELLOW}[!] Could not update usbipd systemd override: {e}{RESET}")
+        return "error"
+    if reload_systemd and IS_LINUX and shutil.which("systemctl"):
+        run_cmd_result(["systemctl", "daemon-reload"])
+    return state
+
+def _disable_usb_autosuspend(busid, sysfs_root="/sys/bus/usb/devices"):
+    """Disable USB autosuspend on a shared device to prevent idle controller/HOTAS disconnects."""
+    if not is_valid_busid(busid):
+        return False
+    dev_dir = os.path.join(sysfs_root, busid.strip())
+    if not os.path.isdir(dev_dir):
+        return False
+    power_dir = os.path.join(dev_dir, "power")
+    if not os.path.isdir(power_dir):
+        return False
+    wrote = False
+    for fname, value in (("control", "on\n"), ("autosuspend", "-1\n")):
+        fpath = os.path.join(power_dir, fname)
+        if os.path.isfile(fpath):
+            try:
+                with open(fpath, "w", encoding="utf-8") as f:
+                    f.write(value)
+                wrote = True
+            except OSError:
+                pass
+    return wrote
+
+def _has_interface_driver(busid, driver_name, sysfs_root="/sys/bus/usb/devices"):
+    """Return True if any USB interface under sysfs busid is currently bound to driver_name."""
+    if not is_valid_busid(busid):
+        return False
+    clean_bus = busid.strip()
+    dev_dir = os.path.join(sysfs_root, clean_bus)
+    if not os.path.isdir(dev_dir):
+        return False
+    try:
+        for item in os.listdir(dev_dir):
+            if item.startswith(f"{clean_bus}:"):
+                drv_link = os.path.join(dev_dir, item, "driver")
+                if os.path.islink(drv_link):
+                    if os.path.basename(os.readlink(drv_link)) == driver_name:
+                        return True
+    except OSError:
+        pass
+    return False
+
+def _reset_usb_device_linux(busid, sysfs_root="/sys/bus/usb/devices"):
+    """Perform a clean USB device reset via USBDEVFS_RESET ioctl (with authorized fallback)."""
+    if not is_valid_busid(busid):
+        return False
+    dev_dir = os.path.join(sysfs_root, busid.strip())
+    if not os.path.isdir(dev_dir):
+        return False
+    try:
+        busnum_path = os.path.join(dev_dir, "busnum")
+        devnum_path = os.path.join(dev_dir, "devnum")
+        if os.path.isfile(busnum_path) and os.path.isfile(devnum_path):
+            with open(busnum_path, "r", encoding="utf-8") as fb:
+                busnum = int(fb.read().strip())
+            with open(devnum_path, "r", encoding="utf-8") as fd:
+                devnum = int(fd.read().strip())
+            usb_dev_node = f"/dev/bus/usb/{busnum:03d}/{devnum:03d}"
+            if os.path.exists(usb_dev_node):
+                import fcntl
+                USBDEVFS_RESET = 0x5514
+                fd_node = os.open(usb_dev_node, os.O_WRONLY)
+                try:
+                    fcntl.ioctl(fd_node, USBDEVFS_RESET, 0)
+                    return True
+                finally:
+                    os.close(fd_node)
+    except Exception:
+        pass
+    auth_path = os.path.join(dev_dir, "authorized")
+    if os.path.isfile(auth_path):
+        try:
+            with open(auth_path, "w", encoding="utf-8") as f:
+                f.write("0\n")
+            time.sleep(0.15)
+            with open(auth_path, "w", encoding="utf-8") as f:
+                f.write("1\n")
+            return True
+        except OSError:
+            pass
+    return False
 
 def get_device_info(busid):
     """Inspect sysfs for a given busid on Linux and return (vid, pid, dev_class, if_classes, prod_name, mfg_name)."""
@@ -348,6 +507,10 @@ def start_service():
             subprocess.Popen(["usbanywhere-server-mac", "serve", "--auto-bind"])
             return True
     elif IS_LINUX:
+        try:
+            apply_usbipd_systemd_dropin(load_policy().get("bind_address", ""))
+        except Exception as e:
+            print(f"{YELLOW}[!] Skipping usbipd bind override: {e}{RESET}")
         rc, _, err = run_cmd_result(["systemctl", "restart", "usbipd"])
         if rc != 0:
             print(f"{RED}✗ Failed to start usbipd via systemd: {err or f'exit code {rc}'}{RESET}")
@@ -517,7 +680,7 @@ def _get_usbip_host_status(busid):
     except Exception:
         return None
 
-def _share_device_linux(busid, bin_path):
+def _share_device_linux(busid, bin_path, reset_device=False):
     dev_sysfs = f"/sys/bus/usb/devices/{busid}"
     with _get_busid_lock(busid):
         _last_bind_error.pop(busid, None)
@@ -528,8 +691,19 @@ def _share_device_linux(busid, bin_path):
             print(f"{RED}✗ Device {busid} not found on USB bus.{RESET}")
             return False
 
+        pol = load_policy()
+        if reset_device or (pol.get("reset_xpad_before_bind", True) and _has_interface_driver(busid, "xpad")):
+            if _reset_usb_device_linux(busid):
+                time.sleep(0.3)
+                _wait_udev_settle(2)
+
+        if pol.get("disable_autosuspend", True):
+            _disable_usb_autosuspend(busid)
+
         st = _get_usbip_host_status(busid)
         if st == 1:
+            if pol.get("disable_autosuspend", True):
+                _disable_usb_autosuspend(busid)
             print(f"{GREEN}✓ Device {busid} already bound via usbip.{RESET}")
             return True
 
@@ -575,6 +749,8 @@ def _share_device_linux(busid, bin_path):
                 print(f"{RED}✗ Device {busid} disappeared before bind completed.{RESET}")
                 return False
             if _get_usbip_host_status(busid) == 1:
+                if pol.get("disable_autosuspend", True):
+                    _disable_usb_autosuspend(busid)
                 out_msg = (res.stdout or "").strip()
                 print(out_msg or f"{GREEN}✓ Device {busid} bound via usbip.{RESET}")
                 return True
@@ -587,7 +763,7 @@ def _share_device_linux(busid, bin_path):
         print(f"{RED}✗ Failed binding {busid}: {err_text}{RESET}")
         return False
 
-def share_device(busid):
+def share_device(busid, reset_device=False):
     """Export a specific USB peripheral by bus ID."""
     if not re.match(r"^\d+-[\d.]+$", str(busid or "")):
         print(f"{RED}[Error] Invalid Bus ID format: {busid}{RESET}")
@@ -600,7 +776,8 @@ def share_device(busid):
 
     if not is_root():
         print(f"{YELLOW}[!] Superuser privileges required. Re-running with sudo...{RESET}")
-        return rerun_with_sudo("share", busid)
+        extra_args = ["share", busid] + (["--reset"] if reset_device else [])
+        return rerun_with_sudo(*extra_args)
 
     if IS_MACOS:
         bin_path = shutil.which("usbanywhere-server-mac")
@@ -611,7 +788,7 @@ def share_device(busid):
     elif IS_LINUX:
         bin_path = shutil.which("usbip")
         if bin_path:
-            return _share_device_linux(busid, bin_path)
+            return _share_device_linux(busid, bin_path, reset_device=reset_device)
     return False
 
 def unshare_device(busid):
@@ -727,6 +904,142 @@ def run_auto_unbind_daemon(interval=0.5, standalone=True):
         except Exception:
             time.sleep(interval)
 
+TLS_PORT = 3243
+
+
+class PairingManager:
+    """Ephemeral 6-digit pairing code manager (5-min TTL, 5 failed attempts lockout)."""
+
+    def __init__(self, ttl_seconds: int = 300, max_attempts: int = 5):
+        self._lock = threading.Lock()
+        self._ttl = ttl_seconds
+        self._max_attempts = max_attempts
+        self._code = ""
+        self._expires_at = 0.0
+        self._failed_attempts = 0
+        self._locked_until = 0.0
+
+    def create_pairing_code(self) -> tuple[str, int]:
+        with self._lock:
+            self._code = f"{secrets.randbelow(1000000):06d}"
+            self._expires_at = time.time() + self._ttl
+            self._failed_attempts = 0
+            self._locked_until = 0.0
+            return self._code, self._ttl
+
+    def verify_pairing_code(self, code: str) -> tuple[bool, str, str]:
+        clean = "".join(ch for ch in (code or "") if ch.isdigit())
+        with self._lock:
+            now = time.time()
+            if now < self._locked_until:
+                return False, "", "Too many failed pairing attempts. Locked."
+            if not self._code or now > self._expires_at:
+                return False, "", "No active pairing code or code expired."
+            if len(clean) != 6 or not hmac.compare_digest(clean, self._code):
+                self._failed_attempts += 1
+                if self._failed_attempts >= self._max_attempts:
+                    self._locked_until = now + self._ttl
+                    self._code = ""
+                return False, "", "Invalid pairing code."
+            self._code = ""
+            self._failed_attempts = 0
+            token = secrets.token_hex(16)
+            return True, token, "Paired"
+
+
+_PAIRING_MGR = PairingManager()
+
+
+def build_ua2_token(host: str, usbip_port: int, server_name: str, tls_port: int, code: str, tls_fingerprint: str = "") -> str:
+    raw = f"{host}|{usbip_port}|{server_name}|{tls_port}|{code}|{tls_fingerprint}"
+    b64 = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii").rstrip("=")
+    return f"UA2:{b64}"
+
+
+def ensure_tls_cert(cert_dir: str | None = None) -> tuple[str, str, str]:
+    target_dir = cert_dir or os.path.join(os.path.expanduser("~"), ".config", "usbanywhere", "tls")
+    os.makedirs(target_dir, exist_ok=True)
+    cert_path = os.path.join(target_dir, "server.crt")
+    key_path = os.path.join(target_dir, "server.key")
+    der_path = os.path.join(target_dir, "server.der")
+    if not (os.path.isfile(cert_path) and os.path.isfile(key_path)):
+        openssl = shutil.which("openssl")
+        if not openssl:
+            return "", "", ""
+        subprocess.run(
+            [openssl, "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+             "-keyout", key_path, "-out", cert_path, "-days", "825",
+             "-subj", "/CN=USBAnywhere-Server"],
+            check=True, capture_output=True, timeout=15
+        )
+        subprocess.run(
+            [openssl, "x509", "-in", cert_path, "-outform", "DER", "-out", der_path],
+            check=True, capture_output=True, timeout=10
+        )
+    elif not os.path.isfile(der_path) and shutil.which("openssl"):
+        subprocess.run(
+            ["openssl", "x509", "-in", cert_path, "-outform", "DER", "-out", der_path],
+            check=False, capture_output=True, timeout=10
+        )
+    fp = ""
+    if os.path.isfile(der_path):
+        with open(der_path, "rb") as f:
+            fp = hashlib.sha256(f.read()).hexdigest().lower()
+    return cert_path, key_path, fp
+
+
+def _relay_sockets(src: socket.socket, dst: socket.socket):
+    try:
+        while True:
+            chunk = src.recv(65536)
+            if not chunk:
+                break
+            dst.sendall(chunk)
+    except Exception:
+        pass
+    finally:
+        try:
+            dst.shutdown(socket.SHUT_WR)
+        except Exception:
+            pass
+
+
+def run_tls_tunnel(listen_port: int = TLS_PORT, target_host: str = "127.0.0.1", target_port: int = PORT, bind_address: str = "0.0.0.0", cert_dir: str | None = None):
+    cert_path, key_path, fp = ensure_tls_cert(cert_dir)
+    if not cert_path or not key_path:
+        print(f"{RED}✗ OpenSSL required to generate TLS certificate.{RESET}")
+        return False
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(certfile=cert_path, keyfile=key_path)
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind((bind_address, listen_port))
+    srv.listen(16)
+    print(f"{GREEN}✓ USBAnywhere TLS Tunnel listening on {bind_address}:{listen_port} -> {target_host}:{target_port} (SHA-256: {fp[:16]}...){RESET}")
+    try:
+        while True:
+            raw_cli, _ = srv.accept()
+            def _handle(c=raw_cli):
+                try:
+                    tls_cli = ctx.wrap_socket(c, server_side=True)
+                    upstream = socket.create_connection((target_host, target_port), timeout=5)
+                    t1 = threading.Thread(target=_relay_sockets, args=(tls_cli, upstream), daemon=True)
+                    t2 = threading.Thread(target=_relay_sockets, args=(upstream, tls_cli), daemon=True)
+                    t1.start()
+                    t2.start()
+                except Exception:
+                    try:
+                        c.close()
+                    except Exception:
+                        pass
+            threading.Thread(target=_handle, daemon=True).start()
+    except KeyboardInterrupt:
+        return True
+    finally:
+        srv.close()
+
+
 def handle_control_client(sock, addr):
     """Handle incoming on-demand control command (TCP 3241)."""
     try:
@@ -743,12 +1056,37 @@ def handle_control_client(sock, addr):
             sock.sendall(resp.encode("utf-8"))
             return
         raw_parts = data.split()
+        if raw_parts and raw_parts[0].upper() == "PAIR":
+            code_arg = raw_parts[1] if len(raw_parts) > 1 else ""
+            ok, tok, msg = _PAIRING_MGR.verify_pairing_code(code_arg)
+            if not ok:
+                sock.sendall((json.dumps({"status": "DENIED", "message": msg}) + "\n").encode("utf-8"))
+                return
+            pol_save = dict(pol_auth)
+            pol_save["control_token"] = tok
+            save_policy(pol_save)
+            _, _, fp = ensure_tls_cert()
+            payload = {
+                "status": "OK",
+                "server_name": socket.gethostname(),
+                "control_token": tok,
+                "tls_port": TLS_PORT,
+                "tls_fingerprint": fp
+            }
+            sock.sendall((json.dumps(payload) + "\n").encode("utf-8"))
+            return
         auth_ok, parts = parse_authenticated_command(raw_parts, pol_auth)
         if not auth_ok or not parts:
             resp = json.dumps({"status": "DENIED", "message": "Invalid or missing control token"}) + "\n"
             sock.sendall(resp.encode("utf-8"))
             return
         cmd = parts[0].upper()
+        if cmd == "PAIR_CREATE":
+            code, ttl = _PAIRING_MGR.create_pairing_code()
+            _, _, fp = ensure_tls_cert()
+            ua2 = build_ua2_token(get_lan_ip(), PORT, socket.gethostname(), TLS_PORT, code, fp)
+            sock.sendall((json.dumps({"status": "OK", "code": code, "ua2_token": ua2, "expires_in": ttl}) + "\n").encode("utf-8"))
+            return
         
         if cmd == "LIST":
             devs = list_devices()
@@ -756,6 +1094,7 @@ def handle_control_client(sock, addr):
             sock.sendall(resp.encode("utf-8"))
         elif cmd == "BIND" and len(parts) > 1:
             target_bus = parts[1]
+            reset_req = len(parts) > 2 and parts[2].upper() == "RESET"
             if not re.match(r"^\d+-[\d.]+$", target_bus):
                 resp = json.dumps({"status": "ERROR", "busid": target_bus, "action": "bind", "message": "Invalid BusId"}) + "\n"
                 sock.sendall(resp.encode("utf-8"))
@@ -765,7 +1104,7 @@ def handle_control_client(sock, addr):
                 resp = json.dumps({"status": "DENIED", "busid": target_bus, "action": "bind", "message": reason}) + "\n"
                 sock.sendall(resp.encode("utf-8"))
             else:
-                ok = share_device(target_bus)
+                ok = share_device(target_bus, reset_device=reset_req)
                 payload = {"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "bind"}
                 if not ok:
                     payload["message"] = _last_bind_error.get(target_bus, f"Failed to bind {target_bus}")
@@ -803,14 +1142,21 @@ def handle_control_client(sock, addr):
         except Exception:
             pass
 
-def run_udp_discovery_responder(port=CONTROL_PORT):
+def run_udp_discovery_responder(port=CONTROL_PORT, bind_address=None):
     """Listen for incoming UDP discovery probes on port 3241 and reply with server identity."""
     try:
+        bind_host = bind_address if (bind_address and is_valid_bind_address(bind_address)) else resolve_bind_address()
         udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if hasattr(socket, "SO_BROADCAST"):
             udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        udp_sock.bind(("0.0.0.0", port))
+        try:
+            udp_sock.bind((bind_host, port))
+        except OSError:
+            if bind_host != "0.0.0.0":
+                udp_sock.bind(("0.0.0.0", port))
+            else:
+                raise
         
         while True:
             try:
@@ -825,26 +1171,34 @@ def run_udp_discovery_responder(port=CONTROL_PORT):
     except Exception:
         pass
 
-def run_dynamic_daemon(port=CONTROL_PORT):
+def run_dynamic_daemon(port=CONTROL_PORT, bind_address=None):
     """Run dynamic daemon with both background auto-unbind watcher and on-demand control listener."""
     import threading
+    bind_host = bind_address if (bind_address and is_valid_bind_address(bind_address)) else resolve_bind_address()
     
     print(f"\n{CYAN}═══ ⚡ USBAnywhere Dynamic Multi-Tenant Daemon ═══{RESET}")
     print(f"• Dynamic Auto-Unbind: ACTIVE (Devices released to local OS when client disconnects)")
-    print(f"• Control Socket:      LISTENING on TCP port {port} (On-demand BIND / UNBIND API)")
-    print(f"• Discovery Responder: LISTENING on UDP port {port} (Broadcast Auto-Scan Responder)")
+    print(f"• Control Socket:      LISTENING on {bind_host}:{port} (On-demand BIND / UNBIND API)")
+    print(f"• Discovery Responder: LISTENING on UDP {bind_host}:{port} (Broadcast Auto-Scan Responder)")
     print(f"• Main USB/IP Port:    LISTENING on TCP port {PORT}")
     
     watcher_t = threading.Thread(target=run_auto_unbind_daemon, kwargs={"interval": 0.5, "standalone": False}, daemon=True)
     watcher_t.start()
 
-    udp_t = threading.Thread(target=run_udp_discovery_responder, kwargs={"port": port}, daemon=True)
+    udp_t = threading.Thread(target=run_udp_discovery_responder, kwargs={"port": port, "bind_address": bind_host}, daemon=True)
     udp_t.start()
     
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        srv.bind(("0.0.0.0", port))
+        try:
+            srv.bind((bind_host, port))
+        except OSError as bind_err:
+            if bind_host != "0.0.0.0":
+                print(f"{YELLOW}[!] Bind on {bind_host}:{port} failed ({bind_err}); falling back to 0.0.0.0:{port}{RESET}")
+                srv.bind(("0.0.0.0", port))
+            else:
+                raise
         srv.listen(5)
     except Exception as e:
         print(f"{RED}Error binding to control port {port}: {e}{RESET}")
@@ -911,6 +1265,34 @@ def run_self_test(host="127.0.0.1", port=PORT):
         print(f"{RED}✗ FAILED with exception: {e}{RESET}")
         if s: s.close()
         return False
+
+def collect_doctor_report():
+    """Collect structured system health diagnostics for CLI and --json consumers."""
+    st = get_service_status()
+    pol = load_policy()
+    devs = list_devices()
+    modules = {}
+    if IS_LINUX:
+        lsmod = run_cmd(["lsmod"])
+        modules = {
+            "usbip_core": "usbip_core" in lsmod,
+            "usbip_host": "usbip_host" in lsmod,
+            "vhci_hcd": ("vhci_hcd" in lsmod) or os.path.exists("/sys/devices/platform/vhci_hcd.0"),
+        }
+    return {
+        "os": platform.system(),
+        "arch": platform.machine(),
+        "kernel": platform.release(),
+        "is_root": is_root(),
+        "service": st,
+        "lan_ip": get_lan_ip(),
+        "bind_address": resolve_bind_address(pol),
+        "modules": modules,
+        "autosuspend_policy": bool(pol.get("disable_autosuspend", True)),
+        "reset_xpad_before_bind": bool(pol.get("reset_xpad_before_bind", True)),
+        "devices_count": len(devs),
+        "healthy": bool(st.get("running")) if IS_LINUX else True,
+    }
 
 def run_doctor():
     """System health check and diagnostic inspection."""
@@ -2364,11 +2746,12 @@ def main():
                                  "list", "share", "unshare", "policy", "auto-unbind",
                                  "dynamic-daemon", "fix-dualsense", "doctor", "test", "logs",
                                  "scan", "remote", "connect", "attach", "disconnect", "detach", "ports", "mode",
-                                 "client-guard", "client-sleep-hook"],
+                                 "client-guard", "client-sleep-hook", "pair", "tls-tunnel"],
                         help="Action to perform (default: interactive dashboard)")
     parser.add_argument("busid", nargs="?", default=None, help="Target USB bus ID or action parameter")
     parser.add_argument("extra", nargs="?", default=None, help="Additional argument for policy management")
-    parser.add_argument("--json", action="store_true", help="Output status in JSON format")
+    parser.add_argument("--json", action="store_true", help="Output status, list, policy, or doctor in JSON format")
+    parser.add_argument("--reset", action="store_true", help="Reset USB device before sharing")
 
     args = parser.parse_args()
 
@@ -2411,14 +2794,17 @@ def main():
         sys.exit(0 if start_service() else 1)
     elif args.command == "list":
         devs = list_devices()
-        print(f"Discovered USB Peripherals ({len(devs)}):")
-        for d in devs:
-            print(f"  {d}")
+        if args.json:
+            print(json.dumps({"devices": devs, "count": len(devs)}, indent=2))
+        else:
+            print(f"Discovered USB Peripherals ({len(devs)}):")
+            for d in devs:
+                print(f"  {d}")
     elif args.command == "share":
         if not args.busid:
             print(f"{RED}Error: Missing bus ID. Usage: usbanywhere-ctl share <busid>{RESET}")
             sys.exit(1)
-        sys.exit(0 if share_device(args.busid) else 1)
+        sys.exit(0 if share_device(args.busid, reset_device=args.reset) else 1)
     elif args.command == "unshare":
         if not args.busid:
             print(f"{RED}Error: Missing bus ID. Usage: usbanywhere-ctl unshare <busid>{RESET}")
@@ -2428,11 +2814,17 @@ def main():
         pol = load_policy()
         action = (args.busid or "").lower()
         target = args.extra or ""
-        if not action or action == "show":
+        if args.json and (not action or action == "show"):
+            redacted = dict(pol)
+            redacted["control_token"] = "***" if pol.get("control_token") else ""
+            print(json.dumps(redacted, indent=2))
+        elif not action or action == "show":
             print(f"{CYAN}═══ 🛡️ USBAnywhere Host Export Policy ═══{RESET}")
             print(f"Policy file:        {POLICY_FILE}")
             print(f"Allow all devices:  {GREEN}YES{RESET}" if pol.get("allow_all") else f"Allow all: {YELLOW}NO{RESET}")
             print(f"Protect local HID:  {GREEN}ACTIVE{RESET}" if pol.get("protect_local_hid") else f"Protect local HID: {DIM}OFF{RESET}")
+            print(f"Bind address:       {resolve_bind_address(pol)}")
+            print(f"Disable autosuspend:{GREEN}ON{RESET}" if pol.get("disable_autosuspend", True) else f"Disable autosuspend:{DIM}OFF{RESET}")
             print(f"Allowlist ({len(pol.get('allowlist', []))}):   {pol.get('allowlist', [])}")
             print(f"Denylist ({len(pol.get('denylist', []))}):    {pol.get('denylist', [])}")
         elif action == "deny" and target:
@@ -2484,6 +2876,16 @@ def main():
             pol["control_token"] = ""
             save_policy(pol)
             print(f"{GREEN}✓ Control API token cleared (open LAN mode).{RESET}")
+        elif action == "bind-address" and target:
+            if not is_valid_bind_address(target):
+                print(f"{RED}Error: Invalid bind address '{target}'. Use an IPv4/IPv6 address or 'any'.{RESET}")
+                sys.exit(1)
+            pol["bind_address"] = "" if target.strip().lower() in ("any", "0.0.0.0", "*") else target.strip()
+            save_policy(pol)
+            print(f"{GREEN}✓ Bind address set to: {resolve_bind_address(pol)}{RESET}")
+            if IS_LINUX and is_root():
+                state = apply_usbipd_systemd_dropin(pol["bind_address"])
+                print(f"  usbipd systemd override: {state} (restart the service to apply)")
         else:
             print(f"Usage:")
             print(f"  usbanywhere-ctl policy [show]")
@@ -2491,6 +2893,7 @@ def main():
             print(f"  usbanywhere-ctl policy allow <busid|vid:pid>")
             print(f"  usbanywhere-ctl policy remove <busid|vid:pid>")
             print(f"  usbanywhere-ctl policy protect-hid <on|off>")
+            print(f"  usbanywhere-ctl policy bind-address <ip|any>")
     elif args.command == "auto-unbind":
         run_auto_unbind_daemon()
     elif args.command == "dynamic-daemon":
@@ -2499,7 +2902,10 @@ def main():
         ok = apply_dualsense_fix()
         sys.exit(0 if ok else 1)
     elif args.command == "doctor":
-        run_doctor()
+        if args.json:
+            print(json.dumps(collect_doctor_report(), indent=2))
+        else:
+            run_doctor()
     elif args.command == "test":
         ok = run_self_test()
         sys.exit(0 if ok else 1)
@@ -2530,6 +2936,19 @@ def main():
         sys.exit(0 if manage_client_guard(args.busid or "status") else 1)
     elif args.command == "client-sleep-hook":
         sys.exit(0 if run_client_sleep_hook(args.busid or "pre") else 1)
+    elif args.command == "pair":
+        code, ttl = _PAIRING_MGR.create_pairing_code()
+        _, _, fp = ensure_tls_cert()
+        host_ip = get_lan_ip()
+        ua2 = build_ua2_token(host_ip, PORT, socket.gethostname(), TLS_PORT, code, fp)
+        if args.json:
+            print(json.dumps({"code": code, "expires_in": ttl, "host": host_ip, "tls_port": TLS_PORT, "tls_fingerprint": fp, "ua2_token": ua2}, indent=2))
+        else:
+            print(f"{GREEN}Pairing Code (valid {ttl}s): {BOLD}{code}{RESET}")
+            print(f"UA2 Token: {ua2}")
+    elif args.command == "tls-tunnel":
+        pol = load_policy()
+        sys.exit(0 if run_tls_tunnel(bind_address=pol.get("bind_address", "0.0.0.0")) else 1)
 
 if __name__ == "__main__":
     try:

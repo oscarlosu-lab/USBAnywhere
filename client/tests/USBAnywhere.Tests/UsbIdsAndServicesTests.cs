@@ -345,14 +345,357 @@ public class UsbIdsAndServicesTests
         public Task<int> StopKernelAttachAttemptsAsync(string? host = null, string? busId = null) => Task.FromResult(0);
         public Task<OperationResult> DisconnectAsync(int port) => Task.FromResult(OperationResult.Ok());
         public Task<List<ConnectedDevice>> GetConnectedDevicesAsync() => Task.FromResult(new List<ConnectedDevice>());
+        public List<ConnectedDevice> DetachAllConnectedDevicesFastForSuspend() => new();
+        public Task NotifyRemoteUnbindBestEffortAsync(IEnumerable<(string ServerIP, string BusId)> bindings, int timeoutMs = 800) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task FavoritesService_ResolveFavoriteTargetAsync_SurvivesDhcpAndPortMove()
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), $"usbany_fav_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmp);
+        try
+        {
+            var cfg = new ConfigService(new StubEnvironmentService(tmp), new StubLoggerService());
+            var usbip = new SmartMockUsbipService();
+            var favSvc = new FavoritesService(
+                cfg,
+                usbip,
+                (host, _) => Task.FromResult(new[] { System.Net.IPAddress.Parse("192.168.1.99") }));
+
+            favSvc.AddFavorite("192.168.1.50", "1-2", "Logitech Wheel", true, "low-latency", "046d:c266", serverHostname: "simrig.local");
+            var fav = favSvc.GetFavorites().Single();
+
+            var (ip, busId, changed) = await favSvc.ResolveFavoriteTargetAsync(fav);
+            Assert.True(changed);
+            Assert.Equal("192.168.1.99", ip);
+            Assert.Equal("1-4", busId);
+
+            var persisted = favSvc.GetFavorites().Single();
+            Assert.Equal("192.168.1.99", persisted.ServerIP);
+            Assert.Equal("1-4", persisted.BusId);
+        }
+        finally
+        {
+            Directory.Delete(tmp, true);
+        }
+    }
+
+    [Fact]
+    public async Task FavoritesService_ResolveFavoriteTargetAsync_RefusesAmbiguousHardwareIdRemap()
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), $"usbany_fav_amb_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tmp);
+        try
+        {
+            var cfg = new ConfigService(new StubEnvironmentService(tmp), new StubLoggerService());
+            var usbip = new AmbiguousMockUsbipService();
+            var favSvc = new FavoritesService(cfg, usbip);
+            favSvc.AddFavorite("192.168.1.99", "1-9", "Generic Dongle", true, "low-latency", "1234:5678");
+            var fav = favSvc.GetFavorites().Single();
+
+            var (ip, busId, changed) = await favSvc.ResolveFavoriteTargetAsync(fav);
+            Assert.False(changed);
+            Assert.Equal("1-9", busId);
+        }
+        finally
+        {
+            Directory.Delete(tmp, true);
+        }
+    }
+
+    [Fact]
+    public void App_HeadlessCli_RecognizesStatusAndDoctorAndBuildsValidJson()
+    {
+        Assert.True(App.IsHeadlessCliInvocation(new[] { "--status", "--json" }));
+        Assert.True(App.IsHeadlessCliInvocation(new[] { "--doctor" }));
+        Assert.False(App.IsHeadlessCliInvocation(new[] { "--minimized" }));
+
+        var json = App.BuildHeadlessReportJson(
+            isDoctor: true,
+            version: "3.5.0",
+            driver: new DriverStatus { Installed = true, Status = "OK" },
+            connected: new List<ConnectedDevice> { new() { Port = 0, ServerIP = "192.168.1.10", BusId = "1-1" } },
+            favoritesCount: 2,
+            autoDetachOnSleep: true,
+            isPortableOs: false);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        Assert.Equal("doctor", doc.RootElement.GetProperty("mode").GetString());
+        Assert.True(doc.RootElement.GetProperty("healthy").GetBoolean());
+        Assert.Equal(1, doc.RootElement.GetProperty("connectedCount").GetInt32());
+    }
+
+    private sealed class SmartMockUsbipService : IUsbipService
+    {
+        public Task<List<UsbDevice>> ListRemoteDevicesAsync(string ip, CancellationToken ct = default)
+        {
+            if (ip == "192.168.1.99")
+            {
+                return Task.FromResult(new List<UsbDevice>
+                {
+                    new() { ServerIP = ip, BusId = "1-4", HardwareId = "046d:c266", Description = "Logitech Wheel" }
+                });
+            }
+            return Task.FromResult(new List<UsbDevice>());
+        }
+        public Task<bool> AttachDeviceAsync(string ip, string busId, string? receiveMode = null, CancellationToken ct = default, string? serial = null, bool attachOnce = true) => Task.FromResult(true);
+        public Task<bool> DetachDeviceAsync(string port, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<int> DetachAllConnectedDevicesAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<List<UsbDevice>> ListDevicesAsync(string serverIP) => ListRemoteDevicesAsync(serverIP);
+        public Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null, string? serial = null, bool attachOnce = true) => Task.FromResult(OperationResult.Ok());
+        public Task<List<VhciPersistentDevice>> GetKernelPersistentDevicesAsync() => Task.FromResult(new List<VhciPersistentDevice>());
+        public Task<OperationResult> SetKernelPersistentDevicesAsync(IReadOnlyList<VhciPersistentDevice> devices) => Task.FromResult(OperationResult.Ok());
+        public Task<int> StopKernelAttachAttemptsAsync(string? host = null, string? busId = null) => Task.FromResult(0);
+        public Task<OperationResult> DisconnectAsync(int port) => Task.FromResult(OperationResult.Ok());
+        public Task<List<ConnectedDevice>> GetConnectedDevicesAsync() => Task.FromResult(new List<ConnectedDevice>());
+        public List<ConnectedDevice> DetachAllConnectedDevicesFastForSuspend() => new();
+        public Task NotifyRemoteUnbindBestEffortAsync(IEnumerable<(string ServerIP, string BusId)> bindings, int timeoutMs = 800) => Task.CompletedTask;
+    }
+
+    private sealed class AmbiguousMockUsbipService : IUsbipService
+    {
+        public Task<List<UsbDevice>> ListRemoteDevicesAsync(string ip, CancellationToken ct = default) =>
+            Task.FromResult(new List<UsbDevice>
+            {
+                new() { ServerIP = ip, BusId = "1-2", HardwareId = "1234:5678", Description = "Generic Dongle" },
+                new() { ServerIP = ip, BusId = "1-3", HardwareId = "1234:5678", Description = "Generic Dongle" }
+            });
+        public Task<bool> AttachDeviceAsync(string ip, string busId, string? receiveMode = null, CancellationToken ct = default, string? serial = null, bool attachOnce = true) => Task.FromResult(true);
+        public Task<bool> DetachDeviceAsync(string port, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<int> DetachAllConnectedDevicesAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<List<UsbDevice>> ListDevicesAsync(string serverIP) => ListRemoteDevicesAsync(serverIP);
+        public Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null, string? serial = null, bool attachOnce = true) => Task.FromResult(OperationResult.Ok());
+        public Task<List<VhciPersistentDevice>> GetKernelPersistentDevicesAsync() => Task.FromResult(new List<VhciPersistentDevice>());
+        public Task<OperationResult> SetKernelPersistentDevicesAsync(IReadOnlyList<VhciPersistentDevice> devices) => Task.FromResult(OperationResult.Ok());
+        public Task<int> StopKernelAttachAttemptsAsync(string? host = null, string? busId = null) => Task.FromResult(0);
+        public Task<OperationResult> DisconnectAsync(int port) => Task.FromResult(OperationResult.Ok());
+        public Task<List<ConnectedDevice>> GetConnectedDevicesAsync() => Task.FromResult(new List<ConnectedDevice>());
+        public List<ConnectedDevice> DetachAllConnectedDevicesFastForSuspend() => new();
+        public Task NotifyRemoteUnbindBestEffortAsync(IEnumerable<(string ServerIP, string BusId)> bindings, int timeoutMs = 800) => Task.CompletedTask;
     }
 
     private sealed class StubFavoritesService : IFavoritesService
     {
         public List<FavoriteDevice> GetFavorites() => new();
         public OperationResult AddFavorite(string serverIP, string busId, string description, bool autoConnect = true, string receiveMode = "zero-copy") => OperationResult.Ok();
+        public OperationResult AddFavorite(string serverIP, string busId, string description, bool autoConnect, string receiveMode, string? hardwareId, string? serverHostname = null, string? deviceSerial = null, string? revision = null) => OperationResult.Ok();
         public OperationResult RemoveFavorite(string serverIP, string busId) => OperationResult.Ok();
         public bool IsFavorite(string serverIP, string busId) => false;
+        public Task<(string ServerIP, string BusId, bool ResolvedChanged)> ResolveFavoriteTargetAsync(FavoriteDevice favorite, CancellationToken ct = default) => Task.FromResult((favorite.ServerIP, favorite.BusId, false));
         public Task<List<FavoriteConnectResult>> ConnectFavoritesAsync() => Task.FromResult(new List<FavoriteConnectResult>());
+    }
+
+    private sealed class InMemoryConfigStub : IConfigService
+    {
+        public AppConfig Current { get; set; } = new();
+        public AppConfig Load() => Current;
+        public void Save(AppConfig config) => Current = config;
+        public void SetLanguage(string language) => Current.Language = language;
+    }
+
+    private sealed class StubDriverService : IDriverService
+    {
+        public string GetDriverStatus() => "Installed";
+        public Task<bool> IsDriverInstalledAsync() => Task.FromResult(true);
+        public Task<bool> InstallDriverAsync() => Task.FromResult(true);
+        public Task<bool> UninstallDriverAsync() => Task.FromResult(true);
+    }
+
+    private sealed class DualDongleUsbipStub : IUsbipService
+    {
+        public List<UsbDevice> Devices { get; init; } = new();
+        public Task<List<UsbDevice>> ListRemoteDevicesAsync(string serverIP, CancellationToken ct = default) => Task.FromResult(Devices);
+        public Task<bool> AttachDeviceAsync(string ip, string busId, string? receiveMode = null, CancellationToken ct = default, string? serial = null, bool attachOnce = true) => Task.FromResult(true);
+        public Task<List<UsbDevice>> ListDevicesAsync(string serverIP) => Task.FromResult(Devices);
+        public Task<OperationResult> ConnectAsync(string serverIP, string busId, string? receiveMode = null, string? serial = null, bool attachOnce = true) => Task.FromResult(OperationResult.Ok());
+        public Task<List<VhciPersistentDevice>> GetKernelPersistentDevicesAsync() => Task.FromResult(new List<VhciPersistentDevice>());
+        public Task<OperationResult> SetKernelPersistentDevicesAsync(IReadOnlyList<VhciPersistentDevice> devices) => Task.FromResult(OperationResult.Ok());
+        public Task<int> StopKernelAttachAttemptsAsync(string? host = null, string? busId = null) => Task.FromResult(0);
+        public Task<OperationResult> DisconnectAsync(int port) => Task.FromResult(OperationResult.Ok());
+        public Task<List<ConnectedDevice>> GetConnectedDevicesAsync() => Task.FromResult(new List<ConnectedDevice>());
+        public Task<bool> DetachDeviceAsync(string port, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<int> DetachAllConnectedDevicesAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public List<ConnectedDevice> DetachAllConnectedDevicesFastForSuspend() => new();
+        public Task NotifyRemoteUnbindBestEffortAsync(IEnumerable<(string ServerIP, string BusId)> bindings, int timeoutMs = 800) => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task FavoritesService_DisambiguatesDualDonglesByRevision()
+    {
+        var usbip = new DualDongleUsbipStub
+        {
+            Devices = new List<UsbDevice>
+            {
+                new() { BusId = "1-2", HardwareId = "045e:02fe", Revision = "0100", Description = "Xbox Wireless Adapter" },
+                new() { BusId = "1-5", HardwareId = "045e:02fe", Revision = "0200", Description = "Xbox Wireless Adapter" }
+            }
+        };
+        var cfg = new InMemoryConfigStub();
+        cfg.Current.Favorites.Add(new FavoriteDevice
+        {
+            ServerIP = "203.0.113.10",
+            BusId = "1-1",
+            HardwareId = "045e:02fe",
+            Revision = "0200",
+            Description = "Xbox Wireless Adapter"
+        });
+        var favSvc = new FavoritesService(cfg, usbip);
+        var resolved = await favSvc.ResolveFavoriteTargetAsync(cfg.Current.Favorites[0]);
+        Assert.Equal("1-5", resolved.BusId);
+        Assert.True(resolved.ResolvedChanged);
+    }
+
+    [Fact]
+    public void PairingClientService_ParseUa2Token_DecodesValidToken()
+    {
+        var raw = "203.0.113.10|3240|LabHost|3243|654321|0123456789abcdef";
+        var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(raw))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var parsed = PairingClientService.ParseUa2Token("UA2:" + b64);
+        Assert.NotNull(parsed);
+        Assert.Equal("203.0.113.10", parsed!.Value.Host);
+        Assert.Equal(3240, parsed.Value.UsbipPort);
+        Assert.Equal("LabHost", parsed.Value.ServerName);
+        Assert.Equal(3243, parsed.Value.TlsPort);
+        Assert.Equal("654321", parsed.Value.Code);
+        Assert.Equal("0123456789abcdef", parsed.Value.TlsFingerprint);
+    }
+
+    [Fact]
+    public async Task TlsTunnelBridge_LoopbackValidPinSucceeds_AndWrongPinFails()
+    {
+        using var rsa = System.Security.Cryptography.RSA.Create(2048);
+        var req = new System.Security.Cryptography.X509Certificates.CertificateRequest(
+            "CN=USBAnywhereTest", rsa, System.Security.Cryptography.HashAlgorithmName.SHA256,
+            System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        using var rawCert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddHours(1));
+        using var cert = System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12(
+            rawCert.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pfx), null);
+        var fp = Convert.ToHexString(cert.GetCertHash(System.Security.Cryptography.HashAlgorithmName.SHA256)).ToLowerInvariant();
+
+        Assert.True(TlsTunnelBridge.VerifyCertificateFingerprint(cert.GetCertHash(System.Security.Cryptography.HashAlgorithmName.SHA256), fp));
+        Assert.False(TlsTunnelBridge.VerifyCertificateFingerprint(cert.GetCertHash(System.Security.Cryptography.HashAlgorithmName.SHA256), new string('0', 64)));
+
+        using var tlsListener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        tlsListener.Start();
+        int tlsPort = ((System.Net.IPEndPoint)tlsListener.LocalEndpoint).Port;
+
+        var serverTask = Task.Run(async () =>
+        {
+            using var c = await tlsListener.AcceptTcpClientAsync();
+            using var ssl = new System.Net.Security.SslStream(c.GetStream(), false);
+            await ssl.AuthenticateAsServerAsync(cert, false, false);
+            var buf = new byte[4];
+            int n = await ssl.ReadAsync(buf);
+            await ssl.WriteAsync(buf.AsMemory(0, n));
+        });
+
+        using var bridge = new TlsTunnelBridge("127.0.0.1", tlsPort, fp);
+        int localPort = bridge.Start();
+        using var tcp = new System.Net.Sockets.TcpClient();
+        await tcp.ConnectAsync("127.0.0.1", localPort);
+        using var ns = tcp.GetStream();
+        await ns.WriteAsync(new byte[] { 0x50, 0x49, 0x4E, 0x47 });
+        var resp = new byte[4];
+        int read = await ns.ReadAsync(resp);
+        Assert.Equal(4, read);
+        Assert.Equal("PING", System.Text.Encoding.ASCII.GetString(resp));
+        await serverTask;
+    }
+
+    [Fact]
+    public void StreamingSessionMonitor_DetectsProviders_AndFiltersOnlyDuringStream()
+    {
+        Assert.Equal("apollo", StreamingSessionMonitor.DetectStreamingProvider(new[] { "explorer", "apollo.exe" }));
+        Assert.Equal("vibepollo", StreamingSessionMonitor.DetectStreamingProvider(new[] { "vibepollo" }));
+        Assert.Equal("vibeshine", StreamingSessionMonitor.DetectStreamingProvider(new[] { "vibeshine.exe" }));
+        Assert.Equal("parsec", StreamingSessionMonitor.DetectStreamingProvider(new[] { "parsecd" }));
+        Assert.Equal("steam_remote_play", StreamingSessionMonitor.DetectStreamingProvider(new[] { "streaming_client.exe" }));
+        Assert.Equal("sunshine", StreamingSessionMonitor.DetectStreamingProvider(new[] { "sunshine" }));
+        Assert.Null(StreamingSessionMonitor.DetectStreamingProvider(new[] { "notepad" }));
+
+        var favs = new List<FavoriteDevice>
+        {
+            new() { BusId = "1-1", AttachMode = "always" },
+            new() { BusId = "1-2", AttachMode = "only-during-stream" }
+        };
+        var filtered = StreamingSessionMonitor.FilterFavoritesForStreamTransition(favs, true);
+        Assert.Single(filtered);
+        Assert.Equal("1-2", filtered[0].BusId);
+    }
+
+    [Fact]
+    public async Task LocalControlApiService_ServesStatusDoctorStream_AndEnforcesBearerToken()
+    {
+        var cfg = new InMemoryConfigStub();
+        cfg.Current.LocalApiEnabled = true;
+        cfg.Current.LocalApiToken = "test-secret-token";
+        var monitor = new StreamingSessionMonitor();
+        using var api = new LocalControlApiService(cfg, new DualDongleUsbipStub(), new StubDriverService(), new StubFavoritesService(), monitor, 0);
+        api.Start();
+
+        using var http = new System.Net.Http.HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{api.Port}") };
+
+        var unauth = await http.GetAsync("/api/v1/status");
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, unauth.StatusCode);
+
+        http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-secret-token");
+        var status = await http.GetStringAsync("/api/v1/status");
+        Assert.Contains("\"connectedCount\"", status);
+
+        var doctor = await http.GetStringAsync("/api/v1/doctor");
+        Assert.Contains("\"healthy\":true", doctor);
+
+        var streamBody = new System.Net.Http.StringContent("{\"active\":true,\"provider\":\"apollo\"}", System.Text.Encoding.UTF8, "application/json");
+        var streamResp = await http.PostAsync("/api/v1/stream", streamBody);
+        Assert.Equal(System.Net.HttpStatusCode.OK, streamResp.StatusCode);
+        Assert.True(monitor.IsStreamActive);
+        Assert.Equal("apollo", monitor.ActiveProvider);
+    }
+
+    [Fact]
+    public void SessionIsolationService_EnforcesPortOwnershipAndAutoConnect()
+    {
+        var iso = new SessionIsolationService();
+        iso.RegisterPortOwner(2, sessionId: 1);
+        Assert.True(iso.CanSessionControlPort(2, sessionId: 1, enforceIsolation: true));
+        Assert.False(iso.CanSessionControlPort(2, sessionId: 2, enforceIsolation: true));
+        Assert.True(iso.CanSessionControlPort(2, sessionId: 2, enforceIsolation: false));
+        iso.ReleasePortOwner(2);
+        Assert.Null(iso.GetPortOwner(2));
+
+        Assert.False(SessionIsolationService.EvaluateAutoConnect(isCurrentSessionActive: false, enforceIsolation: true));
+        Assert.True(SessionIsolationService.EvaluateAutoConnect(isCurrentSessionActive: true, enforceIsolation: true));
+        Assert.True(SessionIsolationService.EvaluateAutoConnect(isCurrentSessionActive: false, enforceIsolation: false));
+    }
+
+    [Fact]
+    public void UsbipService_ResolveAttachEndpoint_RoutesPairedTlsThroughLocalBridge()
+    {
+        var cfg = new InMemoryConfigStub();
+        cfg.Current.PairedServers.Add(new PairedServerEntry
+        {
+            Host = "203.0.113.10",
+            TlsPort = 3243,
+            TlsFingerprint = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            UseTls = true
+        });
+        var svc = new UsbipService(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<UsbipService>.Instance,
+            new EnvironmentService(),
+            new DriverService(new EnvironmentService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<DriverService>.Instance),
+            new UsbIdsService(),
+            cfg);
+
+        var (hostTls, portTls, usingTls) = svc.ResolveAttachEndpoint("203.0.113.10");
+        Assert.True(usingTls);
+        Assert.Equal("127.0.0.1", hostTls);
+        Assert.True(int.Parse(portTls) > 0);
+
+        var (hostPlain, portPlain, usingPlainTls) = svc.ResolveAttachEndpoint("203.0.113.20");
+        Assert.False(usingPlainTls);
+        Assert.Equal("203.0.113.20", hostPlain);
+        Assert.Equal("3240", portPlain);
     }
 }

@@ -1,0 +1,50 @@
+<Window x:Class="USBAnywhere.Views.PairServerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="🔐 Emparejar Servidor (UA2 / Código 6 dígitos)"
+        Height="320" Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource BackgroundDark}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Token UA2 (opcional, rellena todo automáticamente):" Foreground="{DynamicResource ForegroundSecondary}" FontSize="11"/>
+            <TextBox x:Name="txtUa2Token" Height="28" Margin="0,4,0,0" TextChanged="TxtUa2Token_TextChanged"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Host / IP del Servidor:" Foreground="{DynamicResource ForegroundPrimary}" FontSize="11"/>
+                <TextBox x:Name="txtHost" Height="28" Margin="0,4,0,0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Código (6 dígitos):" Foreground="{DynamicResource ForegroundPrimary}" FontSize="11"/>
+                <TextBox x:Name="txtCode" Height="28" Margin="0,4,0,0" MaxLength="6"/>
+            </StackPanel>
+        </Grid>
+
+        <CheckBox Grid.Row="2" x:Name="chkUseTls" Content="Activar Túnel TLS 1.3 con Certificate Pinning (puerto 3243)"
+                  IsChecked="True" Foreground="{DynamicResource ForegroundPrimary}" FontSize="11.5" Margin="0,0,0,10"/>
+
+        <TextBlock Grid.Row="3" x:Name="txtPairStatus" Text="" Foreground="{DynamicResource AccentBlue}" FontSize="11" TextWrapping="Wrap"/>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="btnCancel" Content="Cancelar" Style="{StaticResource FlatButton}" Width="85" Height="30" Margin="0,0,8,0" Click="BtnCancel_Click"/>
+            <Button x:Name="btnPairNow" Content="🔐 Emparejar" Style="{StaticResource AccentButton}" Width="115" Height="30" Click="BtnPairNow_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -46,6 +46,41 @@ public class DriverService : IDriverService
     }
 
     /// <summary>
+    /// Strips a driver filter entry from a UTF-16LE NUL-separated PnP property blob
+    /// (e.g. "*Upper\0usbip2_filter\0\0" under Enum\USB\ROOT_HUB30\*\Properties\{a193307d-...}\0002).
+    /// Returns null when the blob is empty or does not contain the filter.
+    /// </summary>
+    public static byte[]? StripFilterFromUtf16PropertyBlob(byte[]? blob, string filterName)
+    {
+        if (blob == null || blob.Length < 2 || string.IsNullOrWhiteSpace(filterName))
+            return null;
+
+        string decoded = System.Text.Encoding.Unicode.GetString(blob);
+        var tokens = decoded.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        var kept = new List<string>(tokens.Length);
+        bool removed = false;
+
+        foreach (string token in tokens)
+        {
+            if (string.Equals(token.Trim(), filterName, StringComparison.OrdinalIgnoreCase))
+            {
+                removed = true;
+                continue;
+            }
+            kept.Add(token);
+        }
+
+        if (!removed)
+            return null;
+
+        if (kept.Count == 0)
+            return new byte[4];
+
+        string rebuilt = string.Join('\0', kept) + "\0\0";
+        return System.Text.Encoding.Unicode.GetBytes(rebuilt);
+    }
+
+    /// <summary>
     /// Detects if Windows is running as Windows To Go / Portable USB-booted OS.
     /// Installing usbip2_filter (StartType=3 DEMAND_START, ErrorControl=2 SEVERE on USB\ROOT_HUB30)
     /// on a USB-booted Windows installation causes INACCESSIBLE_BOOT_DEVICE at next boot.
@@ -120,6 +155,44 @@ public class DriverService : IDriverService
                                         instKey.SetValue("UpperFilters", cleaned, RegistryValueKind.MultiString);
                                 }
                             }
+
+                            using var filtersKey = instKey?.OpenSubKey("Filters", writable: true);
+                            if (filtersKey != null)
+                            {
+                                foreach (var valName in filtersKey.GetValueNames())
+                                {
+                                    if (filtersKey.GetValue(valName) is string[] fVals)
+                                    {
+                                        var cleaned = RemoveFilterFromMultiString(fVals, FilterDriverName);
+                                        if (cleaned.Length != fVals.Length)
+                                        {
+                                            if (cleaned.Length == 0)
+                                                filtersKey.DeleteValue(valName, throwOnMissingValue: false);
+                                            else
+                                                filtersKey.SetValue(valName, cleaned, RegistryValueKind.MultiString);
+                                        }
+                                    }
+                                }
+                            }
+
+                            try
+                            {
+                                using var propKey = instKey?.OpenSubKey(@"Properties\{a193307d-1245-46d3-be67-d8128670e09b}\0002", writable: true);
+                                var rawProp = propKey?.GetValue("");
+                                if (rawProp is byte[] blob)
+                                {
+                                    var updatedBlob = StripFilterFromUtf16PropertyBlob(blob, FilterDriverName);
+                                    if (updatedBlob != null)
+                                        propKey!.SetValue("", updatedBlob, RegistryValueKind.Binary);
+                                }
+                                else if (rawProp is string[] strProp)
+                                {
+                                    var cleaned = RemoveFilterFromMultiString(strProp, FilterDriverName);
+                                    if (cleaned.Length != strProp.Length)
+                                        propKey!.SetValue("", cleaned, RegistryValueKind.MultiString);
+                                }
+                            }
+                            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[DriverService.cs Properties] {ex.Message}"); }
                         }
                         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[DriverService.cs] {ex.Message}"); }
                     }

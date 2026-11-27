@@ -49,6 +49,7 @@ public class UsbDevice
     }
     
     public string ServerIP { get; set; } = string.Empty;
+    public string Revision { get; set; } = string.Empty;
 }
 
 /// <summary>

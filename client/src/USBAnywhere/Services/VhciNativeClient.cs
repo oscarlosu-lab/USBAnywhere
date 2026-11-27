@@ -201,7 +201,8 @@ public static class VhciNativeClient
         string busId,
         bool wskEvents,
         bool once = true,
-        string? serial = null)
+        string? serial = null,
+        string? servicePort = null)
     {
         if (!IsValidUsbSerial(serial))
             return (true, false, 0, ErrorInvalidParameter, "Custom USB serial must be 1-15 ASCII alphanumeric characters.");
@@ -213,8 +214,9 @@ public static class VhciNativeClient
         uint ioctl = once ? IoctlPluginHardwareOnce : IoctlPluginHardware;
         var primaryAbi = _detectedAbi == (int)VhciAbiVersion.V0982 ? VhciAbiVersion.V0982 : VhciAbiVersion.V0981;
         var secondaryAbi = primaryAbi == VhciAbiVersion.V0981 ? VhciAbiVersion.V0982 : VhciAbiVersion.V0981;
+        string effectivePort = string.IsNullOrWhiteSpace(servicePort) ? DefaultServicePort : servicePort.Trim();
 
-        var res = InvokeAttachIoctl(handle, ioctl, host, busId, wskEvents, serial, primaryAbi);
+        var res = InvokeAttachIoctl(handle, ioctl, host, busId, wskEvents, serial, primaryAbi, effectivePort);
         if (res.Port > 0)
         {
             _detectedAbi = (int)primaryAbi;
@@ -223,7 +225,7 @@ public static class VhciNativeClient
 
         if (IsAbiMismatchError(res.Win32Error))
         {
-            var retry = InvokeAttachIoctl(handle, ioctl, host, busId, wskEvents, serial, secondaryAbi);
+            var retry = InvokeAttachIoctl(handle, ioctl, host, busId, wskEvents, serial, secondaryAbi, effectivePort);
             if (retry.Port > 0)
             {
                 _detectedAbi = (int)secondaryAbi;
@@ -243,9 +245,10 @@ public static class VhciNativeClient
         string busId,
         bool wskEvents,
         string? serial,
-        VhciAbiVersion abi)
+        VhciAbiVersion abi,
+        string servicePort = DefaultServicePort)
     {
-        byte[] input = BuildPluginPayload(host, busId, wskEvents, serial, DefaultServicePort, abi);
+        byte[] input = BuildPluginPayload(host, busId, wskEvents, serial, servicePort, abi);
         var output = new byte[8];
 
         if (DeviceIoControl(
@@ -842,8 +845,8 @@ public static class VhciNativeClient
 
             string service = string.IsNullOrWhiteSpace(d.Service) ? DefaultServicePort : d.Service.Trim();
             string mode = string.Equals(d.ReceiveMode, "zero-copy", StringComparison.OrdinalIgnoreCase)
-                ? "zero_copy"
-                : "low_latency";
+                ? "zero-copy"
+                : "low-latency";
 
             if (abi == VhciAbiVersion.V0982)
             {
@@ -856,7 +859,7 @@ public static class VhciNativeClient
             }
             else
             {
-                uint flags = (d.AttachOnce ? 2u : 0u) | (mode == "low_latency" ? 1u : 0u);
+                uint flags = (d.AttachOnce ? 2u : 0u) | (mode == "low-latency" ? 1u : 0u);
                 sb.Append(d.Host.Trim()).Append(',')
                   .Append(service).Append(',')
                   .Append(d.BusId.Trim()).Append(',')
@@ -898,7 +901,10 @@ public static class VhciNativeClient
                         case "busid": busId = v; break;
                         case "serial": serial = v; break;
                         case "recv_mode":
-                            mode = string.Equals(v, "zero_copy", StringComparison.OrdinalIgnoreCase) ? "zero-copy" : "low-latency";
+                            mode = (string.Equals(v, "zero-copy", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(v, "zero_copy", StringComparison.OrdinalIgnoreCase))
+                                ? "zero-copy"
+                                : "low-latency";
                             break;
                     }
                 }

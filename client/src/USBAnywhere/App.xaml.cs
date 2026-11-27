@@ -201,6 +201,9 @@ public partial class App : System.Windows.Application
         }
     }
 
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool AttachConsole(int dwProcessId);
+
     internal static bool IsHeadlessCliInvocation(string[]? args)
     {
         if (args == null || args.Length == 0) return false;
@@ -208,13 +211,75 @@ public partial class App : System.Windows.Application
             a.Equals("--disconnect-all", StringComparison.OrdinalIgnoreCase) ||
             a.Equals("--disconnect", StringComparison.OrdinalIgnoreCase) ||
             a.Equals("--quit", StringComparison.OrdinalIgnoreCase) ||
-            a.Equals("--exit", StringComparison.OrdinalIgnoreCase));
+            a.Equals("--exit", StringComparison.OrdinalIgnoreCase) ||
+            a.Equals("--status", StringComparison.OrdinalIgnoreCase) ||
+            a.Equals("--doctor", StringComparison.OrdinalIgnoreCase) ||
+            a.Equals("--pair", StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal static string BuildHeadlessReportJson(
+        bool isDoctor,
+        string version,
+        Models.DriverStatus driver,
+        IReadOnlyList<Models.ConnectedDevice> connected,
+        int favoritesCount,
+        bool autoDetachOnSleep,
+        bool isPortableOs)
+    {
+        if (isDoctor)
+        {
+            return System.Text.Json.JsonSerializer.Serialize(new
+            {
+                mode = "doctor",
+                version,
+                driverInstalled = driver.Installed,
+                driverStatus = driver.Status,
+                isPortableOs,
+                connectedCount = connected.Count,
+                favoritesCount,
+                autoDetachOnSleep,
+                healthy = driver.Installed
+            }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+
+        return System.Text.Json.JsonSerializer.Serialize(new
+        {
+            mode = "status",
+            version,
+            driver = new { installed = driver.Installed, status = driver.Status },
+            connectedCount = connected.Count,
+            favoritesCount,
+            connected = connected.Select(d => new
+            {
+                port = d.Port,
+                serverIp = d.ServerIP,
+                busId = d.BusId,
+                vid = d.VendorId,
+                pid = d.ProductId,
+                serial = d.Serial,
+                description = d.Description
+            })
+        }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     }
 
     private static async Task<bool> TryHandleHeadlessCliAsync(string[] args)
     {
         bool disconnectAll = args.Any(a => a.Equals("--disconnect-all", StringComparison.OrdinalIgnoreCase));
         bool quitApp = args.Any(a => a.Equals("--quit", StringComparison.OrdinalIgnoreCase) || a.Equals("--exit", StringComparison.OrdinalIgnoreCase));
+        bool statusCmd = args.Any(a => a.Equals("--status", StringComparison.OrdinalIgnoreCase));
+        bool doctorCmd = args.Any(a => a.Equals("--doctor", StringComparison.OrdinalIgnoreCase));
+        bool jsonOut = args.Any(a => a.Equals("--json", StringComparison.OrdinalIgnoreCase));
+        string? pairHost = null;
+        string? pairCode = null;
+        for (int i = 0; i < args.Length - 2; i++)
+        {
+            if (args[i].Equals("--pair", StringComparison.OrdinalIgnoreCase))
+            {
+                pairHost = args[i + 1];
+                pairCode = args[i + 2];
+                break;
+            }
+        }
         string? disconnectPort = null;
         for (int i = 0; i < args.Length - 1; i++)
         {
@@ -225,11 +290,16 @@ public partial class App : System.Windows.Application
             }
         }
 
-        if (!disconnectAll && !quitApp && string.IsNullOrWhiteSpace(disconnectPort))
+        if (!disconnectAll && !quitApp && !statusCmd && !doctorCmd && string.IsNullOrWhiteSpace(pairHost) && string.IsNullOrWhiteSpace(disconnectPort))
             return false;
 
         try
         {
+            if (statusCmd || doctorCmd || !string.IsNullOrWhiteSpace(pairHost))
+            {
+                try { AttachConsole(-1); } catch { }
+            }
+
             if (quitApp)
             {
                 try
@@ -265,7 +335,53 @@ public partial class App : System.Windows.Application
             sp.GetRequiredService<IConfigService>().Load();
             var usbip = sp.GetRequiredService<IUsbipService>();
 
-            if (disconnectAll || quitApp)
+            if (!string.IsNullOrWhiteSpace(pairHost) && !string.IsNullOrWhiteSpace(pairCode))
+            {
+                var pairSvc = new PairingClientService(sp.GetRequiredService<IConfigService>());
+                var (ok, entry, msg) = await pairSvc.PairWithServerAsync(pairHost, pairCode);
+                Console.WriteLine(ok ? $"Paired with {entry?.ServerName} ({entry?.Host})" : $"Pairing failed: {msg}");
+            }
+            else if (statusCmd || doctorCmd)
+            {
+                var cfg = sp.GetRequiredService<IConfigService>().Load();
+                var drvSvc = sp.GetRequiredService<IDriverService>();
+                var drv = new Models.DriverStatus
+                {
+                    Installed = await drvSvc.IsDriverInstalledAsync(),
+                    Status = drvSvc.GetDriverStatus()
+                };
+                var connected = await usbip.GetConnectedDevicesAsync();
+                var favCount = cfg.Favorites?.Count ?? 0;
+                var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "3.6.0";
+                bool portable = false;
+                try
+                {
+                    using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control");
+                    portable = Convert.ToInt32(key?.GetValue("PortableOperatingSystem", 0)) != 0;
+                }
+                catch { }
+
+                if (jsonOut)
+                {
+                    Console.WriteLine(BuildHeadlessReportJson(doctorCmd, ver, drv, connected, favCount, cfg.AutoDetachOnSleep, portable));
+                }
+                else if (doctorCmd)
+                {
+                    Console.WriteLine($"USBAnywhere Doctor v{ver}");
+                    Console.WriteLine($"  Driver Installed : {drv.Installed} ({drv.Status})");
+                    Console.WriteLine($"  Portable OS (WTG): {portable}");
+                    Console.WriteLine($"  Connected Ports  : {connected.Count}");
+                    Console.WriteLine($"  Saved Favorites  : {favCount}");
+                    Console.WriteLine($"  Sleep AutoDetach : {cfg.AutoDetachOnSleep}");
+                }
+                else
+                {
+                    Console.WriteLine($"USBAnywhere v{ver} | Driver: {drv.Status} | Connected: {connected.Count} | Favorites: {favCount}");
+                    foreach (var d in connected)
+                        Console.WriteLine($"  Port {d.Port}: {d.ServerIP}/{d.BusId} ({d.VendorId}:{d.ProductId}) {d.Description}");
+                }
+            }
+            else if (disconnectAll || quitApp)
             {
                 int detached = await usbip.DetachAllConnectedDevicesAsync();
                 logger.Info($"CLI headless {(quitApp ? "--quit" : "--disconnect-all")}: detached {detached} device(s).");

@@ -80,6 +80,28 @@ if (Test-Path $usbClassKey) {
         Write-Host "  Sanitizado UpperFilters en clase USB" -ForegroundColor Gray
     }
 }
+$rootHubEnum = "HKLM:\SYSTEM\CurrentControlSet\Enum\USB\ROOT_HUB30"
+if (Test-Path $rootHubEnum) {
+    Get-ChildItem $rootHubEnum -ErrorAction SilentlyContinue | ForEach-Object {
+        foreach ($subPath in @($_.PSPath, (Join-Path $_.PSPath "Filters"))) {
+            if (Test-Path $subPath) {
+                $item = Get-Item $subPath -ErrorAction SilentlyContinue
+                foreach ($valName in @($item.GetValueNames())) {
+                    $val = $item.GetValue($valName)
+                    if ($val -is [string[]] -and ($val -contains "usbip2_filter")) {
+                        $cleaned = @($val | Where-Object { $_ -and $_.Trim() -ne "usbip2_filter" })
+                        if ($cleaned.Count -eq 0) {
+                            Remove-ItemProperty -Path $subPath -Name $valName -ErrorAction SilentlyContinue
+                        } else {
+                            Set-ItemProperty -Path $subPath -Name $valName -Value $cleaned -ErrorAction SilentlyContinue
+                        }
+                        Write-Host "  Limpiado usbip2_filter en ROOT_HUB30 ($valName)" -ForegroundColor Gray
+                    }
+                }
+            }
+        }
+    }
+}
 $services = @("usbip2_ude", "usbip2_filter", "vhci_ude", "usbip_vhci")
 foreach ($svc in $services) {
     try {

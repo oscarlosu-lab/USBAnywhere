@@ -26,7 +26,9 @@ namespace USBAnywhere.Services
         private readonly IEnvironmentService _envService;
         private readonly IDriverService _driverService;
         private readonly IUsbIdsService? _usbIds;
+        private readonly IConfigService? _configService;
         private readonly ConcurrentDictionary<int, (string ServerIP, string BusId)> _portBindings = new();
+        private readonly ConcurrentDictionary<string, TlsTunnelBridge> _tlsBridges = new(StringComparer.OrdinalIgnoreCase);
         public bool AllowNativeVhci { get; set; } = true;
 
         // Integrity check: SHA-256 of the bundled usbip-win client binaries, Portable/usbipw.exe == usbip.exe)
@@ -118,12 +120,32 @@ namespace USBAnywhere.Services
             ILogger<UsbipService> logger,
             IEnvironmentService envService,
             IDriverService driverService,
-            IUsbIdsService? usbIds = null)
+            IUsbIdsService? usbIds = null,
+            IConfigService? configService = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _envService = envService ?? throw new ArgumentNullException(nameof(envService));
             _driverService = driverService ?? throw new ArgumentNullException(nameof(driverService));
             _usbIds = usbIds;
+            _configService = configService;
+        }
+
+        internal (string Host, string Port, bool UsingTls) ResolveAttachEndpoint(string ip, AppConfig? cfg = null)
+        {
+            var effectiveCfg = cfg ?? _configService?.Load();
+            var paired = effectiveCfg?.PairedServers?.FirstOrDefault(s =>
+                string.Equals(s.Host, ip, StringComparison.OrdinalIgnoreCase));
+            if (paired != null && paired.UseTls && !string.IsNullOrWhiteSpace(paired.TlsFingerprint))
+            {
+                var bridge = _tlsBridges.GetOrAdd(ip, _ =>
+                {
+                    var b = new TlsTunnelBridge(ip, paired.TlsPort > 0 ? paired.TlsPort : 3243, paired.TlsFingerprint);
+                    b.Start();
+                    return b;
+                });
+                return ("127.0.0.1", bridge.LocalPort.ToString(), true);
+            }
+            return (ip, "3240", false);
         }
 
         public async Task<List<UsbDevice>> ListRemoteDevicesAsync(string ip, CancellationToken ct = default)
@@ -288,7 +310,13 @@ namespace USBAnywhere.Services
                     await Task.Delay(150, ct);
                 }
 
-                var cmdArgs = new List<string> { "attach", "-r", ip, "-b", busId };
+                var (targetHost, targetPort, usingTls) = ResolveAttachEndpoint(ip);
+                if (usingTls)
+                {
+                    _logger.LogInformation("Usando puente TLS 1.3 para {IP} vía 127.0.0.1:{Port}", ip, targetPort);
+                }
+
+                var cmdArgs = new List<string> { "attach", "-r", targetHost, "-p", targetPort, "-b", busId };
                 if (attachOnce) cmdArgs.Add("--once");
                 if (!string.IsNullOrWhiteSpace(serial)) { cmdArgs.Add("--serial"); cmdArgs.Add(serial.Trim()); }
                 if (!string.IsNullOrEmpty(description) && description.Contains("[Storage/UAS]", StringComparison.OrdinalIgnoreCase))
@@ -304,7 +332,7 @@ namespace USBAnywhere.Services
                 bool wskEvents = effectiveMode != "zero-copy";
                 if (AllowNativeVhci && GetUsbipExecutable() != null)
                 {
-                    var nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: attachOnce, serial: serial);
+                    var nativeRes = VhciNativeClient.TryAttachDevice(targetHost, busId, wskEvents, once: attachOnce, serial: serial, servicePort: targetPort);
                     if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
                     {
                         if (nativeRes.Port <= 0 &&
@@ -322,7 +350,7 @@ namespace USBAnywhere.Services
                             }
 
                             await Task.Delay(bindStatus.BoundOnDemand ? 350 : 500, ct);
-                            nativeRes = VhciNativeClient.TryAttachDevice(ip, busId, wskEvents, once: attachOnce, serial: serial);
+                            nativeRes = VhciNativeClient.TryAttachDevice(targetHost, busId, wskEvents, once: attachOnce, serial: serial, servicePort: targetPort);
                         }
 
                         if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
@@ -781,6 +809,11 @@ namespace USBAnywhere.Services
                         detached++;
                     }
                 }
+                foreach (var kv in _tlsBridges)
+                {
+                    try { kv.Value.Dispose(); } catch { }
+                }
+                _tlsBridges.Clear();
                 _logger.LogInformation("Desconexión limpia finalizada. Total liberados: {Count}", detached);
             }
             catch (Exception ex)
@@ -788,6 +821,57 @@ namespace USBAnywhere.Services
                 _logger.LogWarning(ex, "Aviso durante desconexión masiva de dispositivos");
             }
             return detached;
+        }
+
+        public List<ConnectedDevice> DetachAllConnectedDevicesFastForSuspend()
+        {
+            var detached = new List<ConnectedDevice>();
+            if (!AllowNativeVhci || GetUsbipExecutable() == null)
+                return detached;
+
+            try
+            {
+                VhciNativeClient.TryStopAttachAttempts();
+                var imported = VhciNativeClient.TryGetImportedDevices(_usbIds);
+                if (imported == null || imported.Count == 0)
+                    return detached;
+
+                foreach (var dev in imported)
+                {
+                    if (dev.Port <= 0) continue;
+                    var res = VhciNativeClient.TryDetachPort(dev.Port);
+                    if (res.Success)
+                    {
+                        _portBindings.TryRemove(dev.Port, out _);
+                        detached.Add(dev);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Aviso durante desconexión síncrona por suspensión");
+            }
+
+            return detached;
+        }
+
+        public async Task NotifyRemoteUnbindBestEffortAsync(IEnumerable<(string ServerIP, string BusId)> bindings, int timeoutMs = 800)
+        {
+            var list = bindings
+                .Where(b => !string.IsNullOrWhiteSpace(b.ServerIP) && !string.IsNullOrWhiteSpace(b.BusId))
+                .Distinct()
+                .ToList();
+            if (list.Count == 0) return;
+
+            try
+            {
+                using var cts = new CancellationTokenSource(Math.Clamp(timeoutMs, 100, 5000));
+                await Task.WhenAll(list.Select(b => TryDynamicUnbindAsync(b.ServerIP, b.BusId, cts.Token)));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug("Notificación remota best-effort de UNBIND finalizada: {Message}", ex.Message);
+            }
         }
 
         /// <summary>
@@ -1108,10 +1192,18 @@ namespace USBAnywhere.Services
             string description;
             string hardwareId;
 
+            string revision = string.Empty;
             if (item.ValueKind == JsonValueKind.String)
             {
                 var line = item.GetString();
                 if (string.IsNullOrWhiteSpace(line)) return false;
+
+                var revMatch = Regex.Match(line, @"\s*\[Rev:([0-9a-fA-F]{4})\]\s*$");
+                if (revMatch.Success)
+                {
+                    revision = revMatch.Groups[1].Value.ToUpperInvariant();
+                    line = line[..revMatch.Index].TrimEnd();
+                }
 
                 var match = Regex.Match(
                     line,
@@ -1126,6 +1218,7 @@ namespace USBAnywhere.Services
             {
                 busId = ReadJsonString(item, "busid");
                 description = ReadJsonString(item, "description");
+                revision = ReadJsonString(item, "revision");
                 var vidPid = ReadJsonString(item, "vid_pid");
                 if (!Regex.IsMatch(vidPid, @"^[0-9a-fA-F]{4}:[0-9a-fA-F]{4}$"))
                 {
@@ -1153,6 +1246,7 @@ namespace USBAnywhere.Services
                 Description = string.IsNullOrWhiteSpace(description) ? "USB Device" : description,
                 RemoteIp = ip,
                 ServerIP = ip,
+                Revision = revision,
                 IsConnected = false
             };
             return true;

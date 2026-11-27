@@ -543,5 +543,134 @@ class TestClientSleepGuard(unittest.TestCase):
         mg.assert_called_once_with("install")
         self.assertGreaterEqual(temp.stop.call_count, 2)
 
+    def test_bind_address_validation_and_resolution(self):
+        mod = _load_ctl_module()
+        self.assertTrue(mod.is_valid_bind_address(""))
+        self.assertTrue(mod.is_valid_bind_address("0.0.0.0"))
+        self.assertTrue(mod.is_valid_bind_address("100.64.0.5"))
+        self.assertTrue(mod.is_valid_bind_address("::1"))
+        self.assertFalse(mod.is_valid_bind_address("not-an-ip"))
+        self.assertEqual(mod.resolve_bind_address({"bind_address": ""}), "0.0.0.0")
+        self.assertEqual(mod.resolve_bind_address({"bind_address": "100.64.0.5"}), "100.64.0.5")
+        self.assertEqual(mod.resolve_bind_address({"bind_address": "bad-ip"}), "0.0.0.0")
+
+    def test_disable_usb_autosuspend_and_xpad_detection(self):
+        import tempfile
+        mod = _load_ctl_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            dev_dir = os.path.join(tmp, "1-2")
+            power_dir = os.path.join(dev_dir, "power")
+            os.makedirs(power_dir)
+            ctrl_file = os.path.join(power_dir, "control")
+            auto_file = os.path.join(power_dir, "autosuspend")
+            with open(ctrl_file, "w", encoding="utf-8") as f:
+                f.write("auto\n")
+            with open(auto_file, "w", encoding="utf-8") as f:
+                f.write("2\n")
+
+            self.assertTrue(mod._disable_usb_autosuspend("1-2", sysfs_root=tmp))
+            with open(ctrl_file, "r", encoding="utf-8") as f:
+                self.assertEqual(f.read().strip(), "on")
+            with open(auto_file, "r", encoding="utf-8") as f:
+                self.assertEqual(f.read().strip(), "-1")
+            self.assertFalse(mod._disable_usb_autosuspend("../etc", sysfs_root=tmp))
+
+    def test_share_device_linux_disables_autosuspend_and_supports_reset(self):
+        mod = _load_ctl_module()
+        with mock.patch.object(mod.os.path, "exists", return_value=True), \
+             mock.patch.object(mod, "_wait_udev_settle"), \
+             mock.patch.object(mod, "load_policy", return_value=dict(mod.DEFAULT_POLICY)), \
+             mock.patch.object(mod, "_reset_usb_device_linux", return_value=True) as reset_mock, \
+             mock.patch.object(mod, "_disable_usb_autosuspend", return_value=True) as auto_mock, \
+             mock.patch.object(mod, "_get_usbip_host_status", side_effect=[0, 1]), \
+             mock.patch.object(mod.subprocess, "run", return_value=mock.Mock(returncode=0, stdout="", stderr="")), \
+             mock.patch.object(mod.time, "sleep"):
+            ok = mod._share_device_linux("1-1.3", "/usr/sbin/usbip", reset_device=True)
+        self.assertTrue(ok)
+        reset_mock.assert_called_once_with("1-1.3")
+        self.assertEqual(auto_mock.call_count, 2)
+
+    def test_list_policy_doctor_json_outputs(self):
+        for cmd in (["list", "--json"], ["policy", "--json"], ["doctor", "--json"]):
+            res = subprocess.run([sys.executable, SCRIPT_PATH, *cmd],
+                                 capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(res.returncode, 0, f"{cmd} failed: {res.stderr}")
+            data = json.loads(res.stdout)
+            self.assertIsInstance(data, dict)
+
+    def test_control_bind_reset_flag_forwards_to_share_device(self):
+        mod = _load_ctl_module()
+        sock = mock.Mock()
+        sock.recv.return_value = b"BIND 1-4 RESET\n"
+        with mock.patch.object(mod, "load_policy", return_value=dict(mod.DEFAULT_POLICY)), \
+             mock.patch.object(mod, "is_device_export_allowed", return_value=(True, "")), \
+             mock.patch.object(mod, "share_device", return_value=True) as share_mock:
+            mod.handle_control_client(sock, ("127.0.0.1", 55555))
+        share_mock.assert_called_once_with("1-4", reset_device=True)
+
+    def test_pairing_manager_and_ua2_token(self):
+        mod = _load_ctl_module()
+        mgr = mod.PairingManager(ttl_seconds=60, max_attempts=5)
+        code, ttl = mgr.create_pairing_code()
+        self.assertEqual(len(code), 6)
+        self.assertEqual(ttl, 60)
+
+        ok_bad, _, _ = mgr.verify_pairing_code("000000" if code != "000000" else "111111")
+        self.assertFalse(ok_bad)
+
+        ok, tok, _ = mgr.verify_pairing_code(code)
+        self.assertTrue(ok)
+        self.assertEqual(len(tok), 32)
+
+        # Replay fails
+        ok_replay, _, _ = mgr.verify_pairing_code(code)
+        self.assertFalse(ok_replay)
+
+        ua2 = mod.build_ua2_token("203.0.113.10", 3240, "LabHost", 3243, "123456", "deadbeef")
+        self.assertTrue(ua2.startswith("UA2:"))
+
+    def test_pairing_lockout_after_five_failures(self):
+        mod = _load_ctl_module()
+        mgr = mod.PairingManager(ttl_seconds=60, max_attempts=5)
+        code, _ = mgr.create_pairing_code()
+        wrong = "999999" if code != "999999" else "888888"
+        for _ in range(5):
+            ok, _, _ = mgr.verify_pairing_code(wrong)
+            self.assertFalse(ok)
+        ok_locked, _, msg = mgr.verify_pairing_code(code)
+        self.assertFalse(ok_locked)
+        self.assertIn("Locked", msg)
+
+    def test_control_pair_command_and_systemd_dropin(self):
+        mod = _load_ctl_module()
+        dropin = mod.build_usbipd_systemd_dropin("192.0.2.10")
+        self.assertIn("192.0.2.10", dropin)
+
+        code, _ = mod._PAIRING_MGR.create_pairing_code()
+        sock = mock.Mock()
+        sock.recv.return_value = f"PAIR {code}\n".encode("utf-8")
+        with mock.patch.object(mod, "load_policy", return_value=dict(mod.DEFAULT_POLICY)), \
+             mock.patch.object(mod, "save_policy") as save_mock, \
+             mock.patch.object(mod, "ensure_tls_cert", return_value=("", "", "abcd1234")):
+            mod.handle_control_client(sock, ("127.0.0.1", 55556))
+        save_mock.assert_called_once()
+        sent = json.loads(sock.sendall.call_args[0][0].decode("utf-8"))
+        self.assertEqual(sent["status"], "OK")
+        self.assertEqual(sent["tls_fingerprint"], "abcd1234")
+
+    def test_apply_usbipd_systemd_dropin_writes_and_removes(self):
+        import tempfile
+        mod = _load_ctl_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            dropin_dir = os.path.join(tmp, "usbipd.service.d")
+            target = os.path.join(dropin_dir, "override.conf")
+            self.assertEqual(mod.apply_usbipd_systemd_dropin("192.0.2.10", dropin_dir=dropin_dir, reload_systemd=False), "written")
+            with open(target, "r", encoding="utf-8") as f:
+                self.assertIn("192.0.2.10", f.read())
+            self.assertEqual(mod.apply_usbipd_systemd_dropin("192.0.2.10", dropin_dir=dropin_dir, reload_systemd=False), "unchanged")
+            self.assertEqual(mod.apply_usbipd_systemd_dropin("", dropin_dir=dropin_dir, reload_systemd=False), "removed")
+            self.assertFalse(os.path.exists(target))
+            self.assertEqual(mod.apply_usbipd_systemd_dropin("0.0.0.0", dropin_dir=dropin_dir, reload_systemd=False), "unchanged")
+
 if __name__ == "__main__":
     unittest.main()

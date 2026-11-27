@@ -25,6 +25,22 @@ public class AppConfig
     public bool AutoDetachOnSleep { get; set; } = true;
     public string DisconnectAllHotkey { get; set; } = "Ctrl+Alt+D";
     public Dictionary<string, string>? CustomDeviceSerials { get; set; }
+    public List<PairedServerEntry> PairedServers { get; set; } = new();
+    public bool LocalApiEnabled { get; set; } = false;
+    public int LocalApiPort { get; set; } = 13241;
+    public string LocalApiToken { get; set; } = string.Empty;
+    public bool EnforceSessionIsolation { get; set; } = true;
+}
+
+public class PairedServerEntry
+{
+    public string Host { get; set; } = string.Empty;
+    public string ServerName { get; set; } = string.Empty;
+    public string ControlToken { get; set; } = string.Empty;
+    public int TlsPort { get; set; } = 3243;
+    public string TlsFingerprint { get; set; } = string.Empty;
+    public bool UseTls { get; set; }
+    public string PairedAtUtc { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -40,4 +56,9 @@ public class FavoriteDevice
     public string ReceiveMode { get; set; } = "low-latency";
     public string? CustomSerial { get; set; }
     public bool KernelPersistent { get; set; }
+    public string? ServerHostname { get; set; }
+    public string? HardwareId { get; set; }
+    public string? Revision { get; set; }
+    public string? DeviceSerial { get; set; }
+    public string AttachMode { get; set; } = "always";
 }

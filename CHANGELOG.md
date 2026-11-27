@@ -1,5 +1,19 @@
 # CHANGELOG - USBAnywhere
 
+## [3.6.0] - 2026-11-27
+
+### Added
+- **Zero-Config 6-Digit / `UA2:` Pairing & Pinned TLS 1.3 Tunneling (`PairServerDialog`, `PairingClientService`, `TlsTunnelBridge`)**:
+  - Added one-click pairing (`--pair <host> <code>` CLI + `PairServerDialog` GUI with `UA2:` QR/token auto-fill) and automatic loopback TLS 1.2/1.3 bridging with constant-time SHA-256 certificate pinning in `UsbipService`.
+- **Multi-Provider Streaming Handoff & Per-Device Modes (`StreamingSessionMonitor`, `MainWindow`)**:
+  - Detects **Sunshine, Apollo, Vibeshine, Vibepollo, Parsec, and Steam Remote Play** and auto-attaches/detaches favorites configured with `AttachMode = "only-during-stream"` (configurable from the device context menu).
+- **Windows Multi-Session Isolation (`SessionIsolationService`)**:
+  - Enforces WTS session ownership for attached ports and prevents disconnected/inactive sessions from triggering background auto-connects.
+- **Local HTTP REST Control API, MCP Server & Home Assistant Guide (`LocalControlApiService`, `usbanywhere-mcp.py`, `docs/HOME_ASSISTANT.md`)**:
+  - Added loopback HTTP/JSON API (`127.0.0.1:13241`) with Bearer token auth, pure-stdlib JSON-RPC 2.0 MCP server (6 tools), and headless `--status` / `--doctor` CLI flags.
+- **Smart Favorites `[Rev:XXXX]` Disambiguation, Driver `0.9.8.2` Dual-ABI & Linux Hardening**:
+  - Added hardware revision disambiguation for dual identical `VID:PID` dongles, dual hyphenated/underscore persistence formatting (`recv_mode=low-latency|zero-copy`), automatic Linux USB autosuspend disablement, pre-bind `--reset`, systemd `usbipd` `bind_address` drop-ins, and updated 8-frame square high-DPI icons (`16..256 px`).
+
 ## [3.5.0] - 2026-11-26
 
 ### Added
