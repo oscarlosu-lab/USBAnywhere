@@ -14,6 +14,13 @@
 - **Smart Favorites `[Rev:XXXX]` Disambiguation, Driver `0.9.8.2` Dual-ABI & Linux Hardening**:
   - Added hardware revision disambiguation for dual identical `VID:PID` dongles, dual hyphenated/underscore persistence formatting (`recv_mode=low-latency|zero-copy`), automatic Linux USB autosuspend disablement, pre-bind `--reset`, systemd `usbipd` `bind_address` drop-ins, and updated 8-frame square high-DPI icons (`16..256 px`).
 
+### Fixed
+- **Pre-Release E2E & Stress Hardening (`App.xaml.cs`, `LocalControlApiService`, `UsbipService`, `PairingClientService`, `TlsTunnelBridge`, `usbanywhere-ctl`, `usbanywhere-mcp.py`, `USBAnywhere.iss`)**:
+  - Enabled non-elevated headless `--status --json` / `--doctor --json` execution with pure JSON output (suppressing console logger noise).
+  - Added `SemaphoreSlim` concurrency bounds, 5s/10s socket & TLS handshake timeouts, HTTP `400` on malformed JSON, `TOKEN` control header propagation, and bounded `ST_NODEV` attach retries.
+  - Restricted remote `PAIR_CREATE` on Linux TCP `3241` to loopback unless `control_token` is set, persisted pairing state (`0o600`), raised `listen(64)`, added non-blocking `logs` defaults, and isolated MCP `stdout` from `usbanywhere-ctl` prints.
+  - Assigned an independent `AppId` in `USBAnywhere.iss` with safe legacy uninstall key cleanup that preserves user data, VHCI drivers, and coexisting `SnakeUSBIP` installations.
+
 ## [3.5.0] - 2026-11-26
 
 ### Added

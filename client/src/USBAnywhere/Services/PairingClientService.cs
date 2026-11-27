@@ -85,11 +85,19 @@ public sealed class PairingClientService
                 return (false, null, err ?? "Pairing denied");
             }
 
+            var serverName = root.TryGetProperty("server", out var sv) ? sv.GetString() : null;
+            if (string.IsNullOrWhiteSpace(serverName) && root.TryGetProperty("server_name", out var svn))
+                serverName = svn.GetString();
+
+            var controlToken = root.TryGetProperty("token", out var tk) ? tk.GetString() : null;
+            if (string.IsNullOrWhiteSpace(controlToken) && root.TryGetProperty("control_token", out var ctk))
+                controlToken = ctk.GetString();
+
             var entry = new PairedServerEntry
             {
                 Host = cleanHost,
-                ServerName = root.TryGetProperty("server", out var sv) ? (sv.GetString() ?? cleanHost) : cleanHost,
-                ControlToken = root.TryGetProperty("token", out var tk) ? (tk.GetString() ?? string.Empty) : string.Empty,
+                ServerName = string.IsNullOrWhiteSpace(serverName) ? cleanHost : serverName,
+                ControlToken = controlToken ?? string.Empty,
                 TlsPort = root.TryGetProperty("tls_port", out var tp) && tp.TryGetInt32(out var tpVal) ? tpVal : 3243,
                 TlsFingerprint = root.TryGetProperty("tls_fingerprint", out var fp) ? (fp.GetString() ?? string.Empty) : string.Empty,
                 UseTls = root.TryGetProperty("tls_fingerprint", out var fp2) && !string.IsNullOrWhiteSpace(fp2.GetString()),

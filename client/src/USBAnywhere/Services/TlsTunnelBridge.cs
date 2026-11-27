@@ -16,6 +16,7 @@ public sealed class TlsTunnelBridge : IDisposable
     private readonly string _remoteHost;
     private readonly int _remoteTlsPort;
     private readonly string _expectedFingerprintSha256;
+    private readonly SemaphoreSlim _connLimit = new(64, 64);
     private TcpListener? _localListener;
     private CancellationTokenSource? _cts;
     private bool _disposed;
@@ -66,14 +67,20 @@ public sealed class TlsTunnelBridge : IDisposable
 
     private async Task PumpConnectionAsync(TcpClient localClient, CancellationToken ct)
     {
+        bool acquired = false;
         using (localClient)
         {
             try
             {
+                acquired = await _connLimit.WaitAsync(TimeSpan.FromSeconds(2), ct);
+                if (!acquired) return;
+
                 localClient.NoDelay = true;
                 using var remoteTcp = new TcpClient();
                 remoteTcp.NoDelay = true;
-                await remoteTcp.ConnectAsync(_remoteHost, _remoteTlsPort, ct);
+                using var hsCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                hsCts.CancelAfter(10000);
+                await remoteTcp.ConnectAsync(_remoteHost, _remoteTlsPort, hsCts.Token);
 
                 using var ssl = new SslStream(
                     remoteTcp.GetStream(),
@@ -91,16 +98,23 @@ public sealed class TlsTunnelBridge : IDisposable
                     TargetHost = _remoteHost,
                     EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
                     CertificateRevocationCheckMode = X509RevocationMode.NoCheck
-                }, ct);
+                }, hsCts.Token);
 
                 using var localStream = localClient.GetStream();
-                var t1 = localStream.CopyToAsync(ssl, 65536, ct);
-                var t2 = ssl.CopyToAsync(localStream, 65536, ct);
+                using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                var t1 = localStream.CopyToAsync(ssl, 65536, pumpCts.Token);
+                var t2 = ssl.CopyToAsync(localStream, 65536, pumpCts.Token);
                 await Task.WhenAny(t1, t2);
+                pumpCts.Cancel();
+                try { await Task.WhenAll(t1, t2); } catch { }
             }
             catch
             {
-                // Closed on pin mismatch or upstream drop
+                // Closed on pin mismatch, timeout, or upstream drop
+            }
+            finally
+            {
+                if (acquired) _connLimit.Release();
             }
         }
     }

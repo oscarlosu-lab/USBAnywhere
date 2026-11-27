@@ -3,8 +3,10 @@
 USBAnywhere Model Context Protocol (MCP) Server (JSON-RPC 2.0 over stdio).
 Pure Python stdlib implementation exposing safe USB/IP host inspection and control.
 """
+import contextlib
 import importlib.machinery
 import importlib.util
+import io
 import json
 import os
 import re
@@ -73,10 +75,7 @@ def _load_ctl():
     return mod
 
 
-def call_tool(name: str, arguments: dict | None = None, ctl_mod=None) -> dict:
-    args = arguments or {}
-    mod = ctl_mod if ctl_mod is not None else _load_ctl()
-
+def _call_tool_inner(name: str, args: dict, mod) -> dict:
     if name == "usb_list_devices":
         return {"devices": mod.list_devices()}
     if name == "usb_share_device":
@@ -98,11 +97,22 @@ def call_tool(name: str, arguments: dict | None = None, ctl_mod=None) -> dict:
         pol["control_token"] = "***" if pol.get("control_token") else ""
         return {"policy": pol}
     if name == "usb_create_pairing_code":
-        code, ttl = mod._PAIRING_MGR.create_pairing_code()
-        _, _, fp = mod.ensure_tls_cert()
-        ua2 = mod.build_ua2_token(mod.get_lan_ip(), mod.PORT, os.uname().nodename if hasattr(os, "uname") else "host", mod.TLS_PORT, code, fp)
+        if hasattr(mod, "request_or_create_pairing"):
+            code, ttl, ua2, _ = mod.request_or_create_pairing()
+        else:
+            code, ttl = mod._PAIRING_MGR.create_pairing_code()
+            _, _, fp = mod.ensure_tls_cert()
+            ua2 = mod.build_ua2_token(mod.get_lan_ip(), mod.PORT, os.uname().nodename if hasattr(os, "uname") else "host", mod.TLS_PORT, code, fp)
         return {"code": code, "expires_in": ttl, "ua2_token": ua2}
     raise KeyError(f"Unknown tool: {name}")
+
+
+def call_tool(name: str, arguments: dict | None = None, ctl_mod=None) -> dict:
+    args = arguments or {}
+    mod = ctl_mod if ctl_mod is not None else _load_ctl()
+    # Isolate stdout so human-friendly prints from ctl never corrupt JSON-RPC stdio
+    with contextlib.redirect_stdout(io.StringIO()):
+        return _call_tool_inner(name, args, mod)
 
 
 def handle_rpc_request(req: dict, ctl_mod=None) -> dict | None:

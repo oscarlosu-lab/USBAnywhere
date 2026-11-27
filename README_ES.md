@@ -150,7 +150,7 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.6.0.exe` desde [USBAnywhere Releases (v3.5.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0)
+1. Descarga `USBAnywhere_Setup_v3.6.0.exe` desde [USBAnywhere Releases (v3.6.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 

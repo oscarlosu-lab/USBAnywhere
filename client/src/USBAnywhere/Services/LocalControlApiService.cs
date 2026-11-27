@@ -20,6 +20,7 @@ public sealed class LocalControlApiService : IDisposable
     private readonly IFavoritesService _favorites;
     private readonly StreamingSessionMonitor? _streamMonitor;
     private readonly int _port;
+    private readonly SemaphoreSlim _concurrency = new(32, 32);
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private bool _disposed;
@@ -68,13 +69,21 @@ public sealed class LocalControlApiService : IDisposable
 
     private async Task HandleHttpAsync(TcpClient client, CancellationToken ct)
     {
+        bool acquired = false;
         using (client)
         {
             try
             {
+                using var reqCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                reqCts.CancelAfter(5000);
+                acquired = await _concurrency.WaitAsync(TimeSpan.FromSeconds(2), reqCts.Token);
+                if (!acquired) return;
+
+                client.ReceiveTimeout = 5000;
+                client.SendTimeout = 5000;
                 using var stream = client.GetStream();
                 using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: true);
-                var requestLine = await reader.ReadLineAsync(ct);
+                var requestLine = await reader.ReadLineAsync(reqCts.Token);
                 if (string.IsNullOrWhiteSpace(requestLine)) return;
 
                 var reqParts = requestLine.Split(' ', 3);
@@ -89,7 +98,7 @@ public sealed class LocalControlApiService : IDisposable
                 string? authHeader = null;
                 while (true)
                 {
-                    var hdr = await reader.ReadLineAsync(ct);
+                    var hdr = await reader.ReadLineAsync(reqCts.Token);
                     if (string.IsNullOrEmpty(hdr)) break;
                     var colon = hdr.IndexOf(':');
                     if (colon <= 0) continue;
@@ -109,7 +118,7 @@ public sealed class LocalControlApiService : IDisposable
                         authHeader.Length != expected.Length ||
                         !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(authHeader), Encoding.UTF8.GetBytes(expected)))
                     {
-                        await WriteHttpJsonAsync(stream, 401, new { error = "Unauthorized" }, ct);
+                        await WriteHttpJsonAsync(stream, 401, new { error = "Unauthorized" }, reqCts.Token);
                         return;
                     }
                 }
@@ -121,7 +130,7 @@ public sealed class LocalControlApiService : IDisposable
                     int read = 0;
                     while (read < contentLength)
                     {
-                        int n = await reader.ReadAsync(buf, read, contentLength - read);
+                        int n = await reader.ReadAsync(buf.AsMemory(read, contentLength - read), reqCts.Token);
                         if (n <= 0) break;
                         read += n;
                     }
@@ -141,7 +150,7 @@ public sealed class LocalControlApiService : IDisposable
                         favoritesCount = cfg.Favorites?.Count ?? 0,
                         streamActive = _streamMonitor?.IsStreamActive ?? false,
                         streamProvider = _streamMonitor?.ActiveProvider ?? ""
-                    }, ct);
+                    }, reqCts.Token);
                 }
                 else if (method == "GET" && path == "/api/v1/doctor")
                 {
@@ -154,16 +163,16 @@ public sealed class LocalControlApiService : IDisposable
                         driverStatus = _driver.GetDriverStatus(),
                         connectedCount = connected.Count,
                         autoDetachOnSleep = cfg.AutoDetachOnSleep
-                    }, ct);
+                    }, reqCts.Token);
                 }
                 else if (method == "GET" && path == "/api/v1/connected")
                 {
                     var connected = await _usbip.GetConnectedDevicesAsync();
-                    await WriteHttpJsonAsync(stream, 200, new { devices = connected }, ct);
+                    await WriteHttpJsonAsync(stream, 200, new { devices = connected }, reqCts.Token);
                 }
                 else if (method == "GET" && path == "/api/v1/favorites")
                 {
-                    await WriteHttpJsonAsync(stream, 200, new { favorites = _favorites.GetFavorites() }, ct);
+                    await WriteHttpJsonAsync(stream, 200, new { favorites = _favorites.GetFavorites() }, reqCts.Token);
                 }
                 else if (method == "GET" && path == "/api/v1/devices")
                 {
@@ -172,63 +181,103 @@ public sealed class LocalControlApiService : IDisposable
                     server = Uri.UnescapeDataString(server);
                     if (!Utils.InputValidator.IsValidHost(server))
                     {
-                        await WriteHttpJsonAsync(stream, 400, new { error = "Invalid server parameter" }, ct);
+                        await WriteHttpJsonAsync(stream, 400, new { error = "Invalid server parameter" }, reqCts.Token);
                         return;
                     }
-                    var devs = await _usbip.ListRemoteDevicesAsync(server, ct);
-                    await WriteHttpJsonAsync(stream, 200, new { server, devices = devs }, ct);
+                    var devs = await _usbip.ListRemoteDevicesAsync(server, reqCts.Token);
+                    await WriteHttpJsonAsync(stream, 200, new { server, devices = devs }, reqCts.Token);
                 }
                 else if (method == "POST" && path == "/api/v1/attach")
                 {
-                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
-                    var r = doc.RootElement;
-                    var serverIp = r.TryGetProperty("serverIp", out var sEl) ? sEl.GetString() ?? "" : "";
-                    var busId = r.TryGetProperty("busId", out var bEl) ? bEl.GetString() ?? "" : "";
-                    var mode = r.TryGetProperty("mode", out var mEl) ? mEl.GetString() : null;
-                    if (!Utils.InputValidator.IsValidHost(serverIp) || !Utils.InputValidator.IsValidBusId(busId))
+                    JsonDocument doc;
+                    try
                     {
-                        await WriteHttpJsonAsync(stream, 400, new { error = "Invalid serverIp or busId" }, ct);
+                        doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+                    }
+                    catch (JsonException)
+                    {
+                        await WriteHttpJsonAsync(stream, 400, new { error = "Invalid JSON payload" }, reqCts.Token);
                         return;
                     }
-                    var op = await _usbip.ConnectAsync(serverIp, busId, mode);
-                    await WriteHttpJsonAsync(stream, op.Success ? 200 : 502, op, ct);
+                    using (doc)
+                    {
+                        var r = doc.RootElement;
+                        var serverIp = r.TryGetProperty("serverIp", out var sEl) ? sEl.GetString() ?? "" : "";
+                        var busId = r.TryGetProperty("busId", out var bEl) ? bEl.GetString() ?? "" : "";
+                        var mode = r.TryGetProperty("mode", out var mEl) ? mEl.GetString() : null;
+                        if (!Utils.InputValidator.IsValidHost(serverIp) || !Utils.InputValidator.IsValidBusId(busId))
+                        {
+                            await WriteHttpJsonAsync(stream, 400, new { error = "Invalid serverIp or busId" }, reqCts.Token);
+                            return;
+                        }
+                        var op = await _usbip.ConnectAsync(serverIp, busId, mode);
+                        await WriteHttpJsonAsync(stream, op.Success ? 200 : 502, op, reqCts.Token);
+                    }
                 }
                 else if (method == "POST" && path == "/api/v1/detach")
                 {
-                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
-                    var r = doc.RootElement;
-                    if (r.TryGetProperty("all", out var allEl) && allEl.ValueKind == JsonValueKind.True)
+                    JsonDocument doc;
+                    try
                     {
-                        int count = await _usbip.DetachAllConnectedDevicesAsync(ct);
-                        await WriteHttpJsonAsync(stream, 200, new { detached = count }, ct);
+                        doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
                     }
-                    else if (r.TryGetProperty("port", out var pEl) && pEl.TryGetInt32(out int portNum))
+                    catch (JsonException)
                     {
-                        var op = await _usbip.DisconnectAsync(portNum);
-                        await WriteHttpJsonAsync(stream, op.Success ? 200 : 400, op, ct);
+                        await WriteHttpJsonAsync(stream, 400, new { error = "Invalid JSON payload" }, reqCts.Token);
+                        return;
                     }
-                    else
+                    using (doc)
                     {
-                        await WriteHttpJsonAsync(stream, 400, new { error = "Provide 'port' or 'all': true" }, ct);
+                        var r = doc.RootElement;
+                        if (r.TryGetProperty("all", out var allEl) && allEl.ValueKind == JsonValueKind.True)
+                        {
+                            int count = await _usbip.DetachAllConnectedDevicesAsync(reqCts.Token);
+                            await WriteHttpJsonAsync(stream, 200, new { detached = count }, reqCts.Token);
+                        }
+                        else if (r.TryGetProperty("port", out var pEl) && pEl.TryGetInt32(out int portNum))
+                        {
+                            var op = await _usbip.DisconnectAsync(portNum);
+                            await WriteHttpJsonAsync(stream, op.Success ? 200 : 400, op, reqCts.Token);
+                        }
+                        else
+                        {
+                            await WriteHttpJsonAsync(stream, 400, new { error = "Provide 'port' or 'all': true" }, reqCts.Token);
+                        }
                     }
                 }
                 else if (method == "POST" && path == "/api/v1/stream")
                 {
-                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
-                    var r = doc.RootElement;
-                    bool active = r.TryGetProperty("active", out var aEl) && aEl.ValueKind == JsonValueKind.True;
-                    string provider = r.TryGetProperty("provider", out var pEl) ? (pEl.GetString() ?? "sunshine") : "sunshine";
-                    _streamMonitor?.SetStreamState(active, provider);
-                    await WriteHttpJsonAsync(stream, 200, new { status = "ok", active, provider }, ct);
+                    JsonDocument doc;
+                    try
+                    {
+                        doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+                    }
+                    catch (JsonException)
+                    {
+                        await WriteHttpJsonAsync(stream, 400, new { error = "Invalid JSON payload" }, reqCts.Token);
+                        return;
+                    }
+                    using (doc)
+                    {
+                        var r = doc.RootElement;
+                        bool active = r.TryGetProperty("active", out var aEl) && aEl.ValueKind == JsonValueKind.True;
+                        string provider = r.TryGetProperty("provider", out var pEl) ? (pEl.GetString() ?? "sunshine") : "sunshine";
+                        _streamMonitor?.SetStreamState(active, provider);
+                        await WriteHttpJsonAsync(stream, 200, new { status = "ok", active, provider }, reqCts.Token);
+                    }
                 }
                 else
                 {
-                    await WriteHttpJsonAsync(stream, 404, new { error = "Not found" }, ct);
+                    await WriteHttpJsonAsync(stream, 404, new { error = "Not found" }, reqCts.Token);
                 }
             }
             catch
             {
-                // Ignore client socket teardown
+                // Ignore client socket teardown or read timeout
+            }
+            finally
+            {
+                if (acquired) _concurrency.Release();
             }
         }
     }

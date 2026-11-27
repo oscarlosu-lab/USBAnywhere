@@ -908,16 +908,54 @@ TLS_PORT = 3243
 
 
 class PairingManager:
-    """Ephemeral 6-digit pairing code manager (5-min TTL, 5 failed attempts lockout)."""
+    """Ephemeral 6-digit pairing code manager (5-min TTL, 5 failed attempts lockout) with optional shared state file."""
 
-    def __init__(self, ttl_seconds: int = 300, max_attempts: int = 5):
+    def __init__(self, ttl_seconds: int = 300, max_attempts: int = 5, state_file: str | None = None):
         self._lock = threading.Lock()
         self._ttl = ttl_seconds
         self._max_attempts = max_attempts
+        self._state_file = state_file
         self._code = ""
         self._expires_at = 0.0
         self._failed_attempts = 0
         self._locked_until = 0.0
+
+    def _load_shared_state(self) -> None:
+        if not self._state_file or not os.path.isfile(self._state_file):
+            return
+        try:
+            with open(self._state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self._code = str(data.get("code", "") or "")
+                self._expires_at = float(data.get("expires_at", 0.0) or 0.0)
+                self._failed_attempts = int(data.get("failed_attempts", 0) or 0)
+                self._locked_until = float(data.get("locked_until", 0.0) or 0.0)
+        except Exception:
+            pass
+
+    def _save_shared_state(self) -> None:
+        if not self._state_file:
+            return
+        try:
+            parent = os.path.dirname(self._state_file)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            tmp = f"{self._state_file}.tmp.{os.getpid()}"
+            payload = {
+                "code": self._code,
+                "expires_at": self._expires_at,
+                "failed_attempts": self._failed_attempts,
+                "locked_until": self._locked_until,
+            }
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, json.dumps(payload).encode("utf-8"))
+            finally:
+                os.close(fd)
+            os.replace(tmp, self._state_file)
+        except Exception:
+            pass
 
     def create_pairing_code(self) -> tuple[str, int]:
         with self._lock:
@@ -925,11 +963,13 @@ class PairingManager:
             self._expires_at = time.time() + self._ttl
             self._failed_attempts = 0
             self._locked_until = 0.0
+            self._save_shared_state()
             return self._code, self._ttl
 
     def verify_pairing_code(self, code: str) -> tuple[bool, str, str]:
         clean = "".join(ch for ch in (code or "") if ch.isdigit())
         with self._lock:
+            self._load_shared_state()
             now = time.time()
             if now < self._locked_until:
                 return False, "", "Too many failed pairing attempts. Locked."
@@ -940,14 +980,51 @@ class PairingManager:
                 if self._failed_attempts >= self._max_attempts:
                     self._locked_until = now + self._ttl
                     self._code = ""
+                self._save_shared_state()
                 return False, "", "Invalid pairing code."
             self._code = ""
             self._failed_attempts = 0
+            self._save_shared_state()
             token = secrets.token_hex(16)
             return True, token, "Paired"
 
 
-_PAIRING_MGR = PairingManager()
+_PAIRING_MGR = PairingManager(state_file=os.path.join(os.path.dirname(POLICY_FILE), "pairing_state.json"))
+_CONTROL_SEMAPHORE = threading.BoundedSemaphore(32)
+
+
+def request_or_create_pairing(control_port: int = CONTROL_PORT) -> tuple[str, int, str, str]:
+    """Ask the running local daemon to mint a pairing code, or fall back to local PairingManager."""
+    pol = load_policy()
+    tok = (pol.get("control_token") or "").strip()
+    cmd_line = f"TOKEN {tok} PAIR_CREATE\n" if tok else "PAIR_CREATE\n"
+    try:
+        with socket.create_connection(("127.0.0.1", control_port), timeout=1.5) as s:
+            s.settimeout(1.5)
+            s.sendall(cmd_line.encode("utf-8"))
+            raw = s.recv(2048).decode("utf-8", errors="replace").strip()
+            if raw:
+                data = json.loads(raw)
+                if data.get("status") == "OK" and data.get("code"):
+                    ua2 = data.get("ua2_token", "")
+                    fp = ""
+                    if ua2.startswith("UA2:"):
+                        try:
+                            b64 = ua2[4:] + "=" * ((4 - len(ua2[4:]) % 4) % 4)
+                            parts = base64.urlsafe_b64decode(b64.encode("ascii")).decode("utf-8").split("|")
+                            if len(parts) > 5:
+                                fp = parts[5]
+                        except Exception:
+                            pass
+                    if not fp:
+                        _, _, fp = ensure_tls_cert()
+                    return str(data["code"]), int(data.get("expires_in", 300)), ua2, fp
+    except Exception:
+        pass
+    code, ttl = _PAIRING_MGR.create_pairing_code()
+    _, _, fp = ensure_tls_cert()
+    ua2 = build_ua2_token(get_lan_ip(), PORT, socket.gethostname(), TLS_PORT, code, fp)
+    return code, ttl, ua2, fp
 
 
 def build_ua2_token(host: str, usbip_port: int, server_name: str, tls_port: int, code: str, tls_fingerprint: str = "") -> str:
@@ -1042,13 +1119,23 @@ def run_tls_tunnel(listen_port: int = TLS_PORT, target_host: str = "127.0.0.1", 
 
 def handle_control_client(sock, addr):
     """Handle incoming on-demand control command (TCP 3241)."""
+    acquired = _CONTROL_SEMAPHORE.acquire(timeout=2.0)
+    if not acquired:
+        try:
+            sock.sendall(b'{"status": "ERROR", "message": "Server busy"}\n')
+        except Exception:
+            pass
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return
     try:
         sock.settimeout(5.0)
         data = sock.recv(1024).decode("utf-8").strip()
         if not data:
-            sock.close()
             return
-        
+
         client_ip = addr[0] if addr else ""
         pol_auth = load_policy()
         if not is_client_ip_allowed(client_ip, pol_auth):
@@ -1066,10 +1153,14 @@ def handle_control_client(sock, addr):
             pol_save["control_token"] = tok
             save_policy(pol_save)
             _, _, fp = ensure_tls_cert()
+            host = socket.gethostname()
             payload = {
                 "status": "OK",
-                "server_name": socket.gethostname(),
+                "server": host,
+                "server_name": host,
+                "token": tok,
                 "control_token": tok,
+                "usbip_port": PORT,
                 "tls_port": TLS_PORT,
                 "tls_fingerprint": fp
             }
@@ -1082,6 +1173,11 @@ def handle_control_client(sock, addr):
             return
         cmd = parts[0].upper()
         if cmd == "PAIR_CREATE":
+            is_loopback = client_ip in ("127.0.0.1", "::1", "::ffff:127.0.0.1")
+            has_token = bool((pol_auth.get("control_token") or "").strip())
+            if not is_loopback and not has_token:
+                sock.sendall((json.dumps({"status": "DENIED", "message": "PAIR_CREATE is restricted to localhost unless control_token is configured"}) + "\n").encode("utf-8"))
+                return
             code, ttl = _PAIRING_MGR.create_pairing_code()
             _, _, fp = ensure_tls_cert()
             ua2 = build_ua2_token(get_lan_ip(), PORT, socket.gethostname(), TLS_PORT, code, fp)
@@ -1125,7 +1221,8 @@ def handle_control_client(sock, addr):
             resp = json.dumps({"status": "OK" if ok else "ERROR", "busid": target_bus, "action": "unbind"}) + "\n"
             sock.sendall(resp.encode("utf-8"))
         elif cmd == "STATUS":
-            st = get_service_status()
+            st = dict(get_service_status())
+            st.setdefault("status", "OK")
             resp = json.dumps(st) + "\n"
             sock.sendall(resp.encode("utf-8"))
         else:
@@ -1141,6 +1238,7 @@ def handle_control_client(sock, addr):
             sock.close()
         except Exception:
             pass
+        _CONTROL_SEMAPHORE.release()
 
 def run_udp_discovery_responder(port=CONTROL_PORT, bind_address=None):
     """Listen for incoming UDP discovery probes on port 3241 and reply with server identity."""
@@ -1199,7 +1297,7 @@ def run_dynamic_daemon(port=CONTROL_PORT, bind_address=None):
                 srv.bind(("0.0.0.0", port))
             else:
                 raise
-        srv.listen(5)
+        srv.listen(64)
     except Exception as e:
         print(f"{RED}Error binding to control port {port}: {e}{RESET}")
         return
@@ -2752,6 +2850,7 @@ def main():
     parser.add_argument("extra", nargs="?", default=None, help="Additional argument for policy management")
     parser.add_argument("--json", action="store_true", help="Output status, list, policy, or doctor in JSON format")
     parser.add_argument("--reset", action="store_true", help="Reset USB device before sharing")
+    parser.add_argument("-f", "--follow", action="store_true", help="Follow logs continuously (for 'logs' command)")
 
     args = parser.parse_args()
 
@@ -2911,9 +3010,9 @@ def main():
         sys.exit(0 if ok else 1)
     elif args.command == "logs":
         if IS_MACOS:
-            os.system("tail -f /var/log/usbanywhere-server.log")
+            os.system("tail -f /var/log/usbanywhere-server.log" if args.follow else "tail -n 100 /var/log/usbanywhere-server.log")
         elif IS_LINUX:
-            os.system("journalctl -u usbipd -f")
+            os.system("journalctl -u usbipd -f" if args.follow else "journalctl -u usbipd -n 100 --no-pager")
     elif args.command == "scan":
         scan_network_servers()
     elif args.command == "remote":
@@ -2937,10 +3036,8 @@ def main():
     elif args.command == "client-sleep-hook":
         sys.exit(0 if run_client_sleep_hook(args.busid or "pre") else 1)
     elif args.command == "pair":
-        code, ttl = _PAIRING_MGR.create_pairing_code()
-        _, _, fp = ensure_tls_cert()
+        code, ttl, ua2, fp = request_or_create_pairing()
         host_ip = get_lan_ip()
-        ua2 = build_ua2_token(host_ip, PORT, socket.gethostname(), TLS_PORT, code, fp)
         if args.json:
             print(json.dumps({"code": code, "expires_in": ttl, "host": host_ip, "tls_port": TLS_PORT, "tls_fingerprint": fp, "ua2_token": ua2}, indent=2))
         else:

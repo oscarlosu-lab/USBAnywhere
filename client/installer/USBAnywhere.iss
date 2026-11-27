@@ -10,7 +10,7 @@
 #define MyAppExeName "USBAnywhere.exe"
 
 [Setup]
-AppId={{B8F3D2A1-5E7C-4D9A-8B2E-1F6C3A9D0E5B}
+AppId={{7D9E4B2A-3C81-4F6E-9A1D-8E5B2C7F4A90}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
@@ -96,5 +96,48 @@ begin
   begin
     if PortableVal <> 0 then
       Result := False;
+  end;
+end;
+
+procedure CleanupLegacyClientKey(RootKey: Integer);
+var
+  LegacyKey, DisplayName, OldDir, OldExe, CurDir: String;
+  ResultCode: Integer;
+begin
+  LegacyKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{B8F3D2A1-5E7C-4D9A-8B2E-1F6C3A9D0E5B}_is1';
+  if RegQueryStringValue(RootKey, LegacyKey, 'DisplayName', DisplayName) then
+  begin
+    if CompareText(Trim(DisplayName), 'USBAnywhere') = 0 then
+    begin
+      if RegQueryStringValue(RootKey, LegacyKey, 'InstallLocation', OldDir) then
+      begin
+        OldDir := RemoveBackslashUnlessRoot(Trim(OldDir));
+        CurDir := RemoveBackslashUnlessRoot(ExpandConstant('{app}'));
+        if (OldDir <> '') and (CompareText(OldDir, CurDir) <> 0) then
+        begin
+          OldExe := AddBackslash(OldDir) + 'USBAnywhere.exe';
+          if FileExists(OldExe) then
+          begin
+            Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM USBAnywhere.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+            DeleteFile(OldExe);
+          end;
+        end;
+      end;
+      RegDeleteKeyIncludingSubkeys(RootKey, LegacyKey);
+    end;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  RunVal: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    CleanupLegacyClientKey(HKLM64);
+    CleanupLegacyClientKey(HKLM32);
+    CleanupLegacyClientKey(HKCU);
+    if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#MyAppName}', RunVal) then
+      RegWriteStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#MyAppName}', '"' + ExpandConstant('{app}\{#MyAppExeName}') + '" --minimized');
   end;
 end;

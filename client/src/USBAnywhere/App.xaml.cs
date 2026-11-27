@@ -52,7 +52,18 @@ public partial class App : System.Windows.Application
 
         try
         {
-            // ── STEP 1: Auto-elevate if not admin ──────────────────────────
+            // ── STEP 1: Headless CLI commands before UAC so non-admin queries (--status/--doctor/--pair) never block ──
+            if (IsHeadlessCliInvocation(e.Args))
+            {
+                bool handled = Task.Run(() => TryHandleHeadlessCliAsync(e.Args)).GetAwaiter().GetResult();
+                if (handled)
+                {
+                    Shutdown(0);
+                    return;
+                }
+            }
+
+            // ── STEP 1.5: Auto-elevate if not admin ──────────────────────────
             if (!IsRunningAsAdmin())
             {
                 try
@@ -85,17 +96,6 @@ public partial class App : System.Windows.Application
 
                 Shutdown();
                 return;
-            }
-
-            // ── STEP 1.5: Headless CLI commands (--disconnect-all / --disconnect / --quit) ──
-            if (IsHeadlessCliInvocation(e.Args))
-            {
-                bool handled = Task.Run(() => TryHandleHeadlessCliAsync(e.Args)).GetAwaiter().GetResult();
-                if (handled)
-                {
-                    Shutdown(0);
-                    return;
-                }
             }
 
             // ── STEP 2: Single instance guard (forward --connect/--attach if already running) ──
@@ -295,7 +295,7 @@ public partial class App : System.Windows.Application
 
         try
         {
-            if (statusCmd || doctorCmd || !string.IsNullOrWhiteSpace(pairHost))
+            if ((statusCmd || doctorCmd || !string.IsNullOrWhiteSpace(pairHost)) && !Console.IsOutputRedirected)
             {
                 try { AttachConsole(-1); } catch { }
             }
@@ -327,7 +327,7 @@ public partial class App : System.Windows.Application
             }
 
             var services = new ServiceCollection();
-            ConfigureServices(services);
+            ConfigureServices(services, suppressConsoleLogging: true);
             using var sp = services.BuildServiceProvider();
             sp.GetRequiredService<IEnvironmentService>().Initialize();
             var logger = sp.GetRequiredService<ILoggerService>();
@@ -396,11 +396,18 @@ public partial class App : System.Windows.Application
         {
             Debug.WriteLine($"[HeadlessCli] {ex.Message}");
         }
+        finally
+        {
+            try { Console.Out.Flush(); } catch { }
+        }
 
         return true;
     }
 
-    private static void ConfigureServices(IServiceCollection services)
+    private static void ConfigureServices(IServiceCollection services) =>
+        ConfigureServices(services, suppressConsoleLogging: false);
+
+    private static void ConfigureServices(IServiceCollection services, bool suppressConsoleLogging)
     {
         // Core infrastructure
         services.AddSingleton<IEnvironmentService, EnvironmentService>();
@@ -411,7 +418,8 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ILoggerProvider, FileLoggerProvider>();
         services.AddLogging(b =>
         {
-            b.AddConsole();
+            if (!suppressConsoleLogging)
+                b.AddConsole();
             // FileLoggerProvider already registered as Singleton above
             b.SetMinimumLevel(LogLevel.Information);
         });

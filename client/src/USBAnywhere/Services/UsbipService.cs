@@ -335,10 +335,16 @@ namespace USBAnywhere.Services
                     var nativeRes = VhciNativeClient.TryAttachDevice(targetHost, busId, wskEvents, once: attachOnce, serial: serial, servicePort: targetPort);
                     if (nativeRes.InterfaceAvailable && !nativeRes.ShouldFallbackToCli)
                     {
-                        if (nativeRes.Port <= 0 &&
-                            (bindStatus.BoundOnDemand || VhciNativeClient.IsTransientNotReadyError(nativeRes.Win32Error)))
+                        int[] retryDelaysMs = { 250, 450, 700 };
+                        for (int rIdx = 0;
+                             rIdx < retryDelaysMs.Length &&
+                             nativeRes.InterfaceAvailable &&
+                             !nativeRes.ShouldFallbackToCli &&
+                             nativeRes.Port <= 0 &&
+                             (bindStatus.BoundOnDemand || VhciNativeClient.IsTransientNotReadyError(nativeRes.Win32Error));
+                             rIdx++)
                         {
-                            if (!bindStatus.BoundOnDemand)
+                            if (!bindStatus.BoundOnDemand || rIdx == 1)
                             {
                                 bindStatus = await TryDynamicBindAsync(ip, busId, ct);
                                 if (!bindStatus.Allowed)
@@ -349,7 +355,7 @@ namespace USBAnywhere.Services
                                 }
                             }
 
-                            await Task.Delay(bindStatus.BoundOnDemand ? 350 : 500, ct);
+                            await Task.Delay(retryDelaysMs[rIdx], ct);
                             nativeRes = VhciNativeClient.TryAttachDevice(targetHost, busId, wskEvents, once: attachOnce, serial: serial, servicePort: targetPort);
                         }
 
@@ -1060,6 +1066,18 @@ namespace USBAnywhere.Services
             return Encoding.UTF8.GetString(ms.ToArray());
         }
 
+        internal string FormatControlCommand(string ip, string command, AppConfig? cfg = null)
+        {
+            var effectiveCfg = cfg ?? _configService?.Load();
+            var paired = effectiveCfg?.PairedServers?.FirstOrDefault(s =>
+                string.Equals(s.Host, ip, StringComparison.OrdinalIgnoreCase));
+            if (paired != null && !string.IsNullOrWhiteSpace(paired.ControlToken))
+            {
+                return $"TOKEN {paired.ControlToken.Trim()} {command}\n";
+            }
+            return $"{command}\n";
+        }
+
         private async Task<(bool Allowed, bool BoundOnDemand, string? ErrorMessage)> TryDynamicBindAsync(string ip, string busId, CancellationToken ct)
         {
             for (int attempt = 0; attempt < 2; attempt++)
@@ -1072,7 +1090,7 @@ namespace USBAnywhere.Services
                     await tcp.ConnectAsync(ip, 3241, connectCts.Token);
 
                     using var stream = tcp.GetStream();
-                    var msg = Encoding.UTF8.GetBytes($"BIND {busId}\n");
+                    var msg = Encoding.UTF8.GetBytes(FormatControlCommand(ip, $"BIND {busId}"));
                     await stream.WriteAsync(msg, 0, msg.Length, connectCts.Token);
                     _logger.LogDebug("Comando dinámico BIND {BusId} enviado a {IP}:3241 (intento {Attempt}/2)", busId, ip, attempt + 1);
 
@@ -1132,7 +1150,7 @@ namespace USBAnywhere.Services
                 await tcp.ConnectAsync(ip, 3241, cts.Token);
 
                 using var stream = tcp.GetStream();
-                var msg = Encoding.UTF8.GetBytes($"UNBIND {busId}\n");
+                var msg = Encoding.UTF8.GetBytes(FormatControlCommand(ip, $"UNBIND {busId}"));
                 await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
                 _logger.LogDebug("Comando dinámico UNBIND {BusId} enviado a {IP}:3241", busId, ip);
 
@@ -1156,7 +1174,7 @@ namespace USBAnywhere.Services
                 cts.CancelAfter(1200);
                 await tcp.ConnectAsync(ip, 3241, cts.Token);
                 using var stream = tcp.GetStream();
-                var msg = Encoding.UTF8.GetBytes("LIST\n");
+                var msg = Encoding.UTF8.GetBytes(FormatControlCommand(ip, "LIST"));
                 await stream.WriteAsync(msg, 0, msg.Length, cts.Token);
 
                 string json = (await ReadBoundedUtf8Async(stream, 65536, stopAtNewLine: false, cts.Token)).Trim();

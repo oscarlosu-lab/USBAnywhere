@@ -158,7 +158,7 @@ Connect your diode laser (GRBL/Ruida) and overhead alignment camera simultaneous
 4. Done!
 
 ### Option 2: Installer (x64 Recommended)
-1. Download `USBAnywhere_Setup_v3.6.0.exe` from [USBAnywhere Releases (v3.5.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0)
+1. Download `USBAnywhere_Setup_v3.6.0.exe` from [USBAnywhere Releases (v3.6.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0)
 2. Run the installer as Administrator
 3. Follow the installation wizard
 
