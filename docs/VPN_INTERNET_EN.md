@@ -123,9 +123,9 @@ sudo zerotier-cli status
 ```
 
 1. **Tailscale/ZeroTier** creates a VPN tunnel between both devices
-2. **USBAnywhere** detects VPN peers
-3. **Scans port 3240** on each peer to find USB/IP servers
-4. **Connects** using the standard USB/IP protocol over the VPN
+2. **USBAnywhere** detects VPN peers (or pair directly using a 6-digit code / `UA2:` WAN token)
+3. **Scans port 3240** on each peer (or tunnels over certificate-pinned **TLS 1.3 on `TCP 3243`** when paired)
+4. **Connects** using the standard USB/IP protocol over the VPN (`BindAddress` can scope listeners exclusively to your VPN interface)
 
 ## ❓ Troubleshooting
 

@@ -123,9 +123,9 @@ sudo zerotier-cli status
 ```
 
 1. **Tailscale/ZeroTier** crea un túnel VPN entre ambos dispositivos
-2. **USBAnywhere** detecta los peers de la VPN
-3. **Escanea puerto 3240** en cada peer para encontrar servidores USB/IP
-4. **Conecta** usando el protocolo USB/IP estándar sobre la VPN
+2. **USBAnywhere** detecta los peers de la VPN (o empareja directamente con código de 6 dígitos / token WAN `UA2:`)
+3. **Escanea puerto 3240** en cada peer (o cifra el tráfico mediante **TLS 1.3 con pinning SHA-256 en `TCP 3243`** al emparejar)
+4. **Conecta** usando el protocolo USB/IP estándar sobre la VPN (`BindAddress` permite acotar la escucha exclusivamente a tu interfaz VPN)
 
 ## ❓ Solución de Problemas
 

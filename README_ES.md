@@ -2,7 +2,7 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.6.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.6.1** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
@@ -43,7 +43,7 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
 
 ## ⚔️ ¿Por qué cambiar de VirtualHere a USBAnywhere?
 
-| Característica | **USBAnywhere v3.6.0** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
+| Característica | **USBAnywhere v3.6.1** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: | :---: |
 | **Precio y Licencia** | **100% Gratis y Código Abierto (GPLv3)** | 49,00 USD / Servidor | ~15–30+ USD / mes SaaS | +159,00 USD |
 | **Dispositivos Simultáneos (Free)** | **♾️ Ilimitados** | ⚠️ Solo 1 dispositivo | ❌ Trial 20 min / 1 Conex. | ❌ Trial limitado |
@@ -141,16 +141,16 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Releases (v3.6.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0):
-   - **Windows x64**: `USBAnywhere-v3.6.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.6.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+1. Descarga desde [USBAnywhere Releases (v3.6.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.1):
+   - **Windows x64**: `USBAnywhere-v3.6.1-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.6.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
    - **Cliente y Servidor Linux**: Ejecuta [`scripts/install-server.sh`](scripts/install-server.sh) (ver instalador de 1 línea abajo)
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.6.0.exe` desde [USBAnywhere Releases (v3.6.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0)
+1. Descarga `USBAnywhere_Setup_v3.6.1.exe` desde [USBAnywhere Releases (v3.6.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.1)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 

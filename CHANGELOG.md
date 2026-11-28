@@ -1,5 +1,14 @@
 # CHANGELOG - USBAnywhere
 
+## [3.6.1] - 2026-11-28
+
+### Fixed
+- **Windows Client `MainWindow` Layout & ES/EN Localization (`MainWindow.xaml`, `MainWindow.xaml.cs`, `LocalizationService.cs`)**:
+  - Expanded window dimensions to `780x820` (`MinWidth=760`, `MinHeight=780`), converted the title bar to a 3-column responsive grid, widened the server IP box/toolbar buttons, and separated bottom status-bar checkboxes (`chkSessionIsolation` on its own row) from `btnReceiveMode` / driver buttons to eliminate overlapping controls.
+  - Added full ES/EN localization for `btnPair`, `chkLocalApi`, `btnCopyApiToken`, `chkSessionIsolation`, and the `menuAttachMode` context submenu.
+- **GitHub Pages & Documentation Parity (`docs/index.html`, `docs/*.md`, `SECURITY*.md`)**:
+  - Updated `docs/index.html` Server/Android/macOS download links to `v3.5.0`, refreshed `capture_01_mainwindow_dark.png`, and updated all user/security manuals for `v3.6.0`/`v3.6.1`.
+
 ## [3.6.0] - 2026-11-27
 
 ### Added

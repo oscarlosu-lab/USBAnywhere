@@ -6,9 +6,9 @@
 
 | Version | Supported          | Status |
 | ------- | ------------------ | ------ |
-| 3.5.0 | :white_check_mark: | Latest Stable Release |
-| 3.4.x   | :white_check_mark: | Active Stable (Current: v3.4.1) |
-| < 3.4   | :x:                | Unsupported (Upgrade to USBAnywhere v3.4.1+) |
+| 3.6.1   | :white_check_mark: | Latest Stable Release |
+| 3.5.x   | :white_check_mark: | Active Stable |
+| < 3.5   | :x:                | Unsupported (Upgrade to USBAnywhere v3.6.1) |
 
 ---
 
@@ -37,8 +37,10 @@
 - **macOS Server**: Utilizes native Apple **Userspace IOKit** (`IOKit.framework`). Operates without third-party Kernel Extensions (`.kext`) and retains complete compatibility with Apple Silicon **System Integrity Protection (SIP)**. Privileges are managed securely via system `launchd` LaunchDaemons.
 - **Linux Server**: Runs via a dedicated systemd service (`usbipd.service` + `usbanywhere-autounbind.service`) and confines USB export operations via targeted udev rules.
 
-### 6. Control Plane Hardening (`TCP 3241`) & CI Security Gates
-- **Optional IP Allowlist & HMAC Token Auth (`v3.5.0`)**: `usbanywhere-ctl` supports `allowed_ips` filtering and constant-time HMAC `control_token` verification (`policy allow-ip|deny-ip|set-token|clear-token`) for `LIST`/`BIND`/`UNBIND`/`POLICY` commands over TCP `3241`.
+### 6. Control Plane Hardening (`TCP 3241`), Pinned TLS 1.3 (`TCP 3243`) & CI Gates
+- **6-Digit / `UA2:` Pairing & SHA-256 Pinned TLS 1.3 (`v3.6.1`)**: `PairingClientService` and `TlsTunnelBridge` verify server certificate fingerprints with constant-time SHA-256 comparison; Linux `PAIR_CREATE` on `TCP 3241` is loopback-only unless `control_token` is set.
+- **Bearer-Authenticated Local REST API (`127.0.0.1:13241`) & WTS Isolation (`v3.6.1`)**: Loopback-only HTTP control API gated by per-install Bearer token and `SemaphoreSlim` concurrency bounds; WTS session isolation prevents inactive Windows sessions from attaching devices.
+- **Optional IP Allowlist & HMAC Token Auth (`v3.5.0+`)**: `usbanywhere-ctl` supports `allowed_ips` filtering and constant-time HMAC `control_token` verification (`policy allow-ip|deny-ip|set-token|clear-token`) for `LIST`/`BIND`/`UNBIND`/`POLICY` commands over TCP `3241`.
 - **Automated Supply-Chain Gates**: Every commit is scanned by **CodeQL SAST**, **Gitleaks**, **OpenSSF Scorecard**, and **SignPath Foundation** Authenticode code signing.
 
 ---

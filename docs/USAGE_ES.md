@@ -140,8 +140,9 @@ El cliente USBAnywhere se conecta de forma transparente a cualquier servidor USB
 |--------|-------------|
 | ▶️ Conectar | Conecta el dispositivo USB remoto (o favorito) a tu PC |
 | ⏹️ Desconectar | Libera el dispositivo USB conectado |
-| ⭐ Añadir a Favoritos | Guarda el dispositivo para reconexión rápida |
+| ⭐ Añadir a Favoritos | Guarda el dispositivo para reconexión rápida (con desambiguación `[Rev:XXXX]`) |
 | ❌ Quitar de Favoritos | Elimina el dispositivo de la lista de favoritos |
+| 🎬 Modo de conexión | Elige `always`, `only-during-stream` (auto-conexión durante stream) o `manual` (`v3.6.0`) |
 | 🗑️ Quitar servidor | Elimina el servidor del árbol |
 | 📋 Propiedades | Muestra información detallada (`VID:PID`, fabricante, producto, puerto local) |
 | ✏️ Renombrar | Asigna un nombre personalizado persistente al dispositivo (`VID:PID`) |
@@ -197,6 +198,13 @@ Al cerrar la aplicación, apagar el PC (`AutoDetachOnExit: true`) o desinstalar 
 - **Números de Serie USB Personalizados**: Asigna un `Serial` personalizado por dispositivo para mantener estables puertos COM, mandos o dongles de licencia.
 - **Capacidad de Puertos del Hub Virtual**: Configura el número de puertos USB 2.0 y USB 3.0 del hub virtual (`30` / `30` por defecto).
 - **Paquete de Diagnóstico en 1 Clic**: Exporta un archivo `.zip` con el estado del driver, puertos VHCI importados, configuración del hub y logs recientes.
+
+## 🔐 Emparejamiento, TLS 1.3 Pinning, Handoff de Streaming y Automatización (`v3.6.0`)
+
+- **Emparejamiento 6 Dígitos / `UA2:` y Túnel TLS 1.3 (`TCP 3243`)**: Pulsa **🔐 Emparejar** (o ejecuta `USBAnywhere.exe --pair <host> <código>`) para vincular servidores Windows, macOS, Linux o Android mediante códigos de 6 dígitos o tokens QR `UA2:`. Una vez emparejado, `UsbipService` abre automáticamente un puente loopback TLS 1.2/1.3 con pinning SHA-256 sobre `TCP 3243`.
+- **Handoff Multi-Proveedor (`only-during-stream`)**: Detecta **Sunshine, Apollo, Vibeshine, Vibepollo, Parsec y Steam Remote Play** y conecta/desconecta automáticamente los favoritos configurados con `only-during-stream`.
+- **Aislamiento Multi-Sesión WTS**: Garantiza que cada puerto conectado pertenezca a la sesión activa de Windows y evita reconexiones automáticas en sesiones bloqueadas o desconectadas.
+- **API REST Local (`127.0.0.1:13241`), Servidor MCP y CLI JSON Headless**: Activa la API local en la barra inferior (`📋 Token` copia el token Bearer), usa `usbanywhere-mcp.py` (6 herramientas), ejecuta `USBAnywhere.exe --status --json` / `--doctor --json` sin UAC o consulta [HOME_ASSISTANT.md](HOME_ASSISTANT.md).
 
 ---
 

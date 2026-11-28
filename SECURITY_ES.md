@@ -6,9 +6,9 @@
 
 | Versión | Estado              | Comentarios |
 | ------- | ------------------- | ----------- |
-| 3.5.0 | :white_check_mark: | Latest Stable Release |
-| 3.4.x   | :white_check_mark:  | Estable Activa (Actual: v3.4.1) |
-| < 3.4   | :x:                 | Sin soporte (Actualizar a USBAnywhere v3.4.1+) |
+| 3.6.1   | :white_check_mark: | Latest Stable Release |
+| 3.5.x   | :white_check_mark: | Estable Activa |
+| < 3.5   | :x:                 | Sin soporte (Actualizar a USBAnywhere v3.6.1) |
 
 ---
 
@@ -37,8 +37,10 @@
 - **Servidor macOS**: Diseñado mediante **Userspace IOKit** (`IOKit.framework`). Opera sin extensiones de kernel (`.kext`) y preserva la integridad total de **SIP (System Integrity Protection)** en Apple Silicon. El demonio se ejecuta con privilegios controlados mediante `launchd`.
 - **Servidor Linux**: Se ejecuta bajo servicios systemd dedicados (`usbipd.service` + `usbanywhere-autounbind.service`) y restringe la exportación de periféricos mediante reglas udev específicas.
 
-### 6. Endurecimiento del Plano de Control (`TCP 3241`) y Puertas CI
-- **Lista Blanca de IPs y Token HMAC Opcional (`v3.5.0`)**: `usbanywhere-ctl` soporta filtrado `allowed_ips` y verificación `control_token` por HMAC en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) para comandos sobre TCP `3241`.
+### 6. Endurecimiento del Plano de Control (`TCP 3241`), TLS 1.3 (`TCP 3243`) y Puertas CI
+- **Emparejamiento 6 Dígitos / `UA2:` y TLS 1.3 con Pinning SHA-256 (`v3.6.1`)**: `PairingClientService` y `TlsTunnelBridge` validan la huella del certificado en tiempo constante; en Linux `PAIR_CREATE` sobre `TCP 3241` está restringido a loopback salvo que exista `control_token`.
+- **API REST Local (`127.0.0.1:13241`) con Token Bearer y Aislamiento WTS (`v3.6.1`)**: API HTTP acotada a loopback con autenticación Bearer y límites de concurrencia; el aislamiento WTS impide adjuntar dispositivos desde sesiones de Windows inactivas.
+- **Lista Blanca de IPs y Token HMAC Opcional (`v3.5.0+`)**: `usbanywhere-ctl` soporta filtrado `allowed_ips` y verificación `control_token` por HMAC en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) para comandos sobre TCP `3241`.
 - **Auditoría Automatizada en CI**: Cada commit pasa por **CodeQL SAST**, **Gitleaks**, **OpenSSF Scorecard** y firma Authenticode con **SignPath Foundation**.
 
 ---

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>USBAnywhere v3.6.0 — Share Joysticks, 3D Printers, Laser Engravers &amp; Any USB Over Network</title>
+  <title>USBAnywhere v3.6.1 — Share Joysticks, 3D Printers, Laser Engravers &amp; Any USB Over Network</title>
   <meta name="description" content="Free open-source USB over IP software to share DualSense/Xbox joysticks, 3D printers, LightBurn/GRBL laser cutters, webcams, audio, and any USB device over LAN or VPN. Native Windows VHCI IOCTL engine with WHQL drivers.">
   <meta name="keywords" content="USBAnywhere, USB over IP, USB over network, share USB over network, FlexiHub alternative, VirtualHere alternative, USB Network Gate alternative, share joystick over network, DualSense remote USB, 3D printer USB over network, LightBurn laser USB over IP, Raspberry Pi USB server, usbip windows WHQL">
   <meta name="author" content="oscarlosu-lab">
@@ -15,7 +15,7 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="USBAnywhere">
-  <meta property="og:title" content="USBAnywhere v3.6.0 — Share Joysticks, 3D Printers &amp; Laser Cutters Over Network">
+  <meta property="og:title" content="USBAnywhere v3.6.1 — Share Joysticks, 3D Printers &amp; Laser Cutters Over Network">
   <meta property="og:description" content="Free GPL-3.0 USB/IP suite for Windows, Linux, macOS &amp; Android. Share gamepads, 3D printers, laser engravers, and any USB peripheral over LAN or VPN with WHQL drivers.">
   <meta property="og:url" content="https://oscarlosu-lab.github.io/USBAnywhere/">
   <meta property="og:image" content="https://oscarlosu-lab.github.io/USBAnywhere/assets/captures/capture_01_mainwindow_dark.png">
@@ -24,7 +24,7 @@
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="USBAnywhere v3.6.0 — Open-Source USB Over Network">
+  <meta name="twitter:title" content="USBAnywhere v3.6.1 — Open-Source USB Over Network">
   <meta name="twitter:description" content="Share USB joysticks, 3D printers, laser cutters, and any USB device over LAN/VPN. Native Windows VHCI IOCTL + WHQL drivers, 100% free.">
   <meta name="twitter:image" content="https://oscarlosu-lab.github.io/USBAnywhere/assets/captures/capture_01_mainwindow_dark.png">
 
@@ -35,11 +35,11 @@
       {
         "@type": "SoftwareApplication",
         "name": "USBAnywhere",
-        "softwareVersion": "3.6.0",
+        "softwareVersion": "3.6.1",
         "operatingSystem": "Windows 10, Windows 11, Linux, macOS, Android, Android TV",
         "applicationCategory": "UtilitiesApplication",
         "url": "https://oscarlosu-lab.github.io/USBAnywhere/",
-        "downloadUrl": "https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.0/USBAnywhere_Setup_v3.6.0.exe",
+        "downloadUrl": "https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.1/USBAnywhere_Setup_v3.6.1.exe",
         "license": "https://www.gnu.org/licenses/gpl-3.0.html",
         "description": "Free open-source USB/IP suite to share USB joysticks, gamepads, 3D printers, laser cutters/engravers, audio devices, and any USB peripheral over LAN or VPN.",
         "offers": {
@@ -150,7 +150,7 @@
         <div class="flex flex-col leading-tight">
           <div class="flex items-center gap-2">
             <span class="text-base font-bold tracking-tight text-white uppercase">USBAnywhere</span>
-            <span class="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-chassis-800 border border-chassis-700 text-signal-amber rounded">v3.6.0</span>
+            <span class="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-chassis-800 border border-chassis-700 text-signal-amber rounded">v3.6.1</span>
           </div>
           <span class="text-[10px] font-mono uppercase tracking-widest text-slate-400">WHQL • IOCTL VHCI • GPL-3.0</span>
         </div>
@@ -176,7 +176,7 @@
           <i data-lucide="github" class="w-4 h-4"></i>
         </a>
         <a href="#downloads" class="px-3.5 py-1.5 rounded bg-signal-amber hover:bg-amber-400 text-chassis-950 text-xs font-mono font-bold uppercase tracking-wider transition-colors" data-i18n="btn_download_nav">
-          Download v3.6.0
+          Download v3.6.1
         </a>
       </div>
     </div>
@@ -191,7 +191,7 @@
         <div class="lg:col-span-7 space-y-6">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded bg-chassis-900 border border-chassis-700 text-[11px] font-mono text-signal-emerald">
             <span class="w-2 h-2 rounded-full bg-signal-emerald"></span>
-            <span data-i18n="hero_status">PRODUCTION BUILD v3.6.0 • DIRECT KERNEL IOCTL TRANSPORT</span>
+            <span data-i18n="hero_status">PRODUCTION BUILD v3.6.1 • DIRECT KERNEL IOCTL TRANSPORT</span>
           </div>
 
           <h1 class="text-3xl sm:text-5xl font-bold tracking-tight text-white leading-tight" data-i18n="hero_title">
@@ -289,20 +289,20 @@
             <span class="text-xs font-mono text-signal-emerald">02 / CONTROL_PLANE</span>
             <i data-lucide="radio" class="w-4 h-4 text-signal-emerald"></i>
           </div>
-          <h3 class="text-base font-bold text-white" data-i18n="card2_title">On-Demand TCP/UDP 3241</h3>
+          <h3 class="text-base font-bold text-white" data-i18n="card2_title">On-Demand TCP/UDP 3241 &amp; Pinned TLS 1.3</h3>
           <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card2_desc">
-            Automatic LAN/VPN discovery on UDP 3241, serialized <code class="font-mono text-slate-200">LIST / BIND / UNBIND / STATUS</code> over TCP 3241 with optional IP allowlist and HMAC token auth, plus immediate host release on detach.
+            LAN/VPN discovery on UDP 3241, serialized <code class="font-mono text-slate-200">LIST / BIND / UNBIND / PAIR</code> over TCP 3241, 6-digit / <code class="font-mono text-slate-200">UA2:</code> pairing, and certificate-pinned TLS 1.3 tunneling (<code class="font-mono text-slate-200">TCP 3243</code>).
           </p>
         </div>
 
         <div class="p-6 rounded panel-surface hover:border-chassis-600 transition-colors">
           <div class="flex items-center justify-between mb-4">
-            <span class="text-xs font-mono text-slate-400">03 / KERNEL_HARDENING</span>
+            <span class="text-xs font-mono text-slate-400">03 / AUTOMATION_&_STREAMING</span>
             <i data-lucide="shield-check" class="w-4 h-4 text-slate-300"></i>
           </div>
-          <h3 class="text-base font-bold text-white" data-i18n="card3_title">Persistence, Diagnostics &amp; SBC Ready</h3>
+          <h3 class="text-base font-bold text-white" data-i18n="card3_title">Streaming Handoff, REST API &amp; MCP</h3>
           <p class="text-sm text-slate-400 mt-2 leading-relaxed" data-i18n="card3_desc">
-            Supports Windows kernel boot persistence, custom USB serials, Virtual Hub port tuning, 1-click diagnostics ZIP export, UAS storage warnings, and Linux <code class="font-mono text-slate-200">usbip-host</code>/<code class="font-mono text-slate-200">dwc2</code> patches.
+            Auto-attach during Sunshine, Apollo, Vibeshine, Vibepollo, Parsec &amp; Steam Remote Play, WTS session isolation, loopback REST API (<code class="font-mono text-slate-200">:13241</code>), 6-tool MCP server, <code class="font-mono text-slate-200">[Rev:XXXX]</code> Smart Favorites, and boot persistence.
           </p>
         </div>
       </div>
@@ -364,22 +364,22 @@
         <div class="p-4 rounded panel-surface">
           <div class="text-slate-500 uppercase">Windows Client</div>
           <div class="text-white font-bold mt-1">.NET 9 WPF (x64 / ARM64)</div>
-          <div class="text-slate-400 mt-1">WSK Kernel Socket + Native IOCTL</div>
+          <div class="text-slate-400 mt-1">IOCTL + TLS 1.3 + REST :13241 + WTS</div>
         </div>
         <div class="p-4 rounded panel-surface">
-          <div class="text-slate-500 uppercase">Windows Server</div>
-          <div class="text-white font-bold mt-1">.NET 9 Single-File + usbipd-win</div>
-          <div class="text-slate-400 mt-1">VBoxUSB Stub + Registry Guard</div>
+          <div class="text-slate-500 uppercase">Windows &amp; macOS Server</div>
+          <div class="text-white font-bold mt-1">.NET 9 + Swift IOUSBHost</div>
+          <div class="text-slate-400 mt-1">6-Digit Pair + TLS 3243 + Virtual Mic</div>
         </div>
         <div class="p-4 rounded panel-surface">
           <div class="text-slate-500 uppercase">Linux Server / Client</div>
           <div class="text-white font-bold mt-1">systemd + usbip-host / vhci_hcd</div>
-          <div class="text-slate-400 mt-1">Debian, Ubuntu, Arch, SteamOS, SBCs</div>
+          <div class="text-slate-400 mt-1">usbanywhere-ctl + 6-Tool MCP Server</div>
         </div>
         <div class="p-4 rounded panel-surface">
-          <div class="text-slate-500 uppercase">Android / Android TV</div>
+          <div class="text-slate-500 uppercase">Android / TV / Quest</div>
           <div class="text-white font-bold mt-1">Rootless Kotlin + UsbManager</div>
-          <div class="text-slate-400 mt-1">URB Engine + D-Pad TV Navigation</div>
+          <div class="text-slate-400 mt-1">Horizon OS UVC + Multi-Stream Handoff</div>
         </div>
       </div>
     </div>
@@ -396,8 +396,8 @@
       <div class="rounded border border-chassis-700 bg-chassis-900 p-5 font-mono text-xs text-slate-300 overflow-x-auto space-y-2">
         <div class="text-slate-500"># One-line bootstrap: installs usbip, vhci-hcd, udev hotplug &amp; systemd Control API (TCP 3240/3241)</div>
         <div><span class="text-signal-amber">curl -fsSL</span> https://raw.githubusercontent.com/oscarlosu-lab/USBAnywhere/main/scripts/install-server.sh | <span class="text-signal-amber">sudo bash</span></div>
-        <div class="text-slate-500 pt-2"># Or check remote hosts / connect directly from Linux CLI:</div>
-        <div><span class="text-signal-amber">usbanywhere-ctl</span> scan &amp;&amp; <span class="text-signal-amber">sudo usbanywhere-ctl</span> connect &lt;ip&gt; &lt;busid&gt;</div>
+        <div class="text-slate-500 pt-2"># Generate 6-digit / UA2: pairing code, or connect from Linux CLI:</div>
+        <div><span class="text-signal-amber">sudo usbanywhere-ctl</span> pair --json &amp;&amp; <span class="text-signal-amber">sudo usbanywhere-ctl</span> connect &lt;ip&gt; &lt;busid&gt;</div>
       </div>
     </div>
   </section>
@@ -415,7 +415,7 @@
           <thead>
             <tr class="border-b border-chassis-700 bg-chassis-850 font-mono uppercase text-slate-400">
               <th class="py-3.5 px-4" data-i18n="tbl_feature">Capability</th>
-              <th class="py-3.5 px-4 text-signal-amber bg-chassis-800">USBAnywhere v3.6.0</th>
+              <th class="py-3.5 px-4 text-signal-amber bg-chassis-800">USBAnywhere v3.6.1</th>
               <th class="py-3.5 px-4">VirtualHere</th>
               <th class="py-3.5 px-4">FlexiHub</th>
               <th class="py-3.5 px-4">USB Network Gate</th>
@@ -461,16 +461,16 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="mb-10">
         <span class="text-xs font-mono uppercase tracking-widest text-signal-amber" data-i18n="sec_dl_tag">05 // OFFICIAL RELEASE BINARIES</span>
-        <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1" data-i18n="sec_dl_title">USBAnywhere v3.6.0 Artifacts</h2>
+        <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1" data-i18n="sec_dl_title">USBAnywhere v3.6.1 Artifacts</h2>
       </div>
 
       <div class="mb-6 p-4 rounded panel-surface border border-signal-amber/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
         <div class="text-slate-300">
           <span class="px-1.5 py-0.5 rounded bg-signal-amber/20 text-signal-amber font-bold uppercase mr-2">STABLE</span>
-          <span data-i18n="rc_banner_text">Latest stable ecosystem releases: Client v3.6.0, Server v3.5.0, Android v3.5.0</span>
+          <span data-i18n="rc_banner_text">Latest stable ecosystem releases: Client v3.6.1, Server v3.5.0, Android v3.5.0</span>
         </div>
         <div class="flex flex-wrap items-center gap-3 shrink-0">
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0" target="_blank" rel="noopener" class="text-signal-amber hover:underline">Client v3.6.0</a>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.1" target="_blank" rel="noopener" class="text-signal-amber hover:underline">Client v3.6.1</a>
           <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/tag/v3.5.0" target="_blank" rel="noopener" class="text-signal-emerald hover:underline">Server v3.5.0</a>
           <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android/releases/tag/v3.5.0" target="_blank" rel="noopener" class="text-slate-200 hover:underline">Android v3.5.0</a>
         </div>
@@ -482,9 +482,9 @@
             <div class="text-xs font-mono text-signal-amber uppercase">Windows Client</div>
             <h3 class="text-base font-bold text-white mt-1">Setup Installer (x64)</h3>
             <p class="text-xs text-slate-400 mt-1">Includes WHQL usbip2_ude / usbip2_filter drivers and native IOCTL client.</p>
-            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere_Setup_v3.6.0.exe</div>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere_Setup_v3.6.1.exe</div>
           </div>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.0/USBAnywhere_Setup_v3.6.0.exe" class="mt-5 py-2 px-3 rounded bg-signal-amber hover:bg-amber-400 text-chassis-950 font-mono font-bold text-xs uppercase text-center transition-colors">
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.1/USBAnywhere_Setup_v3.6.1.exe" class="mt-5 py-2 px-3 rounded bg-signal-amber hover:bg-amber-400 text-chassis-950 font-mono font-bold text-xs uppercase text-center transition-colors">
             Download .exe
           </a>
         </div>
@@ -494,9 +494,9 @@
             <div class="text-xs font-mono text-slate-400 uppercase">Windows Client</div>
             <h3 class="text-base font-bold text-white mt-1">Portable Package (x64)</h3>
             <p class="text-xs text-slate-400 mt-1">Zero-install portable archive for field technicians and USB maintenance drives.</p>
-            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-v3.6.0-x64.zip</div>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-v3.6.1-x64.zip</div>
           </div>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.0/USBAnywhere-v3.6.0-x64.zip" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.1/USBAnywhere-v3.6.1-x64.zip" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
             Download .zip
           </a>
         </div>
@@ -504,11 +504,11 @@
         <div class="p-5 rounded panel-surface flex flex-col justify-between">
           <div>
             <div class="text-xs font-mono text-signal-emerald uppercase">Windows Server</div>
-            <h3 class="text-base font-bold text-white mt-1">Server Setup v3.3.2</h3>
-            <p class="text-xs text-slate-400 mt-1">Single-file WPF host GUI, bundled usbipd-win, and TCP/UDP 3241 responder.</p>
-            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Server_Setup_v3.3.2.exe</div>
+            <h3 class="text-base font-bold text-white mt-1">Server Setup v3.5.0</h3>
+            <p class="text-xs text-slate-400 mt-1">Single-file WPF host GUI, bundled usbipd-win, 6-digit pairing &amp; TLS 1.3.</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Server_Setup_v3.5.0.exe</div>
           </div>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.2/USBAnywhere-Server_Setup_v3.3.2.exe" target="_blank" rel="noopener" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-signal-emerald/50 text-signal-emerald font-mono font-bold text-xs uppercase text-center transition-colors">
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.5.0/USBAnywhere-Server_Setup_v3.5.0.exe" target="_blank" rel="noopener" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-signal-emerald/50 text-signal-emerald font-mono font-bold text-xs uppercase text-center transition-colors">
             Download Server
           </a>
         </div>
@@ -516,23 +516,23 @@
         <div class="p-5 rounded panel-surface flex flex-col justify-between">
           <div>
             <div class="text-xs font-mono text-slate-400 uppercase">Linux Client</div>
-            <h3 class="text-base font-bold text-white mt-1">Linux Bundle v3.6.0</h3>
-            <p class="text-xs text-slate-400 mt-1">Linux Client &amp; CLI bundle (<code class="font-mono text-slate-300">vhci_hcd</code> + <code class="font-mono text-slate-300">usbanywhere-ctl</code>).</p>
-            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Linux-v3.6.0.tar.gz</div>
+            <h3 class="text-base font-bold text-white mt-1">Linux Bundle v3.6.1</h3>
+            <p class="text-xs text-slate-400 mt-1">Linux Client &amp; CLI bundle (<code class="font-mono text-slate-300">vhci_hcd</code> + <code class="font-mono text-slate-300">usbanywhere-ctl</code> + MCP).</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Linux-v3.6.1.tar.gz</div>
           </div>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.0/USBAnywhere-Linux-v3.6.0.tar.gz" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.1/USBAnywhere-Linux-v3.6.1.tar.gz" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
             Download .tar.gz
           </a>
         </div>
 
         <div class="p-5 rounded panel-surface flex flex-col justify-between">
           <div>
-            <div class="text-xs font-mono text-slate-400 uppercase">Android &amp; TV</div>
-            <h3 class="text-base font-bold text-white mt-1">Android APK v3.3.2</h3>
-            <p class="text-xs text-slate-400 mt-1">Rootless USB host/client app with full Android TV D-Pad navigation.</p>
-            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Android-v3.3.2.apk</div>
+            <div class="text-xs font-mono text-slate-400 uppercase">Android / TV / Quest</div>
+            <h3 class="text-base font-bold text-white mt-1">Android APK v3.5.0</h3>
+            <p class="text-xs text-slate-400 mt-1">Rootless USB host/server with Quest Horizon OS UVC &amp; Multi-Stream Handoff.</p>
+            <div class="mt-3 text-[11px] font-mono text-slate-500 truncate">USBAnywhere-Server-v3.5.0.apk</div>
           </div>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android/releases/download/v3.3.2/USBAnywhere-Android-v3.3.2.apk" target="_blank" rel="noopener" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Android/releases/download/v3.5.0/USBAnywhere-Server-v3.5.0.apk" target="_blank" rel="noopener" class="mt-5 py-2 px-3 rounded bg-chassis-850 hover:bg-chassis-800 border border-chassis-600 text-white font-mono font-bold text-xs uppercase text-center transition-colors">
             Download .apk
           </a>
         </div>
@@ -540,9 +540,9 @@
 
       <div class="mt-8 p-4 rounded panel-surface flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
         <div class="flex flex-wrap items-center gap-4 text-slate-400">
-          <span>SHA-256: <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.0/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-signal-amber hover:underline">SHA256SUMS.txt</a></span>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.3.2/USBAnywhere-Server-macOS-v3.3.2.tar.gz" target="_blank" rel="noopener" class="text-slate-300 hover:underline">macOS Server (.tar.gz)</a>
-          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.0" target="_blank" rel="noopener" class="text-slate-300 hover:underline">All v3.6.0 Assets</a>
+          <span>SHA-256: <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/download/v3.6.1/SHA256SUMS.txt" target="_blank" rel="noopener" class="text-signal-amber hover:underline">SHA256SUMS.txt</a></span>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere-Server/releases/download/v3.5.0/USBAnywhere-Server-macOS-v3.5.0.tar.gz" target="_blank" rel="noopener" class="text-slate-300 hover:underline">macOS Server (.tar.gz)</a>
+          <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.1" target="_blank" rel="noopener" class="text-slate-300 hover:underline">All v3.6.1 Assets</a>
         </div>
         <a href="https://ko-fi.com/oscarlosu" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase tracking-wider transition-colors">
           <i data-lucide="coffee" class="w-4 h-4"></i>
@@ -556,7 +556,7 @@
   <!-- FOOTER -->
   <footer class="py-8 bg-chassis-950 text-xs font-mono text-slate-500">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>USBAnywhere v3.6.0 — GPL-3.0 Open Source Hardware Transport</div>
+      <div>USBAnywhere v3.6.1 — GPL-3.0 Open Source Hardware Transport</div>
       <div class="flex items-center gap-5">
         <a href="https://github.com/oscarlosu-lab/USBAnywhere" target="_blank" rel="noopener" class="hover:text-white">GitHub</a>
         <a href="https://github.com/oscarlosu-lab/USBAnywhere/releases" target="_blank" rel="noopener" class="hover:text-white">Releases</a>
@@ -575,8 +575,8 @@
         nav_deploy: "Deployment",
         nav_matrix: "Comparison",
         nav_downloads: "Binaries",
-        btn_download_nav: "Download v3.6.0",
-        hero_status: "PRODUCTION BUILD v3.6.0 • DIRECT KERNEL IOCTL TRANSPORT",
+        btn_download_nav: "Download v3.6.1",
+        hero_status: "PRODUCTION BUILD v3.6.1 • DIRECT KERNEL IOCTL TRANSPORT",
         hero_title: "Share Joysticks, 3D Printers, Laser Engravers & Any USB Device Over Your Network.",
         hero_desc: "USBAnywhere exposes remote USB hardware—gamepads, DualSense/Xbox controllers, 3D printers, laser cutters (LightBurn/GRBL), audio interfaces, and storage—over TCP/IP and VPN links as native local devices. Built on a direct C#/.NET 9 Windows VHCI IOCTL engine, WHQL-signed drivers, and an on-demand TCP/3241 control plane.",
         hero_cta_primary: "Get Windows, Linux & Android Binaries",
@@ -590,10 +590,10 @@
         sec_arch_title: "Engineered for Reliability Under Load",
         card1_title: "Direct Windows VHCI IOCTL",
         card1_desc: "Communicates directly with the WHQL-signed usbip2_ude kernel device handle via Win32 DeviceIoControl, eliminating process-spawn overhead and stdout regex parsing.",
-        card2_title: "On-Demand TCP/UDP 3241",
-        card2_desc: "Automatic LAN/VPN discovery on UDP 3241, serialized LIST / BIND / UNBIND / STATUS over TCP 3241 with optional IP allowlist and HMAC token auth, plus immediate host release on detach.",
-        card3_title: "Persistence, Diagnostics & SBC Ready",
-        card3_desc: "Supports Windows kernel boot persistence, custom USB serials, Virtual Hub port tuning, 1-click diagnostics ZIP export, UAS storage warnings, and Linux usbip-host/dwc2 patches.",
+        card2_title: "On-Demand TCP/UDP 3241 & Pinned TLS 1.3",
+        card2_desc: "LAN/VPN discovery on UDP 3241, serialized LIST / BIND / UNBIND / PAIR over TCP 3241, 6-digit / UA2: pairing, and certificate-pinned TLS 1.3 tunneling (TCP 3243).",
+        card3_title: "Streaming Handoff, REST API & MCP",
+        card3_desc: "Auto-attach during Sunshine, Apollo, Vibeshine, Vibepollo, Parsec & Steam Remote Play, WTS session isolation, loopback REST API (:13241), 6-tool MCP server, [Rev:XXXX] Smart Favorites, and boot persistence.",
         hw1_title: "Joysticks & Gamepads",
         hw1_desc: "Low-latency HID passthrough for DualSense, Xbox, flight sticks, racing wheels, and VR trackers.",
         hw2_title: "3D Printers",
@@ -614,8 +614,8 @@
         row_ctrl: "On-Demand Bind / Unbind API",
         row_platforms: "Platforms",
         sec_dl_tag: "05 // OFFICIAL RELEASE BINARIES",
-        sec_dl_title: "USBAnywhere v3.6.0 Artifacts",
-        rc_banner_text: "Latest stable ecosystem releases: Client v3.6.0, Server v3.5.0, Android v3.5.0"
+        sec_dl_title: "USBAnywhere v3.6.1 Artifacts",
+        rc_banner_text: "Latest stable ecosystem releases: Client v3.6.1, Server v3.5.0, Android v3.5.0"
       },
       es: {
         nav_arch: "Arquitectura",
@@ -623,8 +623,8 @@
         nav_deploy: "Despliegue",
         nav_matrix: "Comparativa",
         nav_downloads: "Binarios",
-        btn_download_nav: "Descargar v3.6.0",
-        hero_status: "BUILD PRODUCCIÓN v3.6.0 • TRANSPORTE NATIVO IOCTL KERNEL",
+        btn_download_nav: "Descargar v3.6.1",
+        hero_status: "BUILD PRODUCCIÓN v3.6.1 • TRANSPORTE NATIVO IOCTL KERNEL",
         hero_title: "Comparte Joysticks, Mandos USB, Impresoras 3D, Grabadores Láser y Cualquier Dispositivo USB.",
         hero_desc: "USBAnywhere expone hardware USB remoto —mandos DualSense/Xbox, joysticks, impresoras 3D, cortadores y grabadores láser (LightBurn/GRBL), audio o almacenamiento— sobre TCP/IP y VPN como dispositivos locales nativos. Motor IOCTL VHCI directo en C#/.NET 9, drivers WHQL y control bajo demanda TCP/3241.",
         hero_cta_primary: "Descargar Binarios Windows, Linux y Android",
@@ -638,10 +638,10 @@
         sec_arch_title: "Diseñado para Fiabilidad bajo Carga",
         card1_title: "IOCTL Directo VHCI en Windows",
         card1_desc: "Comunica directamente con el handle del driver WHQL usbip2_ude vía Win32 DeviceIoControl, eliminando subprocesos y parsing regex.",
-        card2_title: "Control Bajo Demanda TCP/UDP 3241",
-        card2_desc: "Descubrimiento LAN/VPN en UDP 3241 y control serializado LIST / BIND / UNBIND / STATUS sobre TCP 3241 con lista blanca IP y token HMAC opcionales, más liberación inmediata al desconectar.",
-        card3_title: "Persistencia, Diagnóstico y SBCs",
-        card3_desc: "Incluye persistencia en kernel al arrancar, seriales USB personalizados, ajuste de puertos del Hub Virtual, exportación de diagnóstico .zip, avisos UAS y parches Linux usbip-host/dwc2.",
+        card2_title: "Control TCP/UDP 3241 y TLS 1.3 Pinning",
+        card2_desc: "Descubrimiento LAN/VPN en UDP 3241, control serializado LIST / BIND / UNBIND / PAIR en TCP 3241, emparejamiento 6 dígitos / UA2: y túnel TLS 1.3 con pinning SHA-256 (TCP 3243).",
+        card3_title: "Handoff Streaming, API REST y MCP",
+        card3_desc: "Auto-conexión con Sunshine, Apollo, Vibeshine, Vibepollo, Parsec y Steam Remote Play, aislamiento de sesión WTS, API REST local (:13241), servidor MCP de 6 herramientas, Favoritos [Rev:XXXX] y persistencia en boot.",
         hw1_title: "Joysticks y Mandos USB",
         hw1_desc: "Passthrough HID de baja latencia para DualSense, Xbox, hotas, volantes y trackers VR.",
         hw2_title: "Impresoras 3D",
@@ -662,8 +662,8 @@
         row_ctrl: "API Bind / Unbind Bajo Demanda",
         row_platforms: "Plataformas",
         sec_dl_tag: "05 // BINARIOS OFICIALES",
-        sec_dl_title: "Artefactos USBAnywhere v3.6.0",
-        rc_banner_text: "Últimas versiones estables del ecosistema: Cliente v3.6.0, Servidor v3.5.0, Android v3.5.0"
+        sec_dl_title: "Artefactos USBAnywhere v3.6.1",
+        rc_banner_text: "Últimas versiones estables del ecosistema: Cliente v3.6.1, Servidor v3.5.0, Android v3.5.0"
       }
     };
 

@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="USBAnywhere - Virtual USB over IP" 
-        Height="800" Width="700"
+        Height="820" Width="780"
+        MinHeight="780" MinWidth="760"
         WindowStyle="None"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
@@ -27,8 +28,14 @@
         <!-- ============================================ -->
         <Border Grid.Row="0" Background="{DynamicResource BackgroundTitleBar}" Cursor="SizeAll" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
                 <!-- Logo and Title -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
                     <TextBlock Text="🌐 USBAnywhere" 
                                FontSize="18" FontWeight="Bold" 
                                Foreground="{DynamicResource AccentOrange}"
@@ -40,7 +47,7 @@
                 </StackPanel>
                 
                 <!-- Control Buttons -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="320,0,0,0">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                     <!-- Language Button -->
                     <Button x:Name="btnLanguage" Content="🌐 ES" Style="{StaticResource FlatButton}" 
                             Width="70" Height="34" Margin="0,0,10,0"
@@ -56,7 +63,7 @@
                 </StackPanel>
                 
                 <!-- macOS-style Window Buttons -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                     <Button x:Name="btnMinimize" Width="14" Height="14" Margin="0,0,4,0"
                             Background="{StaticResource MacMinimizeYellow}" BorderThickness="0" Cursor="Hand"
                             Click="BtnMinimize_Click">
@@ -95,7 +102,7 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="125"/>
+                    <ColumnDefinition Width="155"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 
@@ -109,19 +116,19 @@
                 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
                     <Button x:Name="btnScan" Content="🔍 Escanear" Style="{StaticResource AccentButton}"
-                            Height="34" Margin="0,0,6,0" Width="95"
+                            Height="34" Margin="0,0,6,0" Width="100"
                             Click="BtnScan_Click"/>
                     <Button x:Name="btnList" Content="📋 Listar" Style="{StaticResource FlatButton}"
-                            Height="34" Margin="0,0,6,0" Width="78"
+                            Height="34" Margin="0,0,6,0" Width="82"
                             Click="BtnList_Click"/>
                     <Button x:Name="btnPair" Content="🔐 Emparejar" Style="{StaticResource FlatButton}"
-                            Height="34" Margin="0,0,6,0" Width="92"
+                            Height="34" Margin="0,0,6,0" Width="108"
                             Click="BtnPair_Click"/>
                     <Button x:Name="btnSSH" Content="🔗 SSH" Style="{StaticResource FlatButton}"
-                            Height="34" Margin="0,0,6,0" Width="74"
+                            Height="34" Margin="0,0,6,0" Width="76"
                             Click="BtnSSH_Click"/>
                     <Button x:Name="btnVPN" Content="📡 VPN" Style="{StaticResource FlatButton}"
-                            Background="#0D7377" Foreground="White" Height="34" Width="74"
+                            Background="#0D7377" Foreground="White" Height="34" Width="76"
                             Click="BtnVPN_Click"/>
                 </StackPanel>
             </Grid>
@@ -140,9 +147,9 @@
                         <MenuItem x:Name="menuAddFavorite" Header="⭐ Añadir a Favoritos" Click="MenuAddFavorite_Click"/>
                         <MenuItem x:Name="menuRemoveFavorite" Header="❌ Quitar de Favoritos" Click="MenuRemoveFavorite_Click"/>
                         <MenuItem x:Name="menuAttachMode" Header="🎬 Modo de conexión">
-                            <MenuItem Header="Siempre (always)" Tag="always" Click="MenuSetAttachMode_Click"/>
-                            <MenuItem Header="Solo durante stream (only-during-stream)" Tag="only-during-stream" Click="MenuSetAttachMode_Click"/>
-                            <MenuItem Header="Manual (manual)" Tag="manual" Click="MenuSetAttachMode_Click"/>
+                            <MenuItem x:Name="menuAttachAlways" Header="Siempre (always)" Tag="always" Click="MenuSetAttachMode_Click"/>
+                            <MenuItem x:Name="menuAttachStream" Header="Solo durante stream (only-during-stream)" Tag="only-during-stream" Click="MenuSetAttachMode_Click"/>
+                            <MenuItem x:Name="menuAttachManual" Header="Manual (manual)" Tag="manual" Click="MenuSetAttachMode_Click"/>
                         </MenuItem>
                         <Separator/>
                         <MenuItem x:Name="menuRemoveServer" Header="🗑️ Quitar servidor" Click="MenuRemoveServer_Click"/>
@@ -224,7 +231,11 @@
                 
                 <!-- Options & Driver Buttons -->
                 <Grid Grid.Row="2" Margin="10,6,12,12" VerticalAlignment="Bottom">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Center">
                         <CheckBox x:Name="chkStartMinimized" Content="Iniciar minimizado en bandeja"
                                   FontSize="12" Foreground="{DynamicResource ForegroundSecondary}"
                                   Cursor="Hand" Click="ChkStartMinimized_Click"/>
@@ -236,14 +247,14 @@
                                       FontSize="11.5" Foreground="{DynamicResource ForegroundSecondary}"
                                       Cursor="Hand" VerticalAlignment="Center" Click="ChkLocalApi_Click"/>
                             <Button x:Name="btnCopyApiToken" Content="📋 Token" Style="{StaticResource FlatButton}"
-                                    Width="66" Height="20" FontSize="10" Margin="6,0,8,0"
+                                    Width="74" Height="26" Padding="6,2" FontSize="10.5" Margin="8,0,0,0"
                                     Click="BtnCopyApiToken_Click"/>
-                            <CheckBox x:Name="chkSessionIsolation" Content="Aislamiento sesión"
-                                      FontSize="11.5" Foreground="{DynamicResource ForegroundSecondary}"
-                                      Cursor="Hand" VerticalAlignment="Center" Click="ChkSessionIsolation_Click"/>
                         </StackPanel>
+                        <CheckBox x:Name="chkSessionIsolation" Content="Aislamiento de sesión"
+                                  FontSize="11.5" Foreground="{DynamicResource ForegroundSecondary}"
+                                  Margin="0,2,0,0" Cursor="Hand" Click="ChkSessionIsolation_Click"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12,0,0,0">
                         <Button x:Name="btnReceiveMode" Content="⚡ Modo: Zero-Copy" Style="{StaticResource FlatButton}" Background="#107C41" Foreground="White" Width="165" Height="30" FontSize="12" Margin="0,0,10,0" Click="BtnReceiveMode_Click"/>
                         <Button x:Name="btnInstallDrivers" Content="Instalar" Style="{StaticResource FlatButton}"
                                 Background="#5C4B9E" Foreground="White" Width="90" Height="30" FontSize="12" Margin="0,0,10,0"

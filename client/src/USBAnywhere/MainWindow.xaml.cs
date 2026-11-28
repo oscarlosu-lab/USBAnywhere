@@ -1244,6 +1244,7 @@ public partial class MainWindow : Window
         btnList.Content = _localization.GetText("btn_refresh", _currentLanguage);
         btnSSH.Content = _localization.GetText("btn_ssh", _currentLanguage);
         btnVPN.Content = _localization.GetText("btn_vpn", _currentLanguage);
+        btnPair.Content = _localization.GetText("btn_pair", _currentLanguage);
         nodeHubs.Header = $"{_localization.GetText("node_hubs", _currentLanguage)} ({nodeHubs.Items.Count})";
         UpdateConnectedCount();
         nodeFavorites.Header = $"⭐ {_localization.GetText("node_favorites", _currentLanguage).Replace("⭐ ", "")} ({nodeFavorites.Items.Count})";
@@ -1266,9 +1267,16 @@ public partial class MainWindow : Window
         menuStopAttachRetries.Header = _localization.GetText("menu_stop_attach_retries", _currentLanguage);
         menuConfigureHubPorts.Header = _localization.GetText("menu_hub_ports", _currentLanguage);
         menuExportDiagnostics.Header = _localization.GetText("menu_export_diagnostics", _currentLanguage);
+        menuAttachMode.Header = _localization.GetText("menu_attach_mode", _currentLanguage);
+        menuAttachAlways.Header = _localization.GetText("menu_attach_always", _currentLanguage);
+        menuAttachStream.Header = _localization.GetText("menu_attach_stream", _currentLanguage);
+        menuAttachManual.Header = _localization.GetText("menu_attach_manual", _currentLanguage);
 
         chkStartMinimized.Content = _localization.GetText("chk_start_minimized", _currentLanguage);
         chkAutoDetachOnSleep.Content = _localization.GetText("chk_auto_detach_sleep", _currentLanguage);
+        chkLocalApi.Content = _localization.GetText("chk_local_api", _currentLanguage);
+        btnCopyApiToken.Content = _localization.GetText("btn_copy_token", _currentLanguage);
+        chkSessionIsolation.Content = _localization.GetText("chk_session_isolation", _currentLanguage);
 
         // Localize Tray Menu
         if (_trayScanItem != null) _trayScanItem.Text = _localization.GetText("tray_scan", _currentLanguage);

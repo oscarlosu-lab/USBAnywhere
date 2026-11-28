@@ -146,8 +146,9 @@ USBAnywhere client connects transparently to any USB/IP host server:
 |--------|-------------|
 | 🔗 Connect | Connects the remote USB device (or favorite) to your PC |
 | ❌ Disconnect | Releases the connected USB device |
-| ⭐ Add to Favorites | Saves the device for quick reconnection |
+| ⭐ Add to Favorites | Saves the device for quick reconnection (with `[Rev:XXXX]` hardware revision disambiguation) |
 | ❌ Remove from Favorites | Removes the device from the favorites list |
+| 🎬 Attach Mode | Choose `always`, `only-during-stream` (auto-attach during active streaming), or `manual` (`v3.6.0`) |
 | 🗑️ Remove server | Removes the server from the tree |
 | 📋 Properties | Displays detailed info (`VID:PID`, manufacturer, product, local port) |
 | ✏️ Rename | Assigns a persistent custom friendly name to the device (`VID:PID`) |
@@ -207,6 +208,13 @@ When closing the application, shutting down Windows (`AutoDetachOnExit: true`), 
 - **Custom USB Serial Numbers**: Assign a custom `Serial` string per remote device (via Properties / Persistent config) to keep COM ports, game controllers, or licenses consistent across reconnections.
 - **Virtual Hub Port Count**: Adjust the virtual USB 2.0 and USB 3.0 port capacity (`30` / `30` by default) from the status bar / kernel configuration dialog.
 - **One-Click Diagnostics Bundle**: Export a `.zip` bundle containing driver status, imported VHCI ports, Virtual Hub configuration, and recent logs for troubleshooting.
+
+## 🔐 Pairing, Pinned TLS 1.3, Streaming Handoff & Automation (`v3.6.0`)
+
+- **6-Digit / `UA2:` Zero-Config Pairing & Pinned TLS 1.3 (`TCP 3243`)**: Click **🔐 Pair** (or run `USBAnywhere.exe --pair <host> <code>`) to pair with Windows, macOS, Linux, or Android hosts using single-use 6-digit codes or `UA2:` QR tokens. Once paired, `UsbipService` automatically establishes a certificate-pinned TLS 1.2/1.3 loopback bridge over `TCP 3243`.
+- **Multi-Provider Streaming Handoff (`only-during-stream`)**: Detects **Sunshine, Apollo, Vibeshine, Vibepollo, Parsec, and Steam Remote Play** and automatically attaches/detaches favorites configured with `only-during-stream`.
+- **Windows Multi-Session Isolation**: Enforces WTS session ownership for attached ports and suppresses background auto-connects when your Windows session is locked or disconnected.
+- **Local HTTP REST API (`127.0.0.1:13241`), 6-Tool MCP Server & Headless JSON CLI**: Enable the local API from the bottom status bar (`📋 Token` copies the Bearer token), run `usbanywhere-mcp.py` for AI/MCP clients, query `USBAnywhere.exe --status --json` / `--doctor --json` without UAC prompts, or integrate with Home Assistant via [HOME_ASSISTANT.md](HOME_ASSISTANT.md).
 
 ---
 

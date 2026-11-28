@@ -214,6 +214,23 @@ sudo usbanywhere-ctl policy show
 
 - **Discos SSD Externos UAS**: Las unidades que usan el driver `uas` (USB Attached SCSI) muestran un aviso de compatibilidad antes de vincularse; si un disco falla al enumerarse en remoto, se recomienda modo `usb-storage`.
 
+## 🔐 Emparejamiento, TLS 1.3, `bind_address` y MCP (`v3.6.0`)
+
+```bash
+# Generar código de 6 dígitos / token UA2: (sincronizado con dynamic-daemon)
+sudo usbanywhere-ctl pair --json
+
+# Consultar túnel TLS 1.3 (puerto 3243) y diagnóstico
+sudo usbanywhere-ctl tls-tunnel status
+usbanywhere-ctl status --json
+usbanywhere-ctl doctor --json
+usbanywhere-ctl logs          # últimas 100 líneas sin bloqueo; usa -f para seguir en vivo
+```
+
+- **`bind_address` Acotado**: Configura `bind_address` en `/etc/usbanywhere/policy.json` para escuchar con `usbipd` (drop-in systemd), `TCP 3241` y `TLS 3243` únicamente en tu interfaz LAN o VPN.
+- **Guardia Loopback en `PAIR_CREATE`**: `PAIR_CREATE` sobre `TCP 3241` queda restringido a loopback salvo que haya un `control_token` configurado.
+- **Servidor MCP (6 herramientas)**: Ejecuta `python3 /usr/local/bin/usbanywhere-mcp.py` para automatización JSON-RPC 2.0 por stdio.
+
 ## 📝 Notas
 
 - El `bus-id` (ej: `1-1.4`) puede cambiar si reconectas el dispositivo

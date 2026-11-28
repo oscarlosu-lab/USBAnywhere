@@ -2,15 +2,26 @@
 
 🌐 **Idioma / Language:** [English](README.md) | **Español**
 
-**v3.4.0** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
+**v3.6.1** | [🌍 Web Oficial](https://oscarlosu-lab.github.io/USBAnywhere/) | [📦 Releases y Descargas](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest) | [🌐 USBAnywhere Server (Windows & macOS)](https://github.com/oscarlosu-lab/USBAnywhere-Server) | [📱 USBAnywhere Android](https://github.com/oscarlosu-lab/USBAnywhere-Android) | [💬 Comunidad Reddit](https://www.reddit.com/r/UsbAnywhere/) | [📖 Manual de Usuario](docs/USAGE_ES.md) | [🌐 Conexión VPN](docs/VPN_INTERNET_ES.md)
 
 > **¿Por qué pagar 49,00 $ por servidor y estar limitado a un único dispositivo USB?**
 > **USBAnywhere** conecta **ilimitados** periféricos USB remotos por LAN, Wi-Fi e Internet con **cero licencias**, **drivers certificados WHQL por Microsoft** y **latencia ultrabaja ajustable**.
 
 Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de alto rendimiento accesible desde Windows 10 y 11. Compatible con **Raspberry Pi, Orange Pi, Banana Pi, Proxmox/HomeLab, Steam Deck, routers OpenWRT, CrealityBox** y cualquier servidor ARM/x86 con Linux.
 
-[![CI Build & Tests](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml/badge.svg)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml)
+[![CI Build & Tests](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/ci.yml)
+[![CodeQL SAST](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/codeql.yml)
+[![Gitleaks Secret Scan](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/security.yml)
+[![SignPath Release Signing](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/sign-release.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/sign-release.yml)
+[![GitHub Pages](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/oscarlosu-lab/USBAnywhere/actions/workflows/pages.yml)
+[![Latest Release](https://img.shields.io/github/v/release/oscarlosu-lab/USBAnywhere?style=flat-square&logo=github&color=0ea5e9)](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest)
 [![GitHub Downloads](https://img.shields.io/github/downloads/oscarlosu-lab/USBAnywhere-Downloads/total?style=flat-square&logo=github&color=blue)](https://github.com/oscarlosu-lab/USBAnywhere-Downloads/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/oscarlosu-lab/USBAnywhere?style=flat-square&color=10b981)](https://github.com/oscarlosu-lab/USBAnywhere/commits/main)
+[![Issues Closed](https://img.shields.io/github/issues-closed/oscarlosu-lab/USBAnywhere?style=flat-square&color=22c55e)](https://github.com/oscarlosu-lab/USBAnywhere/issues?q=is%3Aissue+is%3Aclosed)
+[![Security Policy](https://img.shields.io/badge/Security-Policy%20%26%20Zero--Trust-10b981?style=flat-square&logo=shield&logoColor=white)](SECURITY.md)
+[![Code Signing](https://img.shields.io/badge/Code%20Signing-SignPath%20Foundation-6366f1?style=flat-square&logo=letsencrypt&logoColor=white)](CODE_SIGNING_POLICY.md)
+[![Microsoft WHQL](https://img.shields.io/badge/Drivers-Microsoft%20WHQL%20%7C%20HVCI-0078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/oscarlosu-lab/USBAnywhere)
+[![SHA-256 Verified](https://img.shields.io/badge/Checksums-SHA--256%20Verified-14b8a6?style=flat-square)](https://github.com/oscarlosu-lab/USBAnywhere/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/oscarlosu-lab/USBAnywhere?style=flat-square&logo=github&color=yellow)](https://github.com/oscarlosu-lab/USBAnywhere/stargazers)
 [![Licencia](https://img.shields.io/badge/Licencia-GPLv3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20(x64%20%26%20ARM64)-lightgrey?style=flat-square&logo=windows)](https://github.com/oscarlosu-lab/USBAnywhere)
@@ -19,9 +30,20 @@ Transforma cualquier dispositivo Linux (o PC Windows) en un Hub USB Virtual de a
 
 ---
 
+## 📦 ¿Qué repositorio necesito?
+
+| Repositorio | Rol | Dónde se instala |
+| :--- | :--- | :--- |
+| **[USBAnywhere](https://github.com/oscarlosu-lab/USBAnywhere)** *(este repo)* | **Cliente** (Windows WPF + drivers WHQL y CLI Linux) + instalador de servidor Linux/Raspberry Pi (`scripts/install-server.sh`) | En el **PC que va a usar el dispositivo USB remoto** (y servidores Linux/Pi) |
+| **[USBAnywhere-Server](https://github.com/oscarlosu-lab/USBAnywhere-Server)** | **Servidor Windows y macOS** (GUI/bandeja para compartir dispositivos USB locales) | Solo en el **PC Windows/Mac donde está enchufado el USB** |
+| **[USBAnywhere-Android](https://github.com/oscarlosu-lab/USBAnywhere-Android)** | **Cliente y Host OTG sin root** para Android y Android TV | En móviles, tablets, Nvidia Shield o Meta Quest |
+| **[SnakeUSBIP](https://github.com/oscarlosu-lab/SnakeUSBIP)** | **Edición de pruebas / staging** *(en migración hacia USBAnywhere)* | Rama experimental donde se prueban mejoras antes de su validación final; **USBAnywhere** es el producto final recomendado |
+
+---
+
 ## ⚔️ ¿Por qué cambiar de VirtualHere a USBAnywhere?
 
-| Característica | **USBAnywhere v3.4.0** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
+| Característica | **USBAnywhere v3.6.1** | **VirtualHere** | **FlexiHub** | **USB Network Gate** |
 | :--- | :---: | :---: | :---: | :---: |
 | **Precio y Licencia** | **100% Gratis y Código Abierto (GPLv3)** | 49,00 USD / Servidor | ~15–30+ USD / mes SaaS | +159,00 USD |
 | **Dispositivos Simultáneos (Free)** | **♾️ Ilimitados** | ⚠️ Solo 1 dispositivo | ❌ Trial 20 min / 1 Conex. | ❌ Trial limitado |
@@ -71,11 +93,26 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 
 ---
 
-## 🆕 Novedades en v3.4.0 (Suite Multiplataforma USBAnywhere)
+## 🆕 Novedades en v3.6.0
+- 🔐 **Emparejamiento 6 dígitos / `UA2:` y Túnel TLS 1.3 con Certificate Pinning** - Emparejamiento en 1 clic (`PairServerDialog` + `--pair` CLI) y puente TLS automático por `SHA-256` en `UsbipService`.
+- 🎬 **Streaming Handoff Multi-Proveedor y Modos por Dispositivo** - Detección automática y adjunto `only-during-stream` para **Sunshine, Apollo, Vibeshine, Vibepollo, Parsec y Steam Remote Play**.
+- 🧩 **Aislamiento Multi-Sesión, API REST Local y Servidor MCP** - Aislamiento WTS (`SessionIsolationService`), API HTTP loopback (`127.0.0.1:13241`), servidor MCP stdio de 6 herramientas (`usbanywhere-mcp.py`) y guía de [Home Assistant](docs/HOME_ASSISTANT.md).
+- 🔍 **Smart Favorites `[Rev:XXXX]` y Dual-ABI Driver `0.9.8.2`** - Desambiguación de dongles idénticos por revisión, desactivación automática de USB autosuspend en Linux, `--reset` pre-bind, drop-in systemd y nuevos iconos multi-resolución.
+
+## 🆕 Novedades en v3.5.0
+
+- 📌 **Persistencia en Kernel al Arrancar y Control de Reintentos (`VhciNativeClient.cs`)** - Guarda dispositivos en el driver `usbip2_ude` para reconectarlos automáticamente al iniciar Windows o detén reintentos activos desde el menú contextual.
+- 🏷️ **Números de Serie USB Personalizados y Puertos del Hub Virtual (`KernelConfigService.cs`)** - Asigna un `Serial` persistente por dispositivo y ajusta la capacidad de puertos USB 2.0 / USB 3.0 del hub virtual (`30` / `30` por defecto).
+- 🩺 **Paquete de Diagnóstico en 1 Clic (`KernelDiagnosticsService.cs`)** - Exporta un `.zip` con el estado del driver, puertos VHCI importados, configuración del hub y logs recientes.
+- 🔒 **Endurecimiento API de Control Linux y Detección UAS (`usbanywhere-ctl` v3.5.0)** - Lista blanca `allowed_ips` opcional y autenticación HMAC `control_token` en tiempo constante (`policy allow-ip|deny-ip|set-token|clear-token`) sobre TCP `3241`, más aviso de compatibilidad `uas` en SSDs externos.
+
+## 🆕 Novedades en v3.4.1 (Suite Multiplataforma USBAnywhere)
+
+- 🔗 **Reenvío IPC a Instancia Única (`--connect` / `--attach`)** - Al ejecutar `USBAnywhere.exe --connect` o `--attach`, la orden se reenvía por pipe IPC a la instancia ya abierta sin duplicar ventanas.
 
 - ⚡ **IOCTL Directo al Kernel VHCI y Eventos Push en Tiempo Real (`VhciNativeClient.cs`)** - Comunicación nativa por `DeviceIoControl` y lectura asíncrona `ReadFile` contra `usbip2_ude` (eliminando subprocesos `usbip.exe`, regex y hashes SHA-256 repetidos, con fallback automático a CLI y ajuste de icono en bandeja Windows 11).
 - ⌨️ **Atajo Global (`Ctrl+Alt+D`) y Control CLI Headless** - Libera al instante todos los USB remotos desde el atajo configurable, el menú de bandeja `Desconectar todo` o la línea de comandos (`--disconnect-all`, `--disconnect <puerto>`, `--quit`).
-- 🐧 **Modo Cliente Universal para Linux (`usbanywhere-ctl` v3.4.0)** - Soporte completo como cliente en Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) mediante `vhci_hcd` con **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** automático (`scan`, `remote`, `connect`, `disconnect`, `ports` + opciones `[9]` / `[0]` en el Dashboard interactivo).
+- 🐧 **Modo Cliente Universal para Linux (`usbanywhere-ctl` v3.4.1)** - Soporte completo como cliente en Linux (SteamOS, Bazzite, Ubuntu, Debian, Mint, Arch, Fedora) mediante `vhci_hcd` con **On-Demand Dynamic Binding (`TCP 3241` `LIST`/`BIND`/`UNBIND`)** automático (`scan`, `remote`, `connect`, `disconnect`, `ports` + opciones `[9]` / `[0]` en el Dashboard interactivo).
 - ⌨️ **Fix de Enumeración HID, Cadenas String e Intervalo en Android (`UrbSession.kt`)** - Deducción exacta de velocidad (`USB_SPEED_LOW`/`FULL`/`HIGH`), limpieza de `URB_SHORT_NOT_OK`, respaldo `rawDescriptors` (`0x01`/`0x02`/`0x03`/`0x21`), saneado de `bInterval == 0`, síntesis `0x22` HID y tolerancia ante stalls de `SET_IDLE`/`SET_PROTOCOL` para clientes Windows UDE.
 - 📺 **Navegación D-Pad y Gamepad en Android TV / Nvidia Shield (`TvFocus.kt`)** - Control completo con mando a distancia o gamepad en todas las pestañas, interruptores y tarjetas de dispositivos.
 - 🎮 **Desautorización de Interfaces de Audio DualSense y Diagnóstico `dwc_otg`** - Regla `udev` por clase (`ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="054c", ATTR{bInterfaceClass}=="01", ATTR{authorized}="0"`) compatible con todas las revisiones de firmware de DualSense (`0ce6`/`0df2`).
@@ -104,16 +141,16 @@ Conecta tu grabadora láser diodo (GRBL/Ruida) y tu cámara cenital simultáneam
 ## 📦 Instalación
 
 ### Opción 1: Portable (Sin instalación)
-1. Descarga desde [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0):
-   - **Windows x64**: `USBAnywhere-v3.4.0-x64.zip`
-   - **Windows ARM64**: `USBAnywhere-v3.4.0-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
-   - **Cliente y Servidor Linux**: `USBAnywhere-Linux-v3.4.0.tar.gz`
+1. Descarga desde [USBAnywhere Releases (v3.6.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.1):
+   - **Windows x64**: `USBAnywhere-v3.6.1-x64.zip`
+   - **Windows ARM64**: `USBAnywhere-v3.6.1-arm64.zip` (Surface Pro X, Snapdragon X Elite, etc.)
+   - **Cliente y Servidor Linux**: Ejecuta [`scripts/install-server.sh`](scripts/install-server.sh) (ver instalador de 1 línea abajo)
 2. Extrae el ZIP en cualquier carpeta
 3. Ejecuta `USBAnywhere.exe` como Administrador
 4. ¡Listo!
 
 ### Opción 2: Instalador (x64 Recomendado)
-1. Descarga `USBAnywhere_Setup_v3.4.0.exe` desde [USBAnywhere Releases (v3.4.0)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.4.0)
+1. Descarga `USBAnywhere_Setup_v3.6.1.exe` desde [USBAnywhere Releases (v3.6.1)](https://github.com/oscarlosu-lab/USBAnywhere/releases/tag/v3.6.1)
 2. Ejecuta el instalador como Administrador
 3. Sigue el asistente de instalación
 
@@ -180,7 +217,7 @@ opkg update && opkg install usbip-server kmod-usb-ohci
 usbipd -D
 ```
 
-Ver [docs/RASPBERRY_PI_SERVER_EN.md](docs/RASPBERRY_PI_SERVER_EN.md) para la guía detallada.
+Ver [docs/RASPBERRY_PI_SERVER_ES.md](docs/RASPBERRY_PI_SERVER_ES.md) para la guía detallada.
 
 ---
 
